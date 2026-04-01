@@ -59,7 +59,6 @@ fun PEAKApp() {
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     val context = LocalContext.current
-    val heroHeight = 250.dp
 
     LaunchedEffect(Unit) {
         try {
@@ -69,7 +68,9 @@ fun PEAKApp() {
             val fetchedMovies = response.results.map { tmdbMovie ->
                 Movie(
                     name = tmdbMovie.title,
-                    imageUrl = tmdbMovie.posterPath?.let { "https://image.tmdb.org/t/p/w1280$it" } 
+                    imageUrl = tmdbMovie.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+                        ?: "https://via.placeholder.com/1280x720?text=${tmdbMovie.title}",
+                    backdropUrl = tmdbMovie.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" }
                         ?: "https://via.placeholder.com/1280x720?text=${tmdbMovie.title}",
                     description = tmdbMovie.overview ?: "Experience the latest trending story. Now streaming on PEAK."
                 )
@@ -110,13 +111,17 @@ fun PEAKApp() {
                 .background(Color.Black)
         ) {
             // Hero Section
-            HeroSection(
-                movie = focusedMovie,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heroHeight)
-                    .padding(horizontal = 48.dp, vertical = 8.dp)
-            )
+            BoxWithConstraints {
+                val heroHeight = maxHeight * 0.35f
+                HeroSection(
+                    movie = focusedMovie,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
 
             // Scrollable movie rows
             LazyColumn(
@@ -146,18 +151,31 @@ fun HeroSection(
     movie?.let { currentMovie ->
         Box(
             modifier = modifier
-                .clip(RoundedCornerShape(20.dp))
                 .focusable(false)
         ) {
             // Hero image with Crossfade
             Crossfade(targetState = currentMovie, animationSpec = tween(800)) { target ->
                 Image(
-                    painter = rememberAsyncImagePainter(target.imageUrl),
+                    painter = rememberAsyncImagePainter(target.backdropUrl),
                     contentDescription = target.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
+
+            // Left gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.8f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
 
             // Gradient overlay
             Box(
@@ -165,8 +183,10 @@ fun HeroSection(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
-                            startY = 150f
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.95f)
+                            )
                         )
                     )
             )
@@ -256,7 +276,7 @@ fun MovieCard(
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
-            .width(180.dp)
+            .width(140.dp)
             .aspectRatio(2f / 3f)
             .onFocusChanged {
                 if (it.isFocused) {
@@ -282,4 +302,3 @@ fun MovieCard(
         }
     }
 }
-
