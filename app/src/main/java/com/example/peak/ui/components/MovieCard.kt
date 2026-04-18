@@ -27,15 +27,16 @@ fun MovieCard(
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
-            .width(140.dp)
+            .width(150.dp) // slightly wider for better TV presence
             .aspectRatio(2f / 3f)
+            .padding(8.dp) // padding to prevent clipping during focus scale
             .onFocusChanged {
                 if (it.isFocused) {
                     onMovieFocused(movie)
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.1f),
-        shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp)),
+        scale = CardDefaults.scale(focusedScale = 1.12f),
+        shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
                 elevationColor = Color.White.copy(alpha = 0.1f),

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -40,7 +41,6 @@ import kotlinx.coroutines.withContext
 
 /**
  * A Netflix-style Movie Detail Screen for Android TV.
- * Structure: Fixed Hero Zone (Top) + Scrollable Info & Rows (Bottom).
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -63,7 +63,7 @@ fun NetflixDetailScreen(
             movie = foundMovie
             similarMovies = response.results.take(10).map { it.toMovie() }
             isLoading = false
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             movie = sampleRows().firstOrNull()?.movies?.firstOrNull()
             similarMovies = sampleRows().flatMap { it.movies }
             isLoading = false
@@ -95,7 +95,8 @@ fun NetflixDetailContent(
     onMovieClick: (Movie) -> Unit
 ) {
     val playButtonFocusRequester = remember { FocusRequester() }
-    val scrollState = rememberScrollState()
+    val addToListFocusRequester = remember { FocusRequester() }
+    val rowFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         playButtonFocusRequester.requestFocus()
@@ -106,188 +107,183 @@ fun NetflixDetailContent(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // 1. BACKDROP LAYER (NON-SCROLLING)
+        // 1. BACKDROP (Fixed behind everything)
+        Image(
+            painter = rememberAsyncImagePainter(movie.backdropUrl),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Cinematic Gradients for readability
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(480.dp)
-        ) {
-            Image(
-                painter = rememberAsyncImagePainter(movie.backdropUrl),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // Cinematic Gradients (Pinned to backdrop area)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.8f),
-                                Color.Black.copy(alpha = 0.2f),
-                                Color.Transparent
-                            ),
-                            endX = 1200f
-                        )
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.4f),
+                            Color.Transparent
+                        ),
+                        endX = 1000f
                     )
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.5f),
-                                Color.Black
-                            )
-                        )
-                    )
-            )
-        }
-
-        // 4. SCROLLABLE CONTENT (Suggestions)
-        // Rendered BEFORE hero content so it goes UNDER it when scrolling
-        Column(
+                )
+        )
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(top = 560.dp) // Adjusted gap for hero content height
-                .padding(horizontal = 58.dp)
-        ) {
-            // Suggestions Row
-            Text(
-                text = "More Like This",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White.copy(alpha = 0.9f),
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                contentPadding = PaddingValues(bottom = 80.dp),
-                modifier = Modifier.focusProperties {
-                    up = playButtonFocusRequester
-                }
-            ) {
-                items(similarMovies) { simMovie ->
-                    MovieCard(
-                        movie = simMovie,
-                        onMovieFocused = {},
-                        onMovieClick = { onMovieClick(it) }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.7f),
+                            Color.Black
+                        )
                     )
+                )
+        )
+
+        // MAIN CONTENT LAYER
+        Column(modifier = Modifier.fillMaxSize()) {
+            
+            // 2. HERO SECTION (LOCKED / NON-SCROLLING - Top 65%)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.65f)
+                    .padding(horizontal = 48.dp, vertical = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .widthIn(max = 800.dp)
+                ) {
+                    // Title
+                    Text(
+                        text = movie.name,
+                        color = Color.White,
+                        fontSize = 42.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Metadata Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val matchPercent = (movie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92
+                        Text(text = "$matchPercent% Match", color = Color(0xFF46D369), fontWeight = FontWeight.Bold)
+                        Text(text = movie.year, color = Color.White)
+                        MetadataBadge(text = movie.ageRating)
+                        Text(text = movie.duration, color = Color.White)
+                        MetadataBadge(text = "HD 5.1")
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Description (Hard-constrained height)
+                    Text(
+                        text = movie.description,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.heightIn(max = 48.dp)
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Vertical Buttons
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.width(300.dp)
+                    ) {
+                        ActionButton(
+                            icon = Icons.Default.PlayArrow,
+                            text = "Play",
+                            isPrimary = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(playButtonFocusRequester),
+                            onClick = { onPlayClick(movie) }
+                        )
+                        ActionButton(
+                            icon = Icons.AutoMirrored.Filled.List,
+                            text = "Audio & Subtitles",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { /* Audio & Subtitles logic */ }
+                        )
+                        ActionButton(
+                            icon = Icons.Default.Add,
+                            text = "Add to My List",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(addToListFocusRequester)
+                                .focusProperties {
+                                    down = rowFocusRequester
+                                },
+                            onClick = { /* My List logic */ }
+                        )
+                    }
                 }
             }
 
-            // Ensure plenty of scroll room
-            Spacer(modifier = Modifier.height(200.dp))
-        }
-
-        // 2 & 3. HERO CONTENT & ACTION COLUMN (FIXED LAYER, ON TOP)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 58.dp)
-        ) {
-            Spacer(modifier = Modifier.height(60.dp))
-
-            Text(
-                text = "A NETFLIX FILM",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.8f),
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 3.sp
-            )
-
-            Text(
-                text = movie.name.uppercase(),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 72.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-1).sp,
-                    lineHeight = 72.sp
-                ),
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-            )
-
-            // 2. METADATA ROW (Immediately under title)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Text(
-                    text = "${(movie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92}% Match",
-                    color = Color(0xFF46D369),
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(text = movie.year, color = Color.LightGray, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = movie.ageRating,
-                    color = Color.White.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(text = movie.duration, color = Color.LightGray, style = MaterialTheme.typography.bodyLarge)
-                Text(text = "4K HDR", color = Color.LightGray, style = MaterialTheme.typography.bodyLarge)
-            }
-
-            // 3. DESCRIPTION
-            Text(
-                text = movie.description,
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 22.sp),
-                color = Color.White.copy(alpha = 0.85f),
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
+            // 3. SCROLLABLE SECTION (Bottom 35%)
+            LazyColumn(
                 modifier = Modifier
-                    .widthIn(max = 800.dp)
-                    .padding(bottom = 12.dp)
-            )
-
-            // 4. CAST, DIRECTOR, GENRES
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(bottom = 24.dp)
+                    .fillMaxWidth()
+                    .weight(0.35f)
+                    .padding(horizontal = 48.dp)
             ) {
-                DetailInfoText(label = "Cast", value = movie.cast)
-                DetailInfoText(label = "Director", value = movie.director)
-                DetailInfoText(label = "Genres", value = movie.genres)
-            }
+                item {
+                    Text(
+                        text = "More Like This",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-            // 4. ACTION COLUMN (VERTICAL TV STYLE)
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                ActionButton(
-                    icon = Icons.Default.PlayArrow,
-                    text = "Play",
-                    isPrimary = true,
-                    modifier = Modifier
-                        .width(300.dp)
-                        .focusRequester(playButtonFocusRequester),
-                    onClick = { onPlayClick(movie) }
-                )
-                ActionButton(
-                    icon = Icons.Default.Add,
-                    text = "My List",
-                    modifier = Modifier.width(300.dp),
-                    onClick = { /* Add to list logic */ }
-                )
-                ActionButton(
-                    icon = Icons.AutoMirrored.Filled.List,
-                    text = "Audio & Subtitles",
-                    modifier = Modifier.width(300.dp),
-                    onClick = { /* Audio & Subtitles logic */ }
-                )
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                item {
+                    LazyRow(
+                        modifier = Modifier
+                            .focusRequester(rowFocusRequester)
+                            .focusProperties {
+                                up = addToListFocusRequester
+                            },
+                        contentPadding = PaddingValues(end = 80.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(similarMovies) { simMovie ->
+                            MovieCard(
+                                movie = simMovie,
+                                onMovieFocused = {},
+                                onMovieClick = { onMovieClick(it) }
+                            )
+                        }
+                    }
+                }
+                
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Additional info
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        DetailInfoText(label = "Cast", value = movie.cast)
+                        DetailInfoText(label = "Director", value = movie.director)
+                        DetailInfoText(label = "Genres", value = movie.genres)
+                    }
+
+                    Spacer(modifier = Modifier.height(48.dp))
+                }
             }
         }
     }
@@ -359,26 +355,26 @@ fun ActionButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(44.dp),
         colors = ButtonDefaults.colors(
             containerColor = if (isPrimary) Color.White else Color.Transparent,
             contentColor = if (isPrimary) Color.Black else Color.White,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black
         ),
-        scale = ButtonDefaults.scale(focusedScale = 1.08f),
+        scale = ButtonDefaults.scale(focusedScale = 1.05f),
         shape = ButtonDefaults.shape(RoundedCornerShape(4.dp)),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(20.dp)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.titleMedium,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold
         )
     }
