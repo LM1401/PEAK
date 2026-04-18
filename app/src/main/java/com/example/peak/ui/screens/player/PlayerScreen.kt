@@ -21,7 +21,7 @@ fun PlayerScreen(
     onPlaybackFinished: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             val mediaItem = MediaItem.fromUri(videoUrl)

@@ -129,29 +129,33 @@ fun NetflixDetailScreen(
 
                     // Header Label
                     Text(
-                        text = "A PEAK ORIGINAL",
+                        text = "A NETFLIX FILM",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.8f),
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
+                        letterSpacing = 3.sp
                     )
 
                     // Title
                     Text(
                         text = currentMovie.name.uppercase(),
-                        style = MaterialTheme.typography.displayLarge,
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 90.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-2).sp,
+                            lineHeight = 90.sp
+                        ),
                         color = Color.White,
-                        fontWeight = FontWeight.Black,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
 
                     // Metadata Row
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(bottom = 12.dp)
                     ) {
                         Text(
                             text = "${(currentMovie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92}% Match",
@@ -160,7 +164,7 @@ fun NetflixDetailScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(text = currentMovie.year, color = Color.White, style = MaterialTheme.typography.bodyLarge)
-                        
+
                         Box(
                             modifier = Modifier
                                 .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
@@ -168,9 +172,9 @@ fun NetflixDetailScreen(
                         ) {
                             Text(text = currentMovie.ageRating, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                        
+
                         Text(text = currentMovie.duration, color = Color.White, style = MaterialTheme.typography.bodyLarge)
-                        
+
                         Box(
                             modifier = Modifier
                                 .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
@@ -178,7 +182,7 @@ fun NetflixDetailScreen(
                         ) {
                             Text(text = "HD", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
-                        
+
                         Box(
                             modifier = Modifier
                                 .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
@@ -195,24 +199,24 @@ fun NetflixDetailScreen(
                         color = Color.White,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 700.dp)
+                        modifier = Modifier.widthIn(max = 800.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Cast, Director, Genres
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         DetailInfoText(label = "Cast", value = currentMovie.cast)
                         DetailInfoText(label = "Director", value = currentMovie.director)
                         DetailInfoText(label = "Genres", value = currentMovie.genres)
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Action Buttons (Vertical)
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.width(320.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.width(360.dp)
                     ) {
                         ActionButton(
                             icon = Icons.Default.PlayArrow,
@@ -230,26 +234,30 @@ fun NetflixDetailScreen(
                             onClick = { /* Audio settings */ }
                         )
                         
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.2f)))
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        ActionButton(
-                            icon = Icons.Default.Add,
-                            text = "Add to My List",
-                            onClick = { /* Add to list logic */ }
-                        )
+                        Column {
+                            ActionButton(
+                                icon = Icons.Default.Add,
+                                text = "Add to My List",
+                                onClick = { /* Add to list logic */ }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .background(Color.White)
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(60.dp))
+                    Spacer(modifier = Modifier.height(80.dp))
 
                     // "More Like This" Section
                     Text(
                         text = "More Like This",
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.displayMedium,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 20.dp)
+                        modifier = Modifier.padding(bottom = 24.dp)
                     )
 
                     LazyRow(
@@ -303,15 +311,16 @@ fun ActionButton(
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black
         ),
+        scale = ButtonDefaults.scale(focusedScale = 1.02f),
         shape = ButtonDefaults.shape(RoundedCornerShape(4.dp)),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.titleMedium,
