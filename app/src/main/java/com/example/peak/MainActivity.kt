@@ -2,7 +2,6 @@ package com.example.peak
 
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.Crossfade
@@ -24,12 +23,23 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.peak.data.remote.dto.toMovie
+import com.example.peak.data.remote.retrofit.RetrofitInstance
+import com.example.peak.domain.model.Movie
+import com.example.peak.domain.model.Row
+import com.example.peak.domain.model.sampleRows
+import com.example.peak.ui.components.MovieCard
+import com.example.peak.ui.screens.detail.NetflixDetailScreen
 import com.example.peak.ui.theme.PEAKTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -55,26 +65,48 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun PEAKApp() {
+    val navController = rememberNavController()
+    
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            HomeScreen(
+                onMovieClick = { movie ->
+                    Log.d("MOVIE_CLICK", "Clicked: ${movie.movieId}")
+                    navController.navigate("movie_detail/${movie.movieId}")
+                }
+            )
+        }
+        composable(
+            route = "movie_detail/{movieId}",
+            arguments = listOf(navArgument("movieId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
+            NetflixDetailScreen(
+                movieId = movieId,
+                onPlayClick = { /* Navigate to player */ },
+                onMovieClick = { movie ->
+                    navController.navigate("movie_detail/${movie.movieId}") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun HomeScreen(onMovieClick: (Movie) -> Unit) {
     var movies by remember { mutableStateOf<List<Movie>>(emptyList()) }
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         try {
             val response = withContext(Dispatchers.IO) {
                 RetrofitInstance.api.getTrending()
             }
-            val fetchedMovies = response.results.map { tmdbMovie ->
-                Movie(
-                    name = tmdbMovie.title,
-                    imageUrl = tmdbMovie.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
-                        ?: "https://via.placeholder.com/1280x720?text=${tmdbMovie.title}",
-                    backdropUrl = tmdbMovie.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" }
-                        ?: "https://via.placeholder.com/1280x720?text=${tmdbMovie.title}",
-                    description = tmdbMovie.overview ?: "Experience the latest trending story. Now streaming on PEAK."
-                )
-            }
+            val fetchedMovies = response.results.map { it.toMovie() }
             movies = fetchedMovies
             if (fetchedMovies.isNotEmpty()) {
                 focusedMovie = fetchedMovies.first()
@@ -104,13 +136,11 @@ fun PEAKApp() {
             }
         }
 
-        // Single Hero pinned at top and follows scroll
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Hero Section
             BoxWithConstraints {
                 val heroHeight = maxHeight * 0.35f
                 HeroSection(
@@ -123,7 +153,6 @@ fun PEAKApp() {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Scrollable movie rows
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 48.dp)
@@ -132,9 +161,7 @@ fun PEAKApp() {
                     MovieRow(
                         row = row,
                         onMovieFocused = { movie -> focusedMovie = movie },
-                        onMovieClick = { movie ->
-                            Toast.makeText(context, "Clicked: ${movie.name}", Toast.LENGTH_SHORT).show()
-                        }
+                        onMovieClick = onMovieClick
                     )
                 }
             }
@@ -153,7 +180,6 @@ fun HeroSection(
             modifier = modifier
                 .focusable(false)
         ) {
-            // Hero image with Crossfade
             Crossfade(targetState = currentMovie, animationSpec = tween(800)) { target ->
                 Image(
                     painter = rememberAsyncImagePainter(target.backdropUrl),
@@ -163,7 +189,6 @@ fun HeroSection(
                 )
             }
 
-            // Left gradient overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -177,7 +202,6 @@ fun HeroSection(
                     )
             )
 
-            // Gradient overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -191,7 +215,6 @@ fun HeroSection(
                     )
             )
 
-            // Movie info (title + description)
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -216,7 +239,6 @@ fun HeroSection(
                 )
             }
 
-            // Age rating badge
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -226,7 +248,7 @@ fun HeroSection(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "PG-13",
+                    text = currentMovie.ageRating,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
@@ -262,43 +284,6 @@ fun MovieRow(
                     onMovieClick = onMovieClick
                 )
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-fun MovieCard(
-    movie: Movie, 
-    onMovieFocused: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
-) {
-    Card(
-        onClick = { onMovieClick(movie) },
-        modifier = Modifier
-            .width(140.dp)
-            .aspectRatio(2f / 3f)
-            .onFocusChanged {
-                if (it.isFocused) {
-                    onMovieFocused(movie)
-                }
-            },
-        scale = CardDefaults.scale(focusedScale = 1.1f),
-        shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp)),
-        glow = CardDefaults.glow(
-            focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.1f),
-                elevation = 10.dp
-            )
-        )
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = rememberAsyncImagePainter(movie.imageUrl),
-                contentDescription = movie.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
         }
     }
 }

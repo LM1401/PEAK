@@ -11,10 +11,12 @@ data class TmdbResponse(
 )
 
 data class TmdbMovie(
+    val id: Int,
     val title: String,
     @SerializedName("poster_path") val posterPath: String?,
     @SerializedName("backdrop_path") val backdropPath: String?,
-    val overview: String?
+    val overview: String?,
+    @SerializedName("vote_average") val voteAverage: Double?
 )
 
 /**
@@ -22,11 +24,13 @@ data class TmdbMovie(
  */
 fun TmdbMovie.toMovie(): Movie {
     return Movie(
+        movieId = id.toString(),
         name = title,
         imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
             ?: "https://via.placeholder.com/1280x720?text=$title",
         backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" }
             ?: "https://via.placeholder.com/1280x720?text=$title",
-        description = overview ?: "Experience the latest trending story. Now streaming on PEAK."
+        description = overview ?: "Experience the latest trending story. Now streaming on PEAK.",
+        rating = voteAverage?.toString() ?: "8.5"
     )
 }
