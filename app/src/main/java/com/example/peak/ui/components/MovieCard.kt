@@ -14,12 +14,52 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
 
 /**
- * Reusable Movie Card component for TV.
- * Handles focus scaling and glow effects.
+ * Large, cinematic Movie Card for the Home Screen.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun MovieCard(
+fun HomeMovieCard(
+    movie: Movie,
+    onMovieFocused: (Movie) -> Unit,
+    onMovieClick: (Movie) -> Unit
+) {
+    Card(
+        onClick = { onMovieClick(movie) },
+        modifier = Modifier
+            .width(200.dp)
+            .aspectRatio(2f / 3f)
+            .padding(8.dp)
+            .onFocusChanged {
+                if (it.isFocused) {
+                    onMovieFocused(movie)
+                }
+            },
+        scale = CardDefaults.scale(focusedScale = 1.08f),
+        shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
+        glow = CardDefaults.glow(
+            focusedGlow = Glow(
+                elevationColor = Color.White.copy(alpha = 0.15f),
+                elevation = 12.dp
+            )
+        )
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = rememberAsyncImagePainter(movie.imageUrl),
+                contentDescription = movie.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+/**
+ * Compact, stable Movie Card for the Detail Screen.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun DetailMovieCard(
     movie: Movie, 
     onMovieFocused: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
@@ -27,20 +67,20 @@ fun MovieCard(
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
-            .width(150.dp) // slightly wider for better TV presence
-            .aspectRatio(2f / 3f)
-            .padding(8.dp) // padding to prevent clipping during focus scale
+            .width(135.dp) 
+            .aspectRatio(1.8f / 3f)
+            .padding(6.dp)
             .onFocusChanged {
                 if (it.isFocused) {
                     onMovieFocused(movie)
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.12f),
+        scale = CardDefaults.scale(focusedScale = 1.03f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
                 elevationColor = Color.White.copy(alpha = 0.1f),
-                elevation = 10.dp
+                elevation = 8.dp
             )
         )
     ) {

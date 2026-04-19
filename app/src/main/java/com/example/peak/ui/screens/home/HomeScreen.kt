@@ -24,7 +24,7 @@ import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
-import com.example.peak.ui.components.MovieCard
+import com.example.peak.ui.components.HomeMovieCard
 
 /**
  * The main Home Screen of the app.
@@ -214,7 +214,7 @@ fun MovieRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             itemsIndexed(row.movies) { _, movie ->
-                MovieCard(
+                HomeMovieCard(
                     movie = movie,
                     onMovieFocused = onMovieFocused,
                     onMovieClick = onMovieClick

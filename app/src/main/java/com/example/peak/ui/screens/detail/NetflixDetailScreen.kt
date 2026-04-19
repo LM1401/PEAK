@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -35,8 +37,10 @@ import com.example.peak.data.remote.dto.toMovie
 import com.example.peak.data.remote.retrofit.RetrofitInstance
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.sampleRows
-import com.example.peak.ui.components.MovieCard
+import com.example.peak.ui.components.DetailMovieCard
+import com.example.peak.ui.components.HomeMovieCard
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -101,6 +105,10 @@ fun NetflixDetailContent(
     val addToListFocusRequester = remember { FocusRequester() }
     val rowFocusRequester = remember { FocusRequester() }
 
+    // For scroll fixes
+    val rowBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(Unit) {
         playButtonFocusRequester.requestFocus()
     }
@@ -150,12 +158,12 @@ fun NetflixDetailContent(
         // MAIN CONTENT LAYER
         Column(modifier = Modifier.fillMaxSize()) {
             
-            // 2. HERO SECTION (LOCKED / NON-SCROLLING - Top 65%)
+            // 2. HERO SECTION (LOCKED / NON-SCROLLING - Top 55%)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.65f)
-                    .padding(horizontal = 48.dp, vertical = 24.dp)
+                    .weight(0.55f)
+                    .padding(start = 48.dp, top = 24.dp, end = 48.dp, bottom = 8.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -166,13 +174,13 @@ fun NetflixDetailContent(
                     Text(
                         text = displayMovie.name,
                         color = Color.White,
-                        fontSize = 42.sp,
+                        fontSize = 38.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
 
                     // Metadata Row
                     Row(
@@ -187,25 +195,14 @@ fun NetflixDetailContent(
                         MetadataBadge(text = "HD 5.1")
                     }
 
-                    Spacer(Modifier.height(8.dp))
-
-                    // Description (Hard-constrained height)
-                    Text(
-                        text = displayMovie.description,
-                        color = Color.White.copy(alpha = 0.8f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 16.sp,
-                        lineHeight = 22.sp,
-                        modifier = Modifier.heightIn(max = 48.dp)
-                    )
-
                     Spacer(Modifier.height(16.dp))
 
-                    // Vertical Buttons
+                    // Vertical Buttons - PRIORITY (Moved above description)
                     Column(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.width(300.dp)
+                        modifier = Modifier
+                            .width(300.dp)
+                            .heightIn(min = 140.dp)
                     ) {
                         ActionButton(
                             icon = Icons.Default.PlayArrow,
@@ -234,17 +231,30 @@ fun NetflixDetailContent(
                             onClick = { /* My List logic */ }
                         )
                     }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Description (Secondary - Moved below buttons)
+                    Text(
+                        text = displayMovie.description,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 14.sp
+                    )
                 }
             }
 
-            // 3. SCROLLABLE SECTION (Bottom 35%)
+            // 3. SCROLLABLE SECTION (Bottom 45%)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.35f)
-                    .padding(horizontal = 48.dp)
+                    .weight(0.45f)
+                    .padding(horizontal = 48.dp),
+                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
             ) {
                 item {
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "More Like This",
                         color = Color.White,
@@ -261,14 +271,20 @@ fun NetflixDetailContent(
                             .focusRequester(rowFocusRequester)
                             .focusProperties {
                                 up = addToListFocusRequester
-                            },
-                        contentPadding = PaddingValues(end = 80.dp),
+                            }
+                            .bringIntoViewRequester(rowBringIntoViewRequester),
+                        contentPadding = PaddingValues(end = 80.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(similarMovies) { simMovie ->
-                            MovieCard(
+                            DetailMovieCard(
                                 movie = simMovie,
-                                onMovieFocused = { focusedMovie = it },
+                                onMovieFocused = { 
+                                    focusedMovie = it
+                                    scope.launch {
+                                        rowBringIntoViewRequester.bringIntoView()
+                                    }
+                                },
                                 onMovieClick = { onMovieClick(it) }
                             )
                         }

@@ -38,7 +38,7 @@ import com.example.peak.data.remote.retrofit.RetrofitInstance
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.model.sampleRows
-import com.example.peak.ui.components.MovieCard
+import com.example.peak.ui.components.HomeMovieCard
 import com.example.peak.ui.screens.detail.NetflixDetailScreen
 import com.example.peak.ui.theme.PEAKTheme
 import kotlinx.coroutines.Dispatchers
@@ -278,7 +278,7 @@ fun MovieRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             itemsIndexed(row.movies) { _, movie ->
-                MovieCard(
+                HomeMovieCard(
                     movie = movie,
                     onMovieFocused = onMovieFocused,
                     onMovieClick = onMovieClick
