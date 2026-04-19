@@ -94,6 +94,9 @@ fun NetflixDetailContent(
     onPlayClick: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
+    var focusedMovie by remember { mutableStateOf<Movie?>(null) }
+    val displayMovie = focusedMovie ?: movie
+
     val playButtonFocusRequester = remember { FocusRequester() }
     val addToListFocusRequester = remember { FocusRequester() }
     val rowFocusRequester = remember { FocusRequester() }
@@ -109,7 +112,7 @@ fun NetflixDetailContent(
     ) {
         // 1. BACKDROP (Fixed behind everything)
         Image(
-            painter = rememberAsyncImagePainter(movie.backdropUrl),
+            painter = rememberAsyncImagePainter(displayMovie.backdropUrl),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
@@ -161,7 +164,7 @@ fun NetflixDetailContent(
                 ) {
                     // Title
                     Text(
-                        text = movie.name,
+                        text = displayMovie.name,
                         color = Color.White,
                         fontSize = 42.sp,
                         fontWeight = FontWeight.Bold,
@@ -176,11 +179,11 @@ fun NetflixDetailContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val matchPercent = (movie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92
+                        val matchPercent = (displayMovie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92
                         Text(text = "$matchPercent% Match", color = Color(0xFF46D369), fontWeight = FontWeight.Bold)
-                        Text(text = movie.year, color = Color.White)
-                        MetadataBadge(text = movie.ageRating)
-                        Text(text = movie.duration, color = Color.White)
+                        Text(text = displayMovie.year, color = Color.White)
+                        MetadataBadge(text = displayMovie.ageRating)
+                        Text(text = displayMovie.duration, color = Color.White)
                         MetadataBadge(text = "HD 5.1")
                     }
 
@@ -188,7 +191,7 @@ fun NetflixDetailContent(
 
                     // Description (Hard-constrained height)
                     Text(
-                        text = movie.description,
+                        text = displayMovie.description,
                         color = Color.White.copy(alpha = 0.8f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -211,7 +214,7 @@ fun NetflixDetailContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(playButtonFocusRequester),
-                            onClick = { onPlayClick(movie) }
+                            onClick = { onPlayClick(displayMovie) }
                         )
                         ActionButton(
                             icon = Icons.AutoMirrored.Filled.List,
@@ -265,7 +268,7 @@ fun NetflixDetailContent(
                         items(similarMovies) { simMovie ->
                             MovieCard(
                                 movie = simMovie,
-                                onMovieFocused = {},
+                                onMovieFocused = { focusedMovie = it },
                                 onMovieClick = { onMovieClick(it) }
                             )
                         }
