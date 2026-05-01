@@ -1,5 +1,6 @@
 package com.example.peak.ui.screens.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -35,9 +36,9 @@ class HomeViewModel(
             _uiState.value = HomeUiState.Loading
             repository.getTrendingMovies()
                 .onSuccess { movies ->
+                    Log.d("PEAK_API", "Fetched ${movies.size} movies")
                     if (movies.isNotEmpty()) {
                         _focusedMovie.value = movies.first()
-                        // Split movies into rows for the UI
                         val movieRows = if (movies.size >= 10) {
                             listOf(
                                 Row("Trending This Week", movies.subList(0, 10)),
@@ -51,11 +52,9 @@ class HomeViewModel(
                         _uiState.value = HomeUiState.Error("No movies found")
                     }
                 }
-                .onFailure {
-                    // Fallback to sample data on error
-                    val samples = sampleRows()
-                    _focusedMovie.value = samples.firstOrNull()?.movies?.firstOrNull()
-                    _uiState.value = HomeUiState.Success(samples)
+                .onFailure { exception ->
+                    Log.e("PEAK_API", "Failed to fetch movies", exception)
+                    _uiState.value = HomeUiState.Error("Failed to fetch movies: ${exception.message}")
                 }
         }
     }

@@ -1,7 +1,5 @@
 package com.example.peak.ui.screens.home
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -14,13 +12,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.*
+import androidx.tv.material3.Text
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.compose.foundation.layout.BoxWithConstraints
 import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
@@ -37,6 +39,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusedMovie by viewModel.focusedMovie.collectAsState()
+    var activeRowIndex by remember { mutableIntStateOf(0) }
 
     when (val state = uiState) {
         is HomeUiState.Loading -> {
@@ -48,7 +51,12 @@ fun HomeScreen(
             HomeContent(
                 rows = state.rows,
                 focusedMovie = focusedMovie,
-                onMovieFocused = { viewModel.onMovieFocused(it) },
+                onRowActive = { activeRowIndex = it },
+                onMovieFocused = { movie, rowIndex ->
+                    if (rowIndex == activeRowIndex) {
+                        viewModel.onMovieFocused(movie)
+                    }
+                },
                 onMovieClick = onMovieClick
             )
         }
@@ -64,7 +72,8 @@ fun HomeScreen(
 private fun HomeContent(
     rows: List<Row>,
     focusedMovie: Movie?,
-    onMovieFocused: (Movie) -> Unit,
+    onRowActive: (Int) -> Unit,
+    onMovieFocused: (Movie, Int) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
     Column(
@@ -90,11 +99,13 @@ private fun HomeContent(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(bottom = 48.dp)
         ) {
-            itemsIndexed(rows) { _, row ->
+            itemsIndexed(rows) { index, row ->
                 MovieRow(
                     row = row,
+                    rowIndex = index,
                     onMovieFocused = onMovieFocused,
-                    onMovieClick = onMovieClick
+                    onMovieClick = onMovieClick,
+                    onRowActive = { onRowActive(index) }
                 )
             }
         }
@@ -112,15 +123,13 @@ fun HeroSection(
             modifier = modifier
                 .focusable(false)
         ) {
-            // Hero image with Crossfade for smooth transitions when focusing different movies
-            Crossfade(targetState = currentMovie, animationSpec = tween(800)) { target ->
-                Image(
-                    painter = rememberAsyncImagePainter(target.backdropUrl),
-                    contentDescription = target.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            // Hero image without Crossfade for stability
+            Image(
+                painter = rememberAsyncImagePainter(currentMovie.backdropUrl),
+                contentDescription = currentMovie.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
 
             // Left gradient overlay for readability
             Box(
@@ -197,11 +206,21 @@ fun HeroSection(
 
 @Composable
 fun MovieRow(
-    row: Row, 
-    onMovieFocused: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    row: Row,
+    rowIndex: Int,
+    onMovieFocused: (Movie, Int) -> Unit,
+    onMovieClick: (Movie) -> Unit,
+    onRowActive: () -> Unit
 ) {
-    Column(modifier = Modifier.padding(vertical = 12.dp)) {
+    Column(
+        modifier = Modifier
+            .padding(vertical = 12.dp)
+            .onFocusChanged { focusState ->
+                if (focusState.hasFocus) {
+                    onRowActive()
+                }
+            }
+    ) {
         Text(
             text = row.title,
             style = MaterialTheme.typography.titleLarge,
@@ -216,7 +235,9 @@ fun MovieRow(
             itemsIndexed(row.movies) { _, movie ->
                 HomeMovieCard(
                     movie = movie,
-                    onMovieFocused = onMovieFocused,
+                    onMovieFocused = { focusedMovie ->
+                        onMovieFocused(focusedMovie, rowIndex)
+                    },
                     onMovieClick = onMovieClick
                 )
             }

@@ -4,6 +4,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -23,6 +28,14 @@ fun HomeMovieCard(
     onMovieFocused: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            onMovieFocused(movie)
+        }
+    }
+
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
@@ -30,9 +43,7 @@ fun HomeMovieCard(
             .aspectRatio(2f / 3f)
             .padding(8.dp)
             .onFocusChanged {
-                if (it.isFocused) {
-                    onMovieFocused(movie)
-                }
+                isFocused = it.isFocused
             },
         scale = CardDefaults.scale(focusedScale = 1.08f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),

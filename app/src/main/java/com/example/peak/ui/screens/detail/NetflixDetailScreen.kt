@@ -33,15 +33,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
-import com.example.peak.data.remote.dto.toMovie
-import com.example.peak.data.remote.retrofit.RetrofitInstance
 import com.example.peak.domain.model.Movie
-import com.example.peak.domain.model.sampleRows
 import com.example.peak.ui.components.DetailMovieCard
 import com.example.peak.ui.components.HomeMovieCard
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * A Netflix-style Movie Detail Screen for Android TV.
@@ -51,27 +46,15 @@ import kotlinx.coroutines.withContext
 fun NetflixDetailScreen(
     movieId: String,
     onPlayClick: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    viewModel: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
-    var movie by remember { mutableStateOf<Movie?>(null) }
-    var similarMovies by remember { mutableStateOf<List<Movie>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val movie by viewModel.movie.collectAsState()
+    val similarMovies by viewModel.similarMovies.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(movieId) {
-        try {
-            val response = withContext(Dispatchers.IO) {
-                RetrofitInstance.api.getTrending()
-            }
-            val foundMovie = response.results.find { it.id.toString() == movieId }?.toMovie()
-            
-            movie = foundMovie
-            similarMovies = response.results.take(10).map { it.toMovie() }
-            isLoading = false
-        } catch (_: Exception) {
-            movie = sampleRows().firstOrNull()?.movies?.firstOrNull()
-            similarMovies = sampleRows().flatMap { it.movies }
-            isLoading = false
-        }
+        viewModel.loadMovie(movieId)
     }
 
     if (isLoading) {
@@ -99,7 +82,16 @@ fun NetflixDetailContent(
     onMovieClick: (Movie) -> Unit
 ) {
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
-    val displayMovie = focusedMovie ?: movie
+    var backdropMovie by remember(movie) { mutableStateOf(movie) }
+
+    LaunchedEffect(focusedMovie) {
+        focusedMovie?.let {
+            kotlinx.coroutines.delay(120)
+            backdropMovie = it
+        }
+    }
+
+    val displayMovie = backdropMovie
 
     val playButtonFocusRequester = remember { FocusRequester() }
     val addToListFocusRequester = remember { FocusRequester() }
@@ -280,9 +272,11 @@ fun NetflixDetailContent(
                             DetailMovieCard(
                                 movie = simMovie,
                                 onMovieFocused = { 
-                                    focusedMovie = it
-                                    scope.launch {
-                                        rowBringIntoViewRequester.bringIntoView()
+                                    if (focusedMovie?.movieId != it.movieId) {
+                                        focusedMovie = it
+                                        scope.launch {
+                                            rowBringIntoViewRequester.bringIntoView()
+                                        }
                                     }
                                 },
                                 onMovieClick = { onMovieClick(it) }
