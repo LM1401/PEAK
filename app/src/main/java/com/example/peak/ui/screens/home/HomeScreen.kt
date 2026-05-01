@@ -2,68 +2,136 @@ package com.example.peak.ui.screens.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.compose.foundation.layout.BoxWithConstraints
 import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.components.HomeMovieCard
 
-/**
- * The main Home Screen of the app.
- * It observes state from the [HomeViewModel].
- */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val focusedMovie by viewModel.focusedMovie.collectAsState()
-    var activeRowIndex by remember { mutableIntStateOf(0) }
+
+    // SINGLE SOURCE OF TRUTH (UI owns focus)
+    var focusedMovie by remember { mutableStateOf<Movie?>(null) }
 
     when (val state = uiState) {
+
         is HomeUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Text("Loading PEAK...", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Loading...",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineMedium
+                )
             }
         }
+
+        is HomeUiState.Error -> {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = state.message,
+                    color = Color.White
+                )
+            }
+        }
+
         is HomeUiState.Success -> {
+            // AUTO-FOCUS FIRST MOVIE ON LOAD
+            LaunchedEffect(state.rows) {
+                if (focusedMovie == null) {
+                    state.rows.firstOrNull()?.movies?.firstOrNull()?.let { firstMovie ->
+                        focusedMovie = firstMovie
+                    }
+                }
+            }
+
             HomeContent(
                 rows = state.rows,
                 focusedMovie = focusedMovie,
-                onRowActive = { activeRowIndex = it },
-                onMovieFocused = { movie, rowIndex ->
-                    if (rowIndex == activeRowIndex) {
-                        viewModel.onMovieFocused(movie)
+                onFocusChange = { movie ->
+                    if (focusedMovie != movie) {
+                        focusedMovie = movie
                     }
                 },
                 onMovieClick = onMovieClick
             )
         }
-        is HomeUiState.Error -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Text(text = state.message, color = Color.White)
+    }
+}
+
+@Composable
+private fun HeroSection(
+    movie: Movie?,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.background(Color.DarkGray), // Base fallback color
+        contentAlignment = Alignment.BottomStart
+    ) {
+        movie?.let { currentMovie ->
+            val backdrop = currentMovie.backdropUrl
+            val imageUrl = when {
+                backdrop.startsWith("/") -> "https://image.tmdb.org/t/p/w780$backdrop"
+                backdrop.isNotBlank() -> backdrop
+                else -> null
             }
+
+            if (imageUrl != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUrl),
+                    contentDescription = currentMovie.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            // Gradient overlay for text readability
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.7f)
+                            )
+                        )
+                    )
+            )
+
+            Text(
+                text = currentMovie.name,
+                color = Color.White,
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(start = 32.dp, bottom = 32.dp)
+            )
+        } ?: Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "Select a movie", color = Color.Gray)
         }
     }
 }
@@ -72,8 +140,7 @@ fun HomeScreen(
 private fun HomeContent(
     rows: List<Row>,
     focusedMovie: Movie?,
-    onRowActive: (Int) -> Unit,
-    onMovieFocused: (Movie, Int) -> Unit,
+    onFocusChange: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
     Column(
@@ -81,123 +148,30 @@ private fun HomeContent(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Hero Section
-        BoxWithConstraints {
-            val heroHeight = maxHeight * 0.35f
-            HeroSection(
-                movie = focusedMovie,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heroHeight)
-            )
-        }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        // HERO (Netflix-style top banner)
+        HeroSection(
+            movie = focusedMovie,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(320.dp)
+        )
 
-        // Scrollable movie rows
+        Spacer(modifier = Modifier.height(24.dp))
+
         LazyColumn(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 48.dp)
         ) {
-            itemsIndexed(rows) { index, row ->
+            itemsIndexed(
+                rows,
+                key = { _, row -> row.title }
+            ) { _, row ->
+
                 MovieRow(
                     row = row,
-                    rowIndex = index,
-                    onMovieFocused = onMovieFocused,
-                    onMovieClick = onMovieClick,
-                    onRowActive = { onRowActive(index) }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-fun HeroSection(
-    movie: Movie?,
-    modifier: Modifier = Modifier
-) {
-    movie?.let { currentMovie ->
-        Box(
-            modifier = modifier
-                .focusable(false)
-        ) {
-            // Hero image without Crossfade for stability
-            Image(
-                painter = rememberAsyncImagePainter(currentMovie.backdropUrl),
-                contentDescription = currentMovie.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Left gradient overlay for readability
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.8f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-
-            // Bottom gradient overlay to blend into the list
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.95f)
-                            )
-                        )
-                    )
-            )
-
-            // Movie info (title + description)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 32.dp, bottom = 24.dp)
-                    .fillMaxWidth(0.7f)
-            ) {
-                Text(
-                    text = currentMovie.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = currentMovie.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Age rating badge
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 32.dp, bottom = 24.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = currentMovie.ageRating,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    onFocusChange = onFocusChange,
+                    onMovieClick = onMovieClick
                 )
             }
         }
@@ -205,38 +179,38 @@ fun HeroSection(
 }
 
 @Composable
-fun MovieRow(
+private fun MovieRow(
     row: Row,
-    rowIndex: Int,
-    onMovieFocused: (Movie, Int) -> Unit,
-    onMovieClick: (Movie) -> Unit,
-    onRowActive: () -> Unit
+    onFocusChange: (Movie) -> Unit,
+    onMovieClick: (Movie) -> Unit
 ) {
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .padding(vertical = 12.dp)
-            .onFocusChanged { focusState ->
-                if (focusState.hasFocus) {
-                    onRowActive()
-                }
-            }
     ) {
+
         Text(
             text = row.title,
+            color = Color.White,
             style = MaterialTheme.typography.titleLarge,
-            color = Color.White.copy(alpha = 0.9f),
-            modifier = Modifier.padding(start = 58.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
         )
-        
+
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 58.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(row.movies) { _, movie ->
+
+            itemsIndexed(
+                row.movies,
+                key = { _, movie -> movie.movieId } // FIXED: movie.id -> movie.movieId
+            ) { _, movie ->
+
                 HomeMovieCard(
                     movie = movie,
-                    onMovieFocused = { focusedMovie ->
-                        onMovieFocused(focusedMovie, rowIndex)
+                    onMovieFocused = { focused ->
+                        onFocusChange(focused) // ONLY UI STATE UPDATE
                     },
                     onMovieClick = onMovieClick
                 )
