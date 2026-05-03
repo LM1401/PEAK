@@ -7,11 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -35,8 +31,6 @@ import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.DetailMovieCard
-import com.example.peak.ui.components.HomeMovieCard
-import kotlinx.coroutines.launch
 
 /**
  * A Netflix-style Movie Detail Screen for Android TV.
@@ -96,10 +90,6 @@ fun NetflixDetailContent(
     val playButtonFocusRequester = remember { FocusRequester() }
     val addToListFocusRequester = remember { FocusRequester() }
     val rowFocusRequester = remember { FocusRequester() }
-
-    // For scroll fixes
-    val rowBringIntoViewRequester = remember { BringIntoViewRequester() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         playButtonFocusRequester.requestFocus()
@@ -263,20 +253,16 @@ fun NetflixDetailContent(
                             .focusRequester(rowFocusRequester)
                             .focusProperties {
                                 up = addToListFocusRequester
-                            }
-                            .bringIntoViewRequester(rowBringIntoViewRequester),
+                            },
                         contentPadding = PaddingValues(end = 80.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(similarMovies) { simMovie ->
+                        items(similarMovies, key = { it.movieId }) { simMovie ->
                             DetailMovieCard(
                                 movie = simMovie,
                                 onMovieFocused = { 
                                     if (focusedMovie?.movieId != it.movieId) {
                                         focusedMovie = it
-                                        scope.launch {
-                                            rowBringIntoViewRequester.bringIntoView()
-                                        }
                                     }
                                 },
                                 onMovieClick = { onMovieClick(it) }
