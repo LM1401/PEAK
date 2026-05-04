@@ -1,6 +1,7 @@
 package com.example.peak.ui.components.sidebar
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +25,7 @@ fun Sidebar(
 
     val railWidth by animateDpAsState(
         targetValue = if (isExpanded) 200.dp else 72.dp,
+        animationSpec = tween(durationMillis = 200),
         label = "railWidth"
     )
 

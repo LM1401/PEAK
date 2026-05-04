@@ -1,8 +1,8 @@
 package com.example.peak.ui.components.sidebar
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,20 +19,14 @@ fun SidebarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (label, icon) = when (itemType) {
-        SidebarItemType.HOME -> "Home" to Icons.Default.Home
-        SidebarItemType.MOVIES -> "Movies" to Icons.Default.PlayArrow
-        SidebarItemType.TV -> "TV Shows" to Icons.Default.List
-        SidebarItemType.SETTINGS -> "Settings" to Icons.Default.Settings
-    }
-
     Surface(
         onClick = onClick,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = if (isSelected) Color.White else Color.Gray,
-            focusedContentColor = Color.White
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.05f) else Color.Transparent,
+            contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+            focusedContentColor = Color.White,
+            focusedContainerColor = Color.White.copy(alpha = 0.15f)
         ),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -41,17 +35,26 @@ fun SidebarItem(
             modifier = Modifier.padding(12.dp)
         ) {
             Icon(
-                imageVector = icon, 
-                contentDescription = label, 
-                modifier = Modifier.size(28.dp)
+                imageVector = itemType.icon,
+                contentDescription = itemType.label,
+                modifier = Modifier.size(26.dp)
             )
-            if (isExpanded) {
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = label, 
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1
-                )
+            
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = fadeIn(animationSpec = tween(150, delayMillis = 100)) + 
+                        slideInHorizontally(animationSpec = tween(150, delayMillis = 100)) { -10 },
+                exit = fadeOut(animationSpec = tween(100))
+            ) {
+                Row {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = itemType.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
