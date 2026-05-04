@@ -20,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
 import coil.compose.rememberAsyncImagePainter
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import com.example.peak.ui.components.sidebar.Sidebar
+import com.example.peak.ui.components.sidebar.SidebarItemType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.components.HomeMovieCard
@@ -30,6 +34,8 @@ fun HomeScreen(
     onMovieClick: (Movie) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedItem by remember { mutableStateOf(SidebarItemType.HOME) }
+    val contentFocusRequester = remember { FocusRequester() }
 
     // SINGLE SOURCE OF TRUTH (UI owns focus)
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
@@ -71,16 +77,27 @@ fun HomeScreen(
                 }
             }
 
-            HomeContent(
-                rows = state.rows,
-                focusedMovie = focusedMovie,
-                onFocusChange = { movie ->
-                    if (focusedMovie != movie) {
-                        focusedMovie = movie
+            Row(modifier = Modifier.fillMaxSize()) {
+                Sidebar(
+                    selectedItem = selectedItem,
+                    onItemSelected = { selectedItem = it },
+                    onMoveRight = {
+                        contentFocusRequester.requestFocus()
                     }
-                },
-                onMovieClick = onMovieClick
-            )
+                )
+
+                HomeContent(
+                    rows = state.rows,
+                    focusedMovie = focusedMovie,
+                    onFocusChange = { movie ->
+                        if (focusedMovie != movie) {
+                            focusedMovie = movie
+                        }
+                    },
+                    onMovieClick = onMovieClick,
+                    modifier = Modifier.focusRequester(contentFocusRequester)
+                )
+            }
         }
     }
 }
@@ -207,10 +224,11 @@ private fun HomeContent(
     rows: List<Row>,
     focusedMovie: Movie?,
     onFocusChange: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
