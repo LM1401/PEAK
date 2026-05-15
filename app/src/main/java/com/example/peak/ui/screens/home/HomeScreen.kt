@@ -10,7 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -256,10 +256,10 @@ private fun HomeContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 48.dp)
         ) {
-            itemsIndexed(
-                rows,
-                key = { _, row -> row.title }
-            ) { _, row ->
+            items(
+                items = rows,
+                key = { it.title }
+            ) { row ->
 
                 MovieRow(
                     row = row,
@@ -297,10 +297,10 @@ private fun MovieRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
-            itemsIndexed(
-                row.movies,
-                key = { _, movie -> movie.movieId }
-            ) { _, movie ->
+            items(
+                items = row.movies,
+                key = { it.movieId }
+            ) { movie ->
 
                 MovieCard(
                     movie = movie,
