@@ -14,12 +14,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.example.peak.ui.components.sidebar.Sidebar
@@ -87,15 +89,22 @@ private fun HeroSection(
     ) {
         movie?.let { currentMovie ->
             val backdrop = currentMovie.backdropUrl
-            val imageUrl = when {
-                backdrop.startsWith("/") -> "https://image.tmdb.org/t/p/w1280$backdrop" // Using higher quality for Hero
-                backdrop.isNotBlank() -> backdrop
-                else -> null
+            val imageUrl = remember(backdrop) {
+                when {
+                    backdrop.startsWith("/") -> "https://image.tmdb.org/t/p/w1280$backdrop" // Using higher quality for Hero
+                    backdrop.isNotBlank() -> backdrop
+                    else -> null
+                }
             }
 
             if (imageUrl != null) {
                 Image(
-                    painter = rememberAsyncImagePainter(imageUrl),
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageUrl)
+                            .crossfade(true)
+                            .build()
+                    ),
                     contentDescription = currentMovie.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -213,12 +222,14 @@ private fun HomeContent(
     ) {
 
         // HERO (Follows UI-only focus with safe fallbacks)
-        HeroSection(
-            movie = heroMovie,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(320.dp)
-        )
+        key(heroMovie?.movieId) {
+            HeroSection(
+                movie = heroMovie,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
