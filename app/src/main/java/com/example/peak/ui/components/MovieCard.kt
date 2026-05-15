@@ -5,7 +5,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,12 +28,25 @@ fun MovieCard(
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(movie.imageUrl) {
+        ImageRequest.Builder(context)
+            .data(movie.imageUrl)
+            .crossfade(true)
+            .build()
+    }
+
     Card(
         onClick = { onClick(movie) },
         modifier = modifier
             .width(200.dp)
             .aspectRatio(2f / 3f)
-            .padding(8.dp),
+            .padding(8.dp)
+            .onFocusChanged { state ->
+                if (state.isFocused) {
+                    onFocus(movie)
+                }
+            },
         scale = CardDefaults.scale(focusedScale = 1.08f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
@@ -49,12 +64,7 @@ fun MovieCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(movie.imageUrl)
-                        .crossfade(true)
-                        .build()
-                ),
+                painter = rememberAsyncImagePainter(model = imageRequest),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -73,12 +83,25 @@ fun DetailMovieCard(
     onMovieFocused: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
+    val context = LocalContext.current
+    val imageRequest = remember(movie.imageUrl) {
+        ImageRequest.Builder(context)
+            .data(movie.imageUrl)
+            .crossfade(true)
+            .build()
+    }
+
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
             .width(135.dp) 
             .aspectRatio(1.8f / 3f)
-            .padding(6.dp),
+            .padding(6.dp)
+            .onFocusChanged { state ->
+                if (state.isFocused) {
+                    onMovieFocused(movie)
+                }
+            },
         scale = CardDefaults.scale(focusedScale = 1.03f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
@@ -96,12 +119,7 @@ fun DetailMovieCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(movie.imageUrl)
-                        .crossfade(true)
-                        .build()
-                ),
+                painter = rememberAsyncImagePainter(model = imageRequest),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
