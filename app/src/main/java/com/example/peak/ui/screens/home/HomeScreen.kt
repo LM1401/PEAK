@@ -36,6 +36,9 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsState()
     var selectedItem by remember { mutableStateOf(SidebarItemType.HOME) }
     val contentFocusRequester = remember { FocusRequester() }
+    
+    // UI-ONLY Focus Management
+    val focusManager = remember { HomeFocusManager() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (state.loading) {
@@ -63,7 +66,7 @@ fun HomeScreen(
 
                 HomeContent(
                     rows = state.rows,
-                    selectedMovie = state.selectedMovie,
+                    focusManager = focusManager,
                     viewModel = viewModel,
                     onMovieClick = onMovieClick,
                     modifier = Modifier.focusRequester(contentFocusRequester)
@@ -193,20 +196,25 @@ private fun HeroSection(
 @Composable
 private fun HomeContent(
     rows: List<Row>,
-    selectedMovie: Movie?,
+    focusManager: HomeFocusManager,
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val state by viewModel.uiState.collectAsState()
+    val heroMovie = focusManager.focusedMovie
+        ?: state.selectedMovie
+        ?: rows.firstOrNull()?.movies?.firstOrNull()
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
 
-        // HERO (Netflix-style top banner)
+        // HERO (Follows UI-only focus with safe fallbacks)
         HeroSection(
-            movie = selectedMovie,
+            movie = heroMovie,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(320.dp)
@@ -225,6 +233,7 @@ private fun HomeContent(
 
                 MovieRow(
                     row = row,
+                    focusManager = focusManager,
                     viewModel = viewModel,
                     onMovieClick = onMovieClick
                 )
@@ -236,6 +245,7 @@ private fun HomeContent(
 @Composable
 private fun MovieRow(
     row: Row,
+    focusManager: HomeFocusManager,
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
@@ -264,8 +274,11 @@ private fun MovieRow(
 
                 MovieCard(
                     movie = movie,
-                    onFocus = { viewModel.onMovieFocused(it) },
-                    onClick = { onMovieClick(it) }
+                    onFocus = { focusManager.onFocus(it) },
+                    onClick = { 
+                        viewModel.onMovieSelected(it)
+                        onMovieClick(it)
+                    }
                 )
             }
         }

@@ -62,9 +62,6 @@ class HomeViewModel(
             it.copy(selectedMovie = movie)
         }
     }
-
-    // Keep for UI compatibility if needed, but should transition to onMovieSelected
-    fun onMovieFocused(movie: Movie) = onMovieSelected(movie)
 }
 
 /**
