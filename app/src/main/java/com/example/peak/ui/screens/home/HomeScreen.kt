@@ -26,7 +26,7 @@ import com.example.peak.ui.components.sidebar.Sidebar
 import com.example.peak.ui.components.sidebar.SidebarItemType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
-import com.example.peak.ui.components.HomeMovieCard
+import com.example.peak.ui.components.MovieCard
 
 @Composable
 fun HomeScreen(
@@ -37,8 +37,8 @@ fun HomeScreen(
     var selectedItem by remember { mutableStateOf(SidebarItemType.HOME) }
     val contentFocusRequester = remember { FocusRequester() }
 
-    // SINGLE SOURCE OF TRUTH (UI owns focus)
-    var focusedMovie by remember { mutableStateOf<Movie?>(null) }
+    // SINGLE SOURCE OF TRUTH (ViewModel owns focus state)
+    val focusedMovie by viewModel.focusedMovie.collectAsState()
 
     when (val state = uiState) {
 
@@ -68,15 +68,6 @@ fun HomeScreen(
         }
 
         is HomeUiState.Success -> {
-            // AUTO-FOCUS FIRST MOVIE ON LOAD
-            LaunchedEffect(state.rows) {
-                if (focusedMovie == null) {
-                    state.rows.firstOrNull()?.movies?.firstOrNull()?.let { firstMovie ->
-                        focusedMovie = firstMovie
-                    }
-                }
-            }
-
             Row(modifier = Modifier.fillMaxSize()) {
                 Sidebar(
                     selectedItem = selectedItem,
@@ -89,11 +80,7 @@ fun HomeScreen(
                 HomeContent(
                     rows = state.rows,
                     focusedMovie = focusedMovie,
-                    onFocusChange = { movie ->
-                        if (focusedMovie != movie) {
-                            focusedMovie = movie
-                        }
-                    },
+                    viewModel = viewModel,
                     onMovieClick = onMovieClick,
                     modifier = Modifier.focusRequester(contentFocusRequester)
                 )
@@ -223,7 +210,7 @@ private fun HeroSection(
 private fun HomeContent(
     rows: List<Row>,
     focusedMovie: Movie?,
-    onFocusChange: (Movie) -> Unit,
+    viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -254,7 +241,7 @@ private fun HomeContent(
 
                 MovieRow(
                     row = row,
-                    onFocusChange = onFocusChange,
+                    viewModel = viewModel,
                     onMovieClick = onMovieClick
                 )
             }
@@ -265,7 +252,7 @@ private fun HomeContent(
 @Composable
 private fun MovieRow(
     row: Row,
-    onFocusChange: (Movie) -> Unit,
+    viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
     Column(
@@ -288,15 +275,13 @@ private fun MovieRow(
 
             itemsIndexed(
                 row.movies,
-                key = { _, movie -> movie.movieId } // FIXED: movie.id -> movie.movieId
+                key = { _, movie -> movie.movieId }
             ) { _, movie ->
 
-                HomeMovieCard(
+                MovieCard(
                     movie = movie,
-                    onMovieFocused = { focused ->
-                        onFocusChange(focused) // ONLY UI STATE UPDATE
-                    },
-                    onMovieClick = onMovieClick
+                    onFocus = { viewModel.onMovieFocused(it) },
+                    onClick = { onMovieClick(it) }
                 )
             }
         }

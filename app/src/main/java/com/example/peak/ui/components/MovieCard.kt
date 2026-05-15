@@ -1,14 +1,10 @@
 package com.example.peak.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -23,28 +19,24 @@ import com.example.peak.domain.model.Movie
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun HomeMovieCard(
+fun MovieCard(
     movie: Movie,
-    onMovieFocused: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onFocus: (Movie) -> Unit,
+    onClick: (Movie) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isFocused) {
-        if (isFocused) {
-            onMovieFocused(movie)
-        }
-    }
-
     Card(
-        onClick = { onMovieClick(movie) },
-        modifier = Modifier
+        onClick = { onClick(movie) },
+        modifier = modifier
             .width(200.dp)
             .aspectRatio(2f / 3f)
             .padding(8.dp)
-            .onFocusChanged {
-                isFocused = it.isFocused
-            },
+            .onFocusChanged { state ->
+                if (state.isFocused) {
+                    onFocus(movie)
+                }
+            }
+            .focusable(),
         scale = CardDefaults.scale(focusedScale = 1.08f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         glow = CardDefaults.glow(
