@@ -6,11 +6,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
-import com.example.peak.domain.model.sampleRows
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -21,11 +21,8 @@ class HomeViewModel(
     private val repository: MovieRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
+    private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-
-    private val _focusedMovie = MutableStateFlow<Movie?>(null)
-    val focusedMovie: StateFlow<Movie?> = _focusedMovie.asStateFlow()
 
     init {
         fetchMovies()
@@ -33,12 +30,11 @@ class HomeViewModel(
 
     fun fetchMovies() {
         viewModelScope.launch {
-            _uiState.value = HomeUiState.Loading
+            _uiState.update { it.copy(loading = true) }
             repository.getTrendingMovies()
                 .onSuccess { movies ->
                     Log.d("PEAK_API", "Fetched ${movies.size} movies")
                     if (movies.isNotEmpty()) {
-                        _focusedMovie.value = movies.first()
                         val movieRows = if (movies.size >= 10) {
                             listOf(
                                 Row("Trending This Week", movies.subList(0, 10)),
@@ -47,21 +43,28 @@ class HomeViewModel(
                         } else {
                             listOf(Row("Trending", movies))
                         }
-                        _uiState.value = HomeUiState.Success(movieRows)
+                        _uiState.update { 
+                            it.copy(rows = movieRows, loading = false, selectedMovie = movies.first()) 
+                        }
                     } else {
-                        _uiState.value = HomeUiState.Error("No movies found")
+                        _uiState.update { it.copy(loading = false) }
                     }
                 }
                 .onFailure { exception ->
                     Log.e("PEAK_API", "Failed to fetch movies", exception)
-                    _uiState.value = HomeUiState.Error("Failed to fetch movies: ${exception.message}")
+                    _uiState.update { it.copy(loading = false) }
                 }
         }
     }
 
-    fun onMovieFocused(movie: Movie) {
-        _focusedMovie.value = movie
+    fun onMovieSelected(movie: Movie) {
+        _uiState.update {
+            it.copy(selectedMovie = movie)
+        }
     }
+
+    // Keep for UI compatibility if needed, but should transition to onMovieSelected
+    fun onMovieFocused(movie: Movie) = onMovieSelected(movie)
 }
 
 /**
@@ -75,10 +78,4 @@ class HomeViewModelFactory(private val repository: MovieRepository) : ViewModelP
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
-}
-
-sealed class HomeUiState {
-    object Loading : HomeUiState()
-    data class Success(val rows: List<Row>) : HomeUiState()
-    data class Error(val message: String) : HomeUiState()
 }

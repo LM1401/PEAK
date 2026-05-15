@@ -33,18 +33,14 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsState()
     var selectedItem by remember { mutableStateOf(SidebarItemType.HOME) }
     val contentFocusRequester = remember { FocusRequester() }
 
-    // SINGLE SOURCE OF TRUTH (ViewModel owns focus state)
-    val focusedMovie by viewModel.focusedMovie.collectAsState()
-
-    when (val state = uiState) {
-
-        is HomeUiState.Loading -> {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (state.loading) {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -55,19 +51,7 @@ fun HomeScreen(
             }
         }
 
-        is HomeUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = state.message,
-                    color = Color.White
-                )
-            }
-        }
-
-        is HomeUiState.Success -> {
+        if (state.rows.isNotEmpty()) {
             Row(modifier = Modifier.fillMaxSize()) {
                 Sidebar(
                     selectedItem = selectedItem,
@@ -79,7 +63,7 @@ fun HomeScreen(
 
                 HomeContent(
                     rows = state.rows,
-                    focusedMovie = focusedMovie,
+                    selectedMovie = state.selectedMovie,
                     viewModel = viewModel,
                     onMovieClick = onMovieClick,
                     modifier = Modifier.focusRequester(contentFocusRequester)
@@ -154,7 +138,7 @@ private fun HeroSection(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Metadata: Year | Duration | Age Rating Badge
-                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = currentMovie.year,
                         color = Color.LightGray,
@@ -209,7 +193,7 @@ private fun HeroSection(
 @Composable
 private fun HomeContent(
     rows: List<Row>,
-    focusedMovie: Movie?,
+    selectedMovie: Movie?,
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
@@ -222,7 +206,7 @@ private fun HomeContent(
 
         // HERO (Netflix-style top banner)
         HeroSection(
-            movie = focusedMovie,
+            movie = selectedMovie,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(320.dp)
