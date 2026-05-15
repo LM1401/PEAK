@@ -24,7 +24,7 @@ import com.example.peak.domain.model.Movie
 @Composable
 fun MovieCard(
     movie: Movie,
-    onFocus: (Movie) -> Unit,
+    onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -80,7 +80,7 @@ fun MovieCard(
 @Composable
 fun DetailMovieCard(
     movie: Movie, 
-    onMovieFocused: (Movie) -> Unit,
+    onMovieFocused: (Movie?) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
     val context = LocalContext.current

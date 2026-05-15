@@ -260,9 +260,11 @@ fun NetflixDetailContent(
                         items(similarMovies, key = { it.movieId }) { simMovie ->
                             DetailMovieCard(
                                 movie = simMovie,
-                                onMovieFocused = { 
-                                    if (focusedMovie?.movieId != it.movieId) {
-                                        focusedMovie = it
+                                onMovieFocused = { movie ->
+                                    if (movie == null) {
+                                        // Handle focus loss if needed
+                                    } else if (focusedMovie?.movieId != movie.movieId) {
+                                        focusedMovie = movie
                                     }
                                 },
                                 onMovieClick = { onMovieClick(it) }

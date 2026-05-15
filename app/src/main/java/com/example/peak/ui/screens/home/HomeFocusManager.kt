@@ -13,7 +13,7 @@ class HomeFocusManager {
     var focusedMovie: Movie? by mutableStateOf(null)
         private set
 
-    fun onFocus(movie: Movie) {
+    fun onFocus(movie: Movie?) {
         focusedMovie = movie
     }
 
