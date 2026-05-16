@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +25,8 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private var focusDebounceJob: Job? = null
 
     init {
         fetchMovies()
@@ -44,7 +48,12 @@ class HomeViewModel(
                             listOf(Row("Trending", movies))
                         }
                         _uiState.update { 
-                            it.copy(rows = movieRows, loading = false, selectedMovie = movies.first()) 
+                            it.copy(
+                                rows = movieRows, 
+                                loading = false, 
+                                selectedMovie = movies.first(),
+                                hoveredMovie = movies.first()
+                            ) 
                         }
                     } else {
                         _uiState.update { it.copy(loading = false) }
@@ -57,9 +66,27 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Updates only the hovered state for UI feedback.
+     * Debounces the selection update to prevent Hero flickering while scrolling.
+     */
+    fun onMovieFocused(movie: Movie) {
+        _uiState.update { it.copy(hoveredMovie = movie) }
+        
+        focusDebounceJob?.cancel()
+        focusDebounceJob = viewModelScope.launch {
+            delay(500) // Wait for focus to settle
+            _uiState.update { it.copy(selectedMovie = movie) }
+        }
+    }
+
+    /**
+     * Updates the master selection immediately (e.g. on click).
+     */
     fun onMovieSelected(movie: Movie) {
+        focusDebounceJob?.cancel()
         _uiState.update {
-            it.copy(selectedMovie = movie)
+            it.copy(selectedMovie = movie, hoveredMovie = movie)
         }
     }
 }

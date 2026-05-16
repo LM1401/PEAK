@@ -14,12 +14,17 @@ import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.zIndex
 import com.example.peak.ui.components.sidebar.Sidebar
 import com.example.peak.ui.components.sidebar.SidebarItemType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.components.MovieCard
 import com.example.peak.ui.components.HeroSection
+
+// CLEAN LAYOUT CONSTANTS
+private val HERO_HEIGHT = 420.dp
+private val HORIZONTAL_PADDING = 48.dp
 
 @Composable
 fun HomeScreen(
@@ -29,9 +34,6 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsState()
     var selectedItem by remember { mutableStateOf(SidebarItemType.HOME) }
     val contentFocusRequester = remember { FocusRequester() }
-    
-    // UI-ONLY Focus Management
-    val focusManager = remember { HomeFocusManager() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (state.loading) {
@@ -48,21 +50,38 @@ fun HomeScreen(
         }
 
         if (state.rows.isNotEmpty()) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            // Root Box for Layering
+            Box(modifier = Modifier.fillMaxSize()) {
+                
+                // 1. HERO LAYER (Fixed Header)
+                key(state.selectedMovie?.movieId) {
+                    HeroSection(
+                        movie = state.selectedMovie,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(HERO_HEIGHT)
+                    )
+                }
+
+                // 2. CONTENT LAYER (Starts below Hero)
+                HomeContent(
+                    rows = state.rows,
+                    viewModel = viewModel,
+                    onMovieClick = onMovieClick,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = HERO_HEIGHT)
+                        .focusRequester(contentFocusRequester)
+                )
+
+                // 3. SIDEBAR OVERLAY
                 Sidebar(
                     selectedItem = selectedItem,
                     onItemSelected = { selectedItem = it },
                     onMoveRight = {
                         contentFocusRequester.requestFocus()
-                    }
-                )
-
-                HomeContent(
-                    rows = state.rows,
-                    focusManager = focusManager,
-                    viewModel = viewModel,
-                    onMovieClick = onMovieClick,
-                    modifier = Modifier.focusRequester(contentFocusRequester)
+                    },
+                    modifier = Modifier.zIndex(2f)
                 )
             }
         }
@@ -72,50 +91,23 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     rows: List<Row>,
-    focusManager: HomeFocusManager,
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val heroMovie = focusManager.focusedMovie
-        ?: state.selectedMovie
-        ?: rows.firstOrNull()?.movies?.firstOrNull()
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
+    LazyColumn(
+        modifier = modifier.background(Color.Transparent),
+        contentPadding = PaddingValues(bottom = HORIZONTAL_PADDING)
     ) {
-
-        // HERO (Follows UI-only focus with safe fallbacks)
-        key(heroMovie?.movieId) {
-            HeroSection(
-                movie = heroMovie,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp)
+        items(
+            items = rows,
+            key = { it.title }
+        ) { row ->
+            MovieRow(
+                row = row,
+                viewModel = viewModel,
+                onMovieClick = onMovieClick
             )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 48.dp)
-        ) {
-            items(
-                items = rows,
-                key = { it.title }
-            ) { row ->
-
-                MovieRow(
-                    row = row,
-                    focusManager = focusManager,
-                    viewModel = viewModel,
-                    onMovieClick = onMovieClick
-                )
-            }
         }
     }
 }
@@ -123,39 +115,37 @@ private fun HomeContent(
 @Composable
 private fun MovieRow(
     row: Row,
-    focusManager: HomeFocusManager,
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .padding(vertical = 16.dp)
     ) {
-
         Text(
             text = row.title,
             color = Color.White,
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = HORIZONTAL_PADDING, bottom = 12.dp)
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = HORIZONTAL_PADDING),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
             items(
                 items = row.movies,
                 key = { it.movieId }
             ) { movie ->
-
                 MovieCard(
                     movie = movie,
-                    onFocus = { focusManager.onFocus(it) },
+                    onFocus = { focusedMovie -> 
+                        focusedMovie?.let { viewModel.onMovieFocused(it) }
+                    },
                     onClick = { 
-                        viewModel.onMovieSelected(it)
-                        onMovieClick(it)
+                        viewModel.onMovieSelected(movie)
+                        onMovieClick(movie)
                     }
                 )
             }
