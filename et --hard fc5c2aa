@@ -1,0 +1,27 @@
+* [33mfc5c2aa[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mPeakA.0.1[m[33m, [m[1;31morigin/PeakA.0.1[m[33m, [m[1;31morigin/HEAD[m[33m)[m Backup: stable UI before hero system upgrade
+* [33mde77ecd[m Backup: stable UI before hero system upgrade
+* [33m9a6c95d[m Backup: stable focus system + sidebar transparency prep
+* [33mf2e51fb[m FOCUS STABILITY
+* [33m2bc6acc[m UI fixes
+* [33m20ba89f[m Step 4: fix TV focus rendering using CardDefaults system
+* [33mbfbac49[m Step 3: isolate focus system and fix hero fallback
+* [33m507f80c[m Step 2: consolidate HomeUiState and fix HomeScreen
+* [33md61f298[m Step 1: fix MovieCard focus stability
+* [33mcc3bf45[m Full backup of PEAK app state
+* [33m7eb2cae[m Sidebar refactor complete - stable working state
+* [33m1d02c44[m Backup current PeakA.0.1 state
+* [33m4458222[m[33m ([m[1;33mtag: [m[1;33mdetail-bounce-fix[m[33m, [m[1;31morigin/PeakA.0.1-backup[m[33m)[m Fix detail screen row bounce and stabilize focus behavior
+* [33m0d740cd[m Update Hero UI metadata and refine HomeScreen structure
+* [33mcdfbca5[m Update HomeScreen
+* [33mfee2b9d[m Backup PeakA.0.01 - initial or current state
+* [33mcf8f4ff[m PeakA.0.01: checkpoint - detail screen polish, card fixes, layout stable
+* [33m1502f40[m PeakA.0.01: hero sync + focus-driven UI updates
+* [33m352381c[m PeakA.0.01: fix detail screen layout, vertical buttons, safe description handling
+* [33m2acc86f[m PeakA.0.01 backup: current TV detail + UI state
+* [33m4cc105e[m PeakA.0.01 checkpoint: improved TV detail screen layout + restored sections
+* [33m9123c9b[m PeakA.0.01 full app backup snapshot
+* [33m204d9bf[m PeakA 0.0.1 full backup snapshot
+* [33m3cbc332[m stable before refactor
+* [33mb80555b[m movie cards, hero card, 2 rows workingish
+* [33mc4976b5[m movie cards, hero card, 2 rows workingish
+* [33md747fa2[m Initial commit
