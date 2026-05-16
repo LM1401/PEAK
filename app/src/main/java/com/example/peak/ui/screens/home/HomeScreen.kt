@@ -1,5 +1,9 @@
 package com.example.peak.ui.screens.home
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -82,7 +86,7 @@ fun HomeScreen(
                         TopNavigationBar()
                     }
 
-                    // 3.2 MOVIE ROWS & CONTEXTUAL INFO
+                    // 3.2 MOVIE ROWS (Focus-driven metadata)
                     itemsIndexed(
                         items = state.rows,
                         key = { _, row -> row.title }
@@ -93,18 +97,6 @@ fun HomeScreen(
                             viewModel = viewModel,
                             onMovieClick = onMovieClick
                         )
-
-                        // INTEGRATE INFO BETWEEN ROWS: 
-                        // If this is the first row, show metadata block directly beneath.
-                        // Matches image 1 where info is below "Coming Soon" row.
-                        if (index == 0 && state.selectedMovie != null) {
-                            HeroSection(
-                                movie = state.selectedMovie,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -118,36 +110,85 @@ private fun MovieRow(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
+    // Track focus locally in the row to handle card expansion
+    var focusedMovieId by remember { mutableStateOf<String?>(null) }
+    val focusedMovie = row.movies.find { it.movieId == focusedMovieId }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 12.dp)
     ) {
         Text(
             text = row.title,
             color = Color.White,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 120.dp, bottom = 12.dp) // Aligned with metadata
+            modifier = Modifier.padding(start = 120.dp, bottom = 12.dp)
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 120.dp), // NETFLIX 2024 GRID: 120dp
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(horizontal = 120.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             items(
                 items = row.movies,
                 key = { it.movieId }
             ) { movie ->
+                val isFocused = focusedMovieId == movie.movieId
+                
+                // CARD DYNAMIC EXPANSION (Netflix 2024 Style)
+                // Synchronized animations with shared easing for "buttery" feel
+                val transitionDuration = 500
+                val easing = FastOutSlowInEasing
+                
+                val cardWidth by animateDpAsState(
+                    targetValue = if (isFocused) 400.dp else 180.dp,
+                    animationSpec = tween(transitionDuration, easing = easing),
+                    label = "cardWidth"
+                )
+                val cardAspectRatio by animateFloatAsState(
+                    targetValue = if (isFocused) 16f/9f else 2f/3f,
+                    animationSpec = tween(transitionDuration, easing = easing),
+                    label = "cardAspect"
+                )
+                
                 MovieCard(
                     movie = movie,
-                    onFocus = { focusedMovie -> 
-                        focusedMovie?.let { viewModel.onMovieFocused(it) }
+                    modifier = Modifier
+                        .width(cardWidth)
+                        .aspectRatio(cardAspectRatio),
+                    onFocus = { focused -> 
+                        if (focused != null) {
+                            focusedMovieId = movie.movieId
+                            viewModel.onMovieFocused(focused)
+                        }
                     },
                     onClick = { 
                         viewModel.onMovieSelected(movie)
                         onMovieClick(movie)
                     }
+                )
+            }
+        }
+
+        // METADATA UNDER THE CARD (Netflix 2024 Style)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = focusedMovie != null,
+            enter = androidx.compose.animation.expandVertically(
+                animationSpec = tween(400, easing = FastOutSlowInEasing)
+            ) + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkVertically(
+                animationSpec = tween(400, easing = FastOutSlowInEasing)
+            ) + androidx.compose.animation.fadeOut()
+        ) {
+            focusedMovie?.let { movie ->
+                HeroSection(
+                    movie = movie,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
                 )
             }
         }

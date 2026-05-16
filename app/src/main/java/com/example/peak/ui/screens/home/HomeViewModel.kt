@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * It manages the state of the movie rows and the currently focused movie.
  */
 class HomeViewModel(
-    private val repository: MovieRepository
+    private val repository: MovieRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -39,14 +39,27 @@ class HomeViewModel(
                 .onSuccess { movies ->
                     Log.d("PEAK_API", "Fetched ${movies.size} movies")
                     if (movies.isNotEmpty()) {
-                        val movieRows = if (movies.size >= 10) {
-                            listOf(
-                                Row("Trending This Week", movies.subList(0, 10)),
-                                Row("Recommended for You", movies.subList(10, movies.size.coerceAtMost(20)))
-                            )
-                        } else {
-                            listOf(Row("Trending", movies))
-                        }
+                        // Create a variety of rows for a rich home screen
+                        val movieRows = mutableListOf<Row>()
+                        
+                        // Row 1: Trending (Landscape in UI)
+                        movieRows.add(Row("Trending This Week", movies.shuffled().take(10)))
+                        
+                        // Row 2: Top Picks
+                        movieRows.add(Row("Top Picks for You", movies.shuffled().take(10)))
+                        
+                        // Row 3: Action & Adventure
+                        movieRows.add(Row("Action & Adventure", movies.shuffled().take(10)))
+                        
+                        // Row 4: New Releases
+                        movieRows.add(Row("New Releases", movies.shuffled().take(10)))
+                        
+                        // Row 5: Documentaries
+                        movieRows.add(Row("Documentaries", movies.shuffled().take(10)))
+                        
+                        // Row 6: Award-Winning
+                        movieRows.add(Row("Award-Winning Movies", movies.shuffled().take(10)))
+
                         _uiState.update { 
                             it.copy(
                                 rows = movieRows, 

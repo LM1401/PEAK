@@ -1,13 +1,11 @@
 package com.example.peak.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -20,6 +18,7 @@ import com.example.peak.domain.model.Movie
 
 /**
  * Large, cinematic Movie Card for the Home Screen.
+ * Hand-tuned for the Netflix 2024 expansion effect.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -31,15 +30,14 @@ fun MovieCard(
 ) {
     val context = LocalContext.current
     var isFocused by remember { mutableStateOf(false) }
-    
-    val alpha by animateFloatAsState(
-        targetValue = if (isFocused) 1f else 0.75f,
-        label = "cardAlpha"
-    )
 
-    val imageRequest = remember(movie.imageUrl) {
+    // Switch between Portrait (2:3) and Landscape (16:9) image source
+    // to prevent cropping/warping during expansion.
+    val displayImageUrl = if (isFocused) movie.backdropUrl else movie.imageUrl
+    
+    val imageRequest = remember(displayImageUrl) {
         ImageRequest.Builder(context)
-            .data(movie.imageUrl)
+            .data(displayImageUrl)
             .crossfade(true)
             .build()
     }
@@ -47,28 +45,26 @@ fun MovieCard(
     Card(
         onClick = { onClick(movie) },
         modifier = modifier
-            .width(200.dp)
-            .aspectRatio(2f / 3f)
-            .padding(8.dp)
-            .alpha(alpha)
             .onFocusChanged { state ->
                 isFocused = state.isFocused
                 if (state.isFocused) {
                     onFocus(movie)
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.15f),
+        // We set focusedScale to 1.0f because we are animating the layout width manually 
+        // in the Row to match the Netflix 2024 expansion effect.
+        scale = CardDefaults.scale(focusedScale = 1.0f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(
-                border = BorderStroke(2.dp, Color.White),
+                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)),
                 inset = 0.dp
             )
         ),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.15f),
-                elevation = 12.dp
+                elevationColor = Color.White.copy(alpha = 0.1f),
+                elevation = 8.dp
             )
         )
     ) {

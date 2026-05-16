@@ -10,15 +10,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
+import androidx.tv.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import com.example.peak.domain.model.Movie
 
 /**
@@ -53,28 +53,17 @@ fun HeroSection(
                         .padding(start = 120.dp, end = 48.dp), // NETFLIX 2024 GRID: 120dp safe margin
                     verticalArrangement = Arrangement.Top
                 ) {
-                    Text(
-                        text = currentMovie.name,
-                        color = Color.White,
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            shadow = Shadow(
-                                color = Color.Black,
-                                offset = Offset(2f, 4f),
-                                blurRadius = 8f
-                            )
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Metadata Row: Year | Duration | Rating
+                    // Metadata Row: Match Score | Year | Duration | Rating
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        Text(
+                            text = "98% Match",
+                            color = Color(0xFF46D369), // Netflix Green
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge
+                        )
                         Text(
                             text = currentMovie.year,
                             color = Color.White.copy(alpha = 0.7f),
@@ -109,7 +98,7 @@ fun HeroSection(
                         text = currentMovie.description,
                         color = Color.White.copy(alpha = 0.85f),
                         style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 3, // Floating overlay needs a bit more room
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 22.sp
                     )
