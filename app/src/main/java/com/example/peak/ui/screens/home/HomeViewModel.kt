@@ -85,7 +85,7 @@ class HomeViewModel(
     fun onMovieFocused(movie: Movie) {
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            delay(500) // Wait for focus to settle before updating global state
+            delay(180) // SNAPPY: Reduced delay for more responsive cinematic background transitions
             _uiState.update { it.copy(selectedMovie = movie) }
         }
     }

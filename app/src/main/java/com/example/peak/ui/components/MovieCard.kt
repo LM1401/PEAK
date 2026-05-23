@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
+import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
@@ -45,6 +46,11 @@ fun MovieCard(
         PeakImageLoader.buildRequest(context, displayImageUrl)
     }
 
+    val painter = rememberAsyncImagePainter(
+        model = imageRequest,
+        imageLoader = PeakImageLoader.getInstance(context)
+    )
+
     Card(
         onClick = { onClick(movie) },
         modifier = modifier
@@ -71,11 +77,13 @@ fun MovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // SHIMMER PLACEHOLDER
+            if (painter.state is AsyncImagePainter.State.Loading) {
+                ShimmerBox()
+            }
+
             Image(
-                painter = rememberAsyncImagePainter(
-                    model = imageRequest,
-                    imageLoader = PeakImageLoader.getInstance(context)
-                ),
+                painter = painter,
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -98,6 +106,11 @@ fun DetailMovieCard(
     val imageRequest = remember(movie.imageUrl) {
         PeakImageLoader.buildRequest(context, movie.imageUrl)
     }
+
+    val painter = rememberAsyncImagePainter(
+        model = imageRequest,
+        imageLoader = PeakImageLoader.getInstance(context)
+    )
 
     Card(
         onClick = { onMovieClick(movie) },
@@ -126,11 +139,13 @@ fun DetailMovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // SHIMMER PLACEHOLDER
+            if (painter.state is AsyncImagePainter.State.Loading) {
+                ShimmerBox()
+            }
+
             Image(
-                painter = rememberAsyncImagePainter(
-                    model = imageRequest,
-                    imageLoader = PeakImageLoader.getInstance(context)
-                ),
+                painter = painter,
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
