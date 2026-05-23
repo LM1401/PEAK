@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
@@ -128,6 +129,7 @@ private fun MovieRow(
         )
 
         LazyRow(
+            modifier = Modifier.height(300.dp), // STABILIZE: Fixed height for the entire row
             contentPadding = PaddingValues(horizontal = 120.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -138,27 +140,18 @@ private fun MovieRow(
             ) { movie ->
                 val isFocused = focusedMovieId == movie.movieId
                 
-                // CARD DYNAMIC EXPANSION (Netflix 2024 Style)
-                // Synchronized animations with shared easing for "buttery" feel
-                val transitionDuration = 500
-                val easing = FastOutSlowInEasing
-                
+                // Animate width to push neighbors (Expansion effect)
                 val cardWidth by animateDpAsState(
                     targetValue = if (isFocused) 400.dp else 180.dp,
-                    animationSpec = tween(transitionDuration, easing = easing),
+                    animationSpec = tween(400, easing = FastOutSlowInEasing),
                     label = "cardWidth"
                 )
-                val cardAspectRatio by animateFloatAsState(
-                    targetValue = if (isFocused) 16f/9f else 2f/3f,
-                    animationSpec = tween(transitionDuration, easing = easing),
-                    label = "cardAspect"
-                )
-                
+
                 MovieCard(
                     movie = movie,
                     modifier = Modifier
-                        .width(cardWidth)
-                        .aspectRatio(cardAspectRatio),
+                        .width(cardWidth) 
+                        .height(270.dp), // Lock height to prevent vertical jitter
                     onFocus = { focused -> 
                         if (focused != null) {
                             focusedMovieId = movie.movieId

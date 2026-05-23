@@ -1,5 +1,7 @@
 package com.example.peak.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -8,9 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -18,7 +22,7 @@ import com.example.peak.domain.model.Movie
 
 /**
  * Large, cinematic Movie Card for the Home Screen.
- * Hand-tuned for the Netflix 2024 expansion effect.
+ * Optimized to remove redundant focus state and recomposition load.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -29,10 +33,10 @@ fun MovieCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    // Restore local focus tracking for visual-only animation and image swapping
     var isFocused by remember { mutableStateOf(false) }
 
-    // Switch between Portrait (2:3) and Landscape (16:9) image source
-    // to prevent cropping/warping during expansion.
+    // Restore image swapping to support landscape expansion
     val displayImageUrl = if (isFocused) movie.backdropUrl else movie.imageUrl
     
     val imageRequest = remember(displayImageUrl) {
@@ -47,13 +51,13 @@ fun MovieCard(
         modifier = modifier
             .onFocusChanged { state ->
                 isFocused = state.isFocused
+                // Single source of truth for focus callbacks
                 if (state.isFocused) {
                     onFocus(movie)
                 }
             },
-        // We set focusedScale to 1.0f because we are animating the layout width manually 
-        // in the Row to match the Netflix 2024 expansion effect.
-        scale = CardDefaults.scale(focusedScale = 1.0f),
+        // Subtle scale pop on top of the layout expansion
+        scale = CardDefaults.scale(focusedScale = 1.05f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(
@@ -63,8 +67,8 @@ fun MovieCard(
         ),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.1f),
-                elevation = 8.dp
+                elevationColor = Color.White.copy(alpha = 0.15f),
+                elevation = 12.dp
             )
         )
     ) {

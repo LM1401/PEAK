@@ -42,7 +42,7 @@ class HomeViewModel(
                         // Create a variety of rows for a rich home screen
                         val movieRows = mutableListOf<Row>()
                         
-                        // Row 1: Trending (Landscape in UI)
+                        // Row 1: Trending
                         movieRows.add(Row("Trending This Week", movies.shuffled().take(10)))
                         
                         // Row 2: Top Picks
@@ -64,8 +64,7 @@ class HomeViewModel(
                             it.copy(
                                 rows = movieRows, 
                                 loading = false, 
-                                selectedMovie = movies.first(),
-                                hoveredMovie = movies.first()
+                                selectedMovie = movies.first()
                             ) 
                         }
                     } else {
@@ -80,15 +79,13 @@ class HomeViewModel(
     }
 
     /**
-     * Updates only the hovered state for UI feedback.
      * Debounces the selection update to prevent Hero flickering while scrolling.
+     * ViewModel updates only occur when focus has settled.
      */
     fun onMovieFocused(movie: Movie) {
-        _uiState.update { it.copy(hoveredMovie = movie) }
-        
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            delay(500) // Wait for focus to settle
+            delay(500) // Wait for focus to settle before updating global state
             _uiState.update { it.copy(selectedMovie = movie) }
         }
     }
@@ -98,9 +95,7 @@ class HomeViewModel(
      */
     fun onMovieSelected(movie: Movie) {
         focusDebounceJob?.cancel()
-        _uiState.update {
-            it.copy(selectedMovie = movie, hoveredMovie = movie)
-        }
+        _uiState.update { it.copy(selectedMovie = movie) }
     }
 }
 
