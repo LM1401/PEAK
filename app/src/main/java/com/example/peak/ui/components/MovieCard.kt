@@ -28,30 +28,17 @@ import com.example.peak.domain.model.Movie
 @Composable
 fun MovieCard(
     movie: Movie,
+    isSettled: Boolean, // Synced with Row-level timing
     onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
     // Immediate focus for system feedback (border/glow)
     var isFocused by remember { mutableStateOf(false) }
     
-    // Settled focus for heavy operations like image swapping
-    var isSettledFocused by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(isFocused) {
-        if (!isFocused) {
-            isSettledFocused = false
-        } else {
-            // Delay swapping to high-res backdrop to keep scrolling fluid
-            kotlinx.coroutines.delay(200)
-            isSettledFocused = true
-        }
-    }
-
-    // Restore image swapping only after focus has settled
-    val displayImageUrl = if (isSettledFocused) movie.backdropUrl else movie.imageUrl
+    // Switch to high-res backdrop only when the Row tells us it's settled
+    val displayImageUrl = if (isSettled) movie.backdropUrl else movie.imageUrl
     
     val imageRequest = remember(displayImageUrl) {
         ImageRequest.Builder(context)

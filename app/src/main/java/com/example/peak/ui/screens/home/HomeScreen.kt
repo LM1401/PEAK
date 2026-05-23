@@ -121,8 +121,8 @@ private fun MovieRow(
         if (rawFocusedMovieId == null) {
             settledFocusedMovieId = null
         } else {
-            // Wait for focus to settle before triggering heavy layout changes or metadata
-            kotlinx.coroutines.delay(150) 
+            // SNAPPY: Reduced delay to 80ms for instant feel while protecting focus engine
+            kotlinx.coroutines.delay(80) 
             settledFocusedMovieId = rawFocusedMovieId
         }
     }
@@ -160,8 +160,8 @@ private fun MovieRow(
             ) { movie ->
                 val isSettledFocused = settledFocusedMovieId == movie.movieId
                 
-                // Animate width only after focus has settled
-                val transitionDuration = 400
+                // SNAPPY: 350ms duration for high-end TV responsiveness
+                val transitionDuration = 350
                 val easing = FastOutSlowInEasing
 
                 val cardWidth by animateDpAsState(
@@ -172,6 +172,7 @@ private fun MovieRow(
 
                 MovieCard(
                     movie = movie,
+                    isSettled = isSettledFocused, // Sync image swap with expansion
                     modifier = Modifier
                         .width(cardWidth) 
                         .height(270.dp),
@@ -189,15 +190,18 @@ private fun MovieRow(
             }
         }
 
+        // Use a consistent duration for metadata appearance
+        val metaTransitionDuration = 350
+
         // METADATA UNDER THE CARD (Synced with settled focus)
         androidx.compose.animation.AnimatedVisibility(
             visible = focusedMovie != null,
             enter = androidx.compose.animation.expandVertically(
-                animationSpec = tween(400, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeIn(animationSpec = tween(400)),
+                animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
+            ) + androidx.compose.animation.fadeIn(animationSpec = tween(metaTransitionDuration)),
             exit = androidx.compose.animation.shrinkVertically(
-                animationSpec = tween(400, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeOut(animationSpec = tween(400))
+                animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
+            ) + androidx.compose.animation.fadeOut(animationSpec = tween(metaTransitionDuration))
         ) {
             focusedMovie?.let { movie ->
                 HeroSection(
