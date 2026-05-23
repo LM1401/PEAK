@@ -33,11 +33,25 @@ fun MovieCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Restore local focus tracking for visual-only animation and image swapping
+    
+    // Immediate focus for system feedback (border/glow)
     var isFocused by remember { mutableStateOf(false) }
+    
+    // Settled focus for heavy operations like image swapping
+    var isSettledFocused by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(isFocused) {
+        if (!isFocused) {
+            isSettledFocused = false
+        } else {
+            // Delay swapping to high-res backdrop to keep scrolling fluid
+            kotlinx.coroutines.delay(200)
+            isSettledFocused = true
+        }
+    }
 
-    // Restore image swapping to support landscape expansion
-    val displayImageUrl = if (isFocused) movie.backdropUrl else movie.imageUrl
+    // Restore image swapping only after focus has settled
+    val displayImageUrl = if (isSettledFocused) movie.backdropUrl else movie.imageUrl
     
     val imageRequest = remember(displayImageUrl) {
         ImageRequest.Builder(context)
@@ -51,13 +65,12 @@ fun MovieCard(
         modifier = modifier
             .onFocusChanged { state ->
                 isFocused = state.isFocused
-                // Single source of truth for focus callbacks
                 if (state.isFocused) {
                     onFocus(movie)
                 }
             },
-        // Subtle scale pop on top of the layout expansion
-        scale = CardDefaults.scale(focusedScale = 1.05f),
+        // Immediate visual response via built-in scale
+        scale = CardDefaults.scale(focusedScale = 1.1f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(

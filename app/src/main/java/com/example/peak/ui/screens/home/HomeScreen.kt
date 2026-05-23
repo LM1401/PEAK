@@ -111,14 +111,34 @@ private fun MovieRow(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
-    // Track focus locally in the row to handle card expansion
-    var focusedMovieId by remember { mutableStateOf<String?>(null) }
-    val focusedMovie = row.movies.find { it.movieId == focusedMovieId }
+    // Track the raw focus ID for immediate scaling feedback
+    var rawFocusedMovieId by remember { mutableStateOf<String?>(null) }
+    
+    // Debounce the expansion state to prevent layout jitter during fast scrolling
+    var settledFocusedMovieId by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(rawFocusedMovieId) {
+        if (rawFocusedMovieId == null) {
+            settledFocusedMovieId = null
+        } else {
+            // Wait for focus to settle before triggering heavy layout changes or metadata
+            kotlinx.coroutines.delay(150) 
+            settledFocusedMovieId = rawFocusedMovieId
+        }
+    }
+
+    val focusedMovie = row.movies.find { it.movieId == settledFocusedMovieId }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
+            .onFocusChanged { focusState ->
+                // Clear the focused movie if the entire row loses focus
+                if (!focusState.hasFocus) {
+                    rawFocusedMovieId = null
+                }
+            }
     ) {
         Text(
             text = row.title,
@@ -129,7 +149,7 @@ private fun MovieRow(
         )
 
         LazyRow(
-            modifier = Modifier.height(300.dp), // STABILIZE: Fixed height for the entire row
+            modifier = Modifier.height(300.dp), 
             contentPadding = PaddingValues(horizontal = 120.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -138,12 +158,15 @@ private fun MovieRow(
                 items = row.movies,
                 key = { it.movieId }
             ) { movie ->
-                val isFocused = focusedMovieId == movie.movieId
+                val isSettledFocused = settledFocusedMovieId == movie.movieId
                 
-                // Animate width to push neighbors (Expansion effect)
+                // Animate width only after focus has settled
+                val transitionDuration = 400
+                val easing = FastOutSlowInEasing
+
                 val cardWidth by animateDpAsState(
-                    targetValue = if (isFocused) 400.dp else 180.dp,
-                    animationSpec = tween(400, easing = FastOutSlowInEasing),
+                    targetValue = if (isSettledFocused) 420.dp else 180.dp,
+                    animationSpec = tween(transitionDuration, easing = easing),
                     label = "cardWidth"
                 )
 
@@ -151,10 +174,10 @@ private fun MovieRow(
                     movie = movie,
                     modifier = Modifier
                         .width(cardWidth) 
-                        .height(270.dp), // Lock height to prevent vertical jitter
+                        .height(270.dp),
                     onFocus = { focused -> 
                         if (focused != null) {
-                            focusedMovieId = movie.movieId
+                            rawFocusedMovieId = movie.movieId
                             viewModel.onMovieFocused(focused)
                         }
                     },
@@ -166,15 +189,15 @@ private fun MovieRow(
             }
         }
 
-        // METADATA UNDER THE CARD (Netflix 2024 Style)
+        // METADATA UNDER THE CARD (Synced with settled focus)
         androidx.compose.animation.AnimatedVisibility(
             visible = focusedMovie != null,
             enter = androidx.compose.animation.expandVertically(
                 animationSpec = tween(400, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeIn(),
+            ) + androidx.compose.animation.fadeIn(animationSpec = tween(400)),
             exit = androidx.compose.animation.shrinkVertically(
                 animationSpec = tween(400, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeOut()
+            ) + androidx.compose.animation.fadeOut(animationSpec = tween(400))
         ) {
             focusedMovie?.let { movie ->
                 HeroSection(

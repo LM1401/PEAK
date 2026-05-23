@@ -50,7 +50,7 @@ fun CinematicBackground(
         // 2. Image Layer with Crossfade for smooth URL transitions
         Crossfade(
             targetState = backdropUrl,
-            animationSpec = tween(1000),
+            animationSpec = tween(600), // Faster, snappier transition
             label = "BackdropCrossfade"
         ) { url ->
             if (url != null) {
