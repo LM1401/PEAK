@@ -23,7 +23,7 @@ fun TopNavigationBar(
     selectedTab: String = "Home",
     onTabSelected: (String) -> Unit = {}
 ) {
-    val tabs = listOf("Home", "Series", "Films", "Games", "My Watchlist")
+    val tabs = listOf("Home", "Series", "Films", "My Watchlist")
 
     Row(
         modifier = modifier

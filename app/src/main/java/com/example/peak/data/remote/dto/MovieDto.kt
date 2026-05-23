@@ -12,7 +12,8 @@ data class TmdbResponse(
 
 data class TmdbMovie(
     val id: Int,
-    val title: String,
+    val title: String?,
+    val name: String?,
     @SerializedName("poster_path") val posterPath: String?,
     @SerializedName("backdrop_path") val backdropPath: String?,
     val overview: String?,
@@ -23,13 +24,14 @@ data class TmdbMovie(
  * Extension function to map Remote DTO to Domain Model.
  */
 fun TmdbMovie.toMovie(): Movie {
+    val displayName = title ?: name ?: "Unknown Title"
     return Movie(
         movieId = id.toString(),
-        name = title,
+        name = displayName,
         imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
-            ?: "https://via.placeholder.com/1280x720?text=$title",
+            ?: "https://via.placeholder.com/1280x720?text=$displayName",
         backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" }
-            ?: "https://via.placeholder.com/1280x720?text=$title",
+            ?: "https://via.placeholder.com/1280x720?text=$displayName",
         description = overview ?: "Experience the latest trending story. Now streaming on PEAK.",
         rating = voteAverage?.toString() ?: "8.5"
     )

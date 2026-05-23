@@ -8,4 +8,5 @@ import com.example.peak.domain.model.Movie
  */
 interface MovieRepository {
     suspend fun getTrendingMovies(): Result<List<Movie>>
+    suspend fun getTrendingSeries(): Result<List<Movie>>
 }

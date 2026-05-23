@@ -47,19 +47,64 @@ class MainActivity : ComponentActivity() {
 fun PEAKApp() {
     val navController = rememberNavController()
 
+    val movieRepository = com.example.peak.data.repository.MovieRepositoryImpl(
+        com.example.peak.data.remote.retrofit.RetrofitInstance.api
+    )
+
+    val onTabSelected: (String) -> Unit = { tab ->
+        when (tab) {
+            "Home" -> navController.navigate("home") {
+                popUpTo("home") { inclusive = true }
+                launchSingleTop = true
+            }
+            "Series" -> navController.navigate("series") {
+                launchSingleTop = true
+            }
+            "My Watchlist" -> {} // Handle later
+            "Films" -> navController.navigate("movies") {
+                launchSingleTop = true
+            }
+            else -> {}
+        }
+    }
+
     NavHost(
         navController = navController, 
         startDestination = "home"
     ) {
         composable("home") {
-            val movieRepository = com.example.peak.data.repository.MovieRepositoryImpl(
-                com.example.peak.data.remote.retrofit.RetrofitInstance.api
-            )
             val homeViewModel: com.example.peak.ui.screens.home.HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = com.example.peak.ui.screens.home.HomeViewModelFactory(movieRepository)
             )
             HomeScreen(
                 viewModel = homeViewModel,
+                onTabSelected = onTabSelected,
+                onMovieClick = { movie ->
+                    navController.navigate("movie_detail/${movie.movieId}")
+                }
+            )
+        }
+
+        composable("movies") {
+            val moviesViewModel: com.example.peak.ui.screens.movies.MoviesViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.movies.MoviesViewModelFactory(movieRepository)
+            )
+            com.example.peak.ui.screens.movies.MoviesScreen(
+                viewModel = moviesViewModel,
+                onTabSelected = onTabSelected,
+                onMovieClick = { movie ->
+                    navController.navigate("movie_detail/${movie.movieId}")
+                }
+            )
+        }
+
+        composable("series") {
+            val seriesViewModel: com.example.peak.ui.screens.series.SeriesViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.series.SeriesViewModelFactory(movieRepository)
+            )
+            com.example.peak.ui.screens.series.SeriesScreen(
+                viewModel = seriesViewModel,
+                onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
                 }

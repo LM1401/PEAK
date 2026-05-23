@@ -22,4 +22,13 @@ class MovieRepositoryImpl(
             Result.failure(e)
         }
     }
+
+    override suspend fun getTrendingSeries(): Result<List<Movie>> {
+        return try {
+            val response = api.getTrendingTv()
+            Result.success(response.results.map { it.toMovie() })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
