@@ -44,6 +44,11 @@ fun MovieCard(
         ImageRequest.Builder(context)
             .data(displayImageUrl)
             .crossfade(true)
+            // Ensure stable caching across components and sessions
+            .diskCacheKey(displayImageUrl)
+            .memoryCacheKey(displayImageUrl)
+            // Optimize for TV hardware (Fast decoding)
+            .allowHardware(true)
             .build()
     }
 
@@ -98,6 +103,9 @@ fun DetailMovieCard(
         ImageRequest.Builder(context)
             .data(movie.imageUrl)
             .crossfade(true)
+            .diskCacheKey(movie.imageUrl)
+            .memoryCacheKey(movie.imageUrl)
+            .allowHardware(true)
             .build()
     }
 

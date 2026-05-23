@@ -23,6 +23,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.components.MovieCard
@@ -111,6 +114,26 @@ private fun MovieRow(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
+    val context = LocalContext.current
+    
+    // PRELOAD IMAGES: Pre-fetch images for the current row to ensure instant scrolling
+    LaunchedEffect(row.movies) {
+        row.movies.take(10).forEach { movie ->
+            // Preload portrait poster
+            context.imageLoader.enqueue(
+                ImageRequest.Builder(context)
+                    .data(movie.imageUrl)
+                    .build()
+            )
+            // Preload landscape backdrop (for buttery expansion)
+            context.imageLoader.enqueue(
+                ImageRequest.Builder(context)
+                    .data(movie.backdropUrl)
+                    .build()
+            )
+        }
+    }
+
     // Track the raw focus ID for immediate scaling feedback
     var rawFocusedMovieId by remember { mutableStateOf<String?>(null) }
     
