@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
@@ -23,9 +24,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalContext
-import coil.imageLoader
-import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.components.MovieCard
@@ -33,6 +31,7 @@ import com.example.peak.ui.components.HeroSection
 import com.example.peak.ui.components.CinematicBackground
 import com.example.peak.ui.components.HomeGradientsOverlay
 import com.example.peak.ui.components.TopNavigationBar
+import com.example.peak.ui.image.ImagePreloader
 
 // STANDARDIZED TV LAYOUT CONSTANTS
 private val HORIZONTAL_PADDING = 48.dp
@@ -43,6 +42,18 @@ fun HomeScreen(
     onMovieClick: (Movie) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // Preload first few rows on initial launch to ensure buttery scrolling
+    LaunchedEffect(state.rows) {
+        if (state.rows.isNotEmpty()) {
+            val allUrls = state.rows.take(3).flatMap { row ->
+                row.movies.flatMap { listOf(it.imageUrl, it.backdropUrl) }
+            }
+            ImagePreloader.preload(context, allUrls)
+        }
+    }
+
     val contentFocusRequester = remember { FocusRequester() }
 
     Box(
@@ -114,26 +125,6 @@ private fun MovieRow(
     viewModel: HomeViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
-    val context = LocalContext.current
-    
-    // PRELOAD IMAGES: Pre-fetch images for the current row to ensure instant scrolling
-    LaunchedEffect(row.movies) {
-        row.movies.take(10).forEach { movie ->
-            // Preload portrait poster
-            context.imageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(movie.imageUrl)
-                    .build()
-            )
-            // Preload landscape backdrop (for buttery expansion)
-            context.imageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(movie.backdropUrl)
-                    .build()
-            )
-        }
-    }
-
     // Track the raw focus ID for immediate scaling feedback
     var rawFocusedMovieId by remember { mutableStateOf<String?>(null) }
     

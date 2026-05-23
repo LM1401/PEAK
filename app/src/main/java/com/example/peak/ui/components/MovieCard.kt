@@ -19,6 +19,7 @@ import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
+import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * Large, cinematic Movie Card for the Home Screen.
@@ -41,15 +42,7 @@ fun MovieCard(
     val displayImageUrl = if (isSettled) movie.backdropUrl else movie.imageUrl
     
     val imageRequest = remember(displayImageUrl) {
-        ImageRequest.Builder(context)
-            .data(displayImageUrl)
-            .crossfade(true)
-            // Ensure stable caching across components and sessions
-            .diskCacheKey(displayImageUrl)
-            .memoryCacheKey(displayImageUrl)
-            // Optimize for TV hardware (Fast decoding)
-            .allowHardware(true)
-            .build()
+        PeakImageLoader.buildRequest(context, displayImageUrl)
     }
 
     Card(
@@ -79,7 +72,10 @@ fun MovieCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
-                painter = rememberAsyncImagePainter(model = imageRequest),
+                painter = rememberAsyncImagePainter(
+                    model = imageRequest,
+                    imageLoader = PeakImageLoader.getInstance(context)
+                ),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -100,13 +96,7 @@ fun DetailMovieCard(
 ) {
     val context = LocalContext.current
     val imageRequest = remember(movie.imageUrl) {
-        ImageRequest.Builder(context)
-            .data(movie.imageUrl)
-            .crossfade(true)
-            .diskCacheKey(movie.imageUrl)
-            .memoryCacheKey(movie.imageUrl)
-            .allowHardware(true)
-            .build()
+        PeakImageLoader.buildRequest(context, movie.imageUrl)
     }
 
     Card(
@@ -137,7 +127,10 @@ fun DetailMovieCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
-                painter = rememberAsyncImagePainter(model = imageRequest),
+                painter = rememberAsyncImagePainter(
+                    model = imageRequest,
+                    imageLoader = PeakImageLoader.getInstance(context)
+                ),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
