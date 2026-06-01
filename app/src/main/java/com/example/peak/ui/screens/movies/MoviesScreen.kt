@@ -31,7 +31,8 @@ fun MoviesScreen(
     viewModel: MoviesViewModel,
     onTabSelected: (String) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -89,7 +90,8 @@ fun MoviesScreen(
                         TopNavigationBar(
                             selectedTab = "Films",
                             onTabSelected = onTabSelected,
-                            onSettingsClick = onSettingsClick
+                            onSettingsClick = onSettingsClick,
+                            onSearchClick = onSearchClick
                         )
                     }
 

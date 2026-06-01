@@ -42,7 +42,8 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onTabSelected: (String) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -104,7 +105,8 @@ fun HomeScreen(
                         TopNavigationBar(
                             selectedTab = "Home",
                             onTabSelected = onTabSelected,
-                            onSettingsClick = onSettingsClick
+                            onSettingsClick = onSettingsClick,
+                            onSearchClick = onSearchClick
                         )
                     }
 

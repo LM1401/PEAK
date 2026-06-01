@@ -23,7 +23,8 @@ fun TopNavigationBar(
     modifier: Modifier = Modifier,
     selectedTab: String = "Home",
     onTabSelected: (String) -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     val tabs = listOf("Home", "Series", "Films", "My Watchlist")
 
@@ -55,8 +56,20 @@ fun TopNavigationBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            IconButton(onClick = { }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp), tint = Color.White)
+            Surface(
+                onClick = onSearchClick,
+                modifier = Modifier.size(32.dp),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    focusedContainerColor = Color.White.copy(alpha = 0.2f),
+                    contentColor = Color.White,
+                    focusedContentColor = Color.White
+                ),
+                shape = ClickableSurfaceDefaults.shape(CircleShape)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                }
             }
 
             tabs.forEach { tab ->

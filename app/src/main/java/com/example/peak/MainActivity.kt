@@ -82,7 +82,8 @@ fun PEAKApp() {
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
-                onSettingsClick = { navController.navigate("settings") }
+                onSettingsClick = { navController.navigate("settings") },
+                onSearchClick = { navController.navigate("search") }
             )
         }
 
@@ -96,7 +97,8 @@ fun PEAKApp() {
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
-                onSettingsClick = { navController.navigate("settings") }
+                onSettingsClick = { navController.navigate("settings") },
+                onSearchClick = { navController.navigate("search") }
             )
         }
 
@@ -110,7 +112,8 @@ fun PEAKApp() {
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
-                onSettingsClick = { navController.navigate("settings") }
+                onSettingsClick = { navController.navigate("settings") },
+                onSearchClick = { navController.navigate("search") }
             )
         }
 
@@ -154,9 +157,15 @@ fun PEAKApp() {
         }
 
         composable("search") {
-            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Text("Search Screen Placeholder", color = Color.White)
-            }
+            val okHttpClient = okhttp3.OkHttpClient()
+            val searchRepository = com.example.peak.data.search.SearchRepository(okHttpClient)
+            val searchViewModel = com.example.peak.ui.search.SearchViewModel(searchRepository)
+            com.example.peak.ui.search.SearchScreen(
+                viewModel = searchViewModel,
+                onItemClick = { item ->
+                    navController.navigate("movie_detail/${item.id}")
+                }
+            )
         }
     }
 }
