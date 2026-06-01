@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,7 +22,8 @@ import androidx.tv.material3.*
 fun TopNavigationBar(
     modifier: Modifier = Modifier,
     selectedTab: String = "Home",
-    onTabSelected: (String) -> Unit = {}
+    onTabSelected: (String) -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     val tabs = listOf("Home", "Series", "Films", "My Watchlist")
 
@@ -79,7 +81,25 @@ fun TopNavigationBar(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Netflix Logo (Right side)
-        Text("N", color = Color(0xFFE50914), fontSize = 30.sp, fontWeight = FontWeight.Black)
+        // Settings Button (Right side)
+        Surface(
+            onClick = onSettingsClick,
+            modifier = Modifier.size(36.dp),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = Color.Transparent,
+                focusedContainerColor = Color.White.copy(alpha = 0.2f),
+                contentColor = Color.White,
+                focusedContentColor = Color.White
+            ),
+            shape = ClickableSurfaceDefaults.shape(CircleShape)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }

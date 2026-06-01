@@ -30,7 +30,8 @@ import com.example.peak.ui.image.ImagePreloader
 fun MoviesScreen(
     viewModel: MoviesViewModel,
     onTabSelected: (String) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    onSettingsClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -87,7 +88,8 @@ fun MoviesScreen(
                     item {
                         TopNavigationBar(
                             selectedTab = "Films",
-                            onTabSelected = onTabSelected
+                            onTabSelected = onTabSelected,
+                            onSettingsClick = onSettingsClick
                         )
                     }
 

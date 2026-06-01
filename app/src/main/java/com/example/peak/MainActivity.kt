@@ -81,7 +81,8 @@ fun PEAKApp() {
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
-                }
+                },
+                onSettingsClick = { navController.navigate("settings") }
             )
         }
 
@@ -94,7 +95,8 @@ fun PEAKApp() {
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
-                }
+                },
+                onSettingsClick = { navController.navigate("settings") }
             )
         }
 
@@ -107,7 +109,16 @@ fun PEAKApp() {
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
                     navController.navigate("movie_detail/${movie.movieId}")
-                }
+                },
+                onSettingsClick = { navController.navigate("settings") }
+            )
+        }
+
+        composable("settings") {
+            val settingsViewModel: com.example.peak.ui.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            com.example.peak.ui.settings.SettingsScreen(
+                viewModel = settingsViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
 

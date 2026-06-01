@@ -41,7 +41,8 @@ private val HORIZONTAL_PADDING = 48.dp
 fun HomeScreen(
     viewModel: HomeViewModel,
     onTabSelected: (String) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    onSettingsClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -102,7 +103,8 @@ fun HomeScreen(
                     item {
                         TopNavigationBar(
                             selectedTab = "Home",
-                            onTabSelected = onTabSelected
+                            onTabSelected = onTabSelected,
+                            onSettingsClick = onSettingsClick
                         )
                     }
 
