@@ -4,6 +4,7 @@ import android.content.Context
 import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 
 /**
@@ -27,6 +28,7 @@ object PeakImageLoader {
                         .maxSizePercent(0.02)
                         .build()
                 }
+                // TV Optimizations
                 .allowHardware(true)
                 .crossfade(true)
                 .build()
@@ -36,12 +38,15 @@ object PeakImageLoader {
 
     /**
      * Helper to build a standard, cached ImageRequest.
+     * Ensures memory and disk cache policies are explicitly enabled.
      */
     fun buildRequest(context: Context, url: String?): ImageRequest {
+        val safeUrl = url?.takeIf { it.isNotBlank() } ?: ""
         return ImageRequest.Builder(context)
-            .data(url)
-            .diskCacheKey(url)
-            .memoryCacheKey(url)
+            .data(safeUrl)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .crossfade(true)
             .build()
     }
 }

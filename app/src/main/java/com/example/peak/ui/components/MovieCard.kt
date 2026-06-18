@@ -4,9 +4,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -14,8 +16,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
+import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -24,7 +28,7 @@ import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * Large, cinematic Movie Card for the Home Screen.
- * Optimized to remove redundant focus state and recomposition load.
+ * Optimized for performance: asynchronous loading with stable placeholders.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -33,10 +37,10 @@ fun MovieCard(
     isSettled: Boolean, // Synced with Row-level timing
     onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progress: Float? = null
 ) {
     val context = LocalContext.current
-    // Immediate focus for system feedback (border/glow)
     var isFocused by remember { mutableStateOf(false) }
     
     // Switch to high-res backdrop only when the Row tells us it's settled
@@ -45,11 +49,6 @@ fun MovieCard(
     val imageRequest = remember(displayImageUrl) {
         PeakImageLoader.buildRequest(context, displayImageUrl)
     }
-
-    val painter = rememberAsyncImagePainter(
-        model = imageRequest,
-        imageLoader = PeakImageLoader.getInstance(context)
-    )
 
     Card(
         onClick = { onClick(movie) },
@@ -60,7 +59,6 @@ fun MovieCard(
                     onFocus(movie)
                 }
             },
-        // Immediate visual response via built-in scale
         scale = CardDefaults.scale(focusedScale = 1.1f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
@@ -77,17 +75,37 @@ fun MovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // SHIMMER PLACEHOLDER
-            if (painter.state is AsyncImagePainter.State.Loading) {
+            // 1. BASE PLACEHOLDER (Always present, prevents grey tiles)
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
                 ShimmerBox()
             }
 
-            Image(
-                painter = painter,
+            // 2. ASYNC IMAGE (Loaded smoothly in background)
+            AsyncImage(
+                model = imageRequest,
+                imageLoader = PeakImageLoader.getInstance(context),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+
+            // Progress Bar Overlay
+            if (progress != null && progress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(Color.Gray.copy(alpha = 0.5f))
+                        .align(Alignment.BottomStart)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress.coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .background(Color.Red)
+                    )
+                }
+            }
         }
     }
 }
@@ -106,11 +124,6 @@ fun DetailMovieCard(
     val imageRequest = remember(movie.imageUrl) {
         PeakImageLoader.buildRequest(context, movie.imageUrl)
     }
-
-    val painter = rememberAsyncImagePainter(
-        model = imageRequest,
-        imageLoader = PeakImageLoader.getInstance(context)
-    )
 
     Card(
         onClick = { onMovieClick(movie) },
@@ -139,13 +152,14 @@ fun DetailMovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // SHIMMER PLACEHOLDER
-            if (painter.state is AsyncImagePainter.State.Loading) {
+            // BASE PLACEHOLDER
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
                 ShimmerBox()
             }
 
-            Image(
-                painter = painter,
+            AsyncImage(
+                model = imageRequest,
+                imageLoader = PeakImageLoader.getInstance(context),
                 contentDescription = movie.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

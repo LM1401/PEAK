@@ -41,11 +41,21 @@ fun NetflixDetailScreen(
     movieId: String,
     onPlayClick: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    viewModel: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository? = null
 ) {
+    val viewModel: DetailViewModel = if (continueWatchingRepository != null) {
+        androidx.lifecycle.viewmodel.compose.viewModel(
+            factory = DetailViewModelFactory(continueWatchingRepository)
+        )
+    } else {
+        androidx.lifecycle.viewmodel.compose.viewModel()
+    }
+    
     val movie by viewModel.movie.collectAsState()
     val similarMovies by viewModel.similarMovies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val resumePosition by viewModel.resumePosition.collectAsState()
+    val totalDuration by viewModel.totalDuration.collectAsState()
 
     LaunchedEffect(movieId) {
         viewModel.loadMovie(movieId)
@@ -60,6 +70,8 @@ fun NetflixDetailScreen(
             NetflixDetailContent(
                 movie = currentMovie,
                 similarMovies = similarMovies,
+                resumePosition = resumePosition,
+                totalDuration = totalDuration,
                 onPlayClick = onPlayClick,
                 onMovieClick = onMovieClick
             )
@@ -72,6 +84,8 @@ fun NetflixDetailScreen(
 fun NetflixDetailContent(
     movie: Movie,
     similarMovies: List<Movie>,
+    resumePosition: Long = 0L,
+    totalDuration: Long = 0L,
     onPlayClick: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
@@ -186,9 +200,21 @@ fun NetflixDetailContent(
                             .width(300.dp)
                             .heightIn(min = 140.dp)
                     ) {
+                        val playText = if (resumePosition > 0) {
+                            val remainingMs = totalDuration - resumePosition
+                            if (remainingMs > 60000) {
+                                val remainingMin = remainingMs / 60000
+                                "Resume • ${remainingMin}m left"
+                            } else {
+                                "Resume"
+                            }
+                        } else {
+                            "Play"
+                        }
+
                         ActionButton(
                             icon = Icons.Default.PlayArrow,
-                            text = "Play",
+                            text = playText,
                             isPrimary = true,
                             modifier = Modifier
                                 .fillMaxWidth()

@@ -1,5 +1,6 @@
 package com.example.peak.ui.screens.home
 
+import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,6 +48,8 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    
+    Log.d("CW_DEBUG", "UI state -> rows=${state.rows.size}, CW_progress_size=${state.continueWatchingProgress.size}")
 
     // Preload first few rows on initial launch to ensure buttery scrolling
     LaunchedEffect(state.rows) {
@@ -65,66 +68,98 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (state.loading) {
+        // 1. BACKGROUND (ambient layer) - Always visible or black
+        CinematicBackground(
+            backdropUrl = state.selectedMovie?.backdropUrl,
+            modifier = Modifier.fillMaxSize().zIndex(0f)
+        )
+
+        // 2. GRADIENT DEPTH
+        HomeGradientsOverlay(
+            modifier = Modifier.fillMaxSize().zIndex(1f)
+        )
+
+        // 3. MAIN UI SCROLL (Continuous Canvas)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2f)
+                .focusRequester(contentFocusRequester),
+            contentPadding = PaddingValues(bottom = 64.dp)
+        ) {
+            // 3.1 TOP NAVIGATION BAR
+            item {
+                TopNavigationBar(
+                    selectedTab = "Home",
+                    onTabSelected = onTabSelected,
+                    onSettingsClick = onSettingsClick,
+                    onSearchClick = onSearchClick
+                )
+            }
+
+            // 3.2 MOVIE ROWS (Focus-driven metadata)
+            itemsIndexed(
+                items = state.rows,
+                key = { _, row -> row.title }
+            ) { _, row ->
+                MovieRow(
+                    row = row,
+                    onMovieFocused = { viewModel.onMovieFocused(it) },
+                    onMovieSelected = { viewModel.onMovieSelected(it) },
+                    onMovieClick = onMovieClick,
+                    progressMap = if (row.title == "Continue Watching") state.continueWatchingProgress else null
+                )
+            }
+
+            // 3.3 EMPTY STATE FALLBACK
+            if (!state.loading && state.rows.isEmpty()) {
+                item {
+                    EmptyHomePlaceholder()
+                }
+            }
+        }
+
+        // 4. LOADING OVERLAY (Non-blocking)
+        if (state.loading && state.rows.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().zIndex(3f),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Loading...",
-                    color = Color.White,
+                    text = "Loading PEAK...",
+                    color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.headlineMedium
                 )
             }
         }
+    }
+}
 
-        if (state.rows.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                
-                // 1. BACKGROUND (ambient layer)
-                CinematicBackground(
-                    backdropUrl = state.selectedMovie?.backdropUrl,
-                    modifier = Modifier.fillMaxSize().zIndex(0f)
-                )
-
-                // 2. GRADIENT DEPTH
-                HomeGradientsOverlay(
-                    modifier = Modifier.fillMaxSize().zIndex(1f)
-                )
-
-                // 3. MAIN UI SCROLL (Continuous Canvas)
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .zIndex(2f)
-                        .focusRequester(contentFocusRequester),
-                    contentPadding = PaddingValues(bottom = 64.dp)
-                ) {
-                    // 3.1 TOP NAVIGATION BAR (Matches image task bar)
-                    item {
-                        TopNavigationBar(
-                            selectedTab = "Home",
-                            onTabSelected = onTabSelected,
-                            onSettingsClick = onSettingsClick,
-                            onSearchClick = onSearchClick
-                        )
-                    }
-
-                    // 3.2 MOVIE ROWS (Focus-driven metadata)
-                    itemsIndexed(
-                        items = state.rows,
-                        key = { _, row -> row.title }
-                    ) { _, row ->
-                        
-                        MovieRow(
-                            row = row,
-                            onMovieFocused = { viewModel.onMovieFocused(it) },
-                            onMovieSelected = { viewModel.onMovieSelected(it) },
-                            onMovieClick = onMovieClick
-                        )
-                    }
-                }
-            }
+/**
+ * Fallback UI when no content is available.
+ * Ensures the screen is never blank and remains focusable.
+ */
+@Composable
+fun EmptyHomePlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(400.dp)
+            .padding(horizontal = 120.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column {
+            Text(
+                text = "No content available right now.",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Try checking your internet connection or come back later.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
         }
     }
 }

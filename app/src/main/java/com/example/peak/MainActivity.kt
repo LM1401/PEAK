@@ -51,6 +51,31 @@ fun PEAKApp() {
         com.example.peak.data.remote.retrofit.RetrofitInstance.api
     )
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val continueWatchingStorage = remember {
+        com.example.peak.data.continuewatching.ContinueWatchingStorage(context)
+    }
+    val continueWatchingRepository = remember {
+        com.example.peak.data.repository.ContinueWatchingRepository(continueWatchingStorage)
+    }
+
+    // DEBUG: Inject test item if list is empty
+    LaunchedEffect(Unit) {
+        val items = continueWatchingRepository.continueWatchingItems.value
+        if (items.isEmpty()) {
+            Log.d("CW_DEBUG", "Injecting test item...")
+            continueWatchingRepository.saveProgress(
+                movieId = "test_movie_1",
+                title = "Test Movie (Resume)",
+                posterPath = "https://image.tmdb.org/t/p/w500/8uO0gUMYvNqpgS71SFTjViIyR93.jpg",
+                backdropPath = "https://image.tmdb.org/t/p/original/6MKs9Y7uVpWp5tX1yS80m3096Z7.jpg",
+                mediaType = "movie",
+                positionMs = 3600000L, // 1 hour in
+                durationMs = 7200000L  // 2 hours total
+            )
+        }
+    }
+
     val onTabSelected: (String) -> Unit = { tab ->
         when (tab) {
             "Home" -> navController.navigate("home") {
@@ -74,7 +99,7 @@ fun PEAKApp() {
     ) {
         composable("home") {
             val homeViewModel: com.example.peak.ui.screens.home.HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.peak.ui.screens.home.HomeViewModelFactory(movieRepository)
+                factory = com.example.peak.ui.screens.home.HomeViewModelFactory(movieRepository, continueWatchingRepository)
             )
             HomeScreen(
                 viewModel = homeViewModel,
@@ -132,6 +157,7 @@ fun PEAKApp() {
             val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
             NetflixDetailScreen(
                 movieId = movieId,
+                continueWatchingRepository = continueWatchingRepository,
                 onPlayClick = { movie ->
                     navController.navigate("player/${movie.movieId}")
                 },

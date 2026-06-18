@@ -1,5 +1,6 @@
 package com.example.peak.ui.components
 
+import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -29,8 +30,10 @@ fun MovieRow(
     onMovieFocused: (Movie) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progressMap: Map<String, Float>? = null
 ) {
+    Log.d("CW_DEBUG", "MovieRow rendering -> title=${row.title}, movies=${row.movies.size}")
     // Track the raw focus ID for immediate scaling feedback
     var rawFocusedMovieId by remember { mutableStateOf<String?>(null) }
     
@@ -96,6 +99,7 @@ fun MovieRow(
                     modifier = Modifier
                         .width(cardWidth) 
                         .height(270.dp),
+                    progress = progressMap?.get(movie.movieId),
                     onFocus = { focused -> 
                         if (focused != null) {
                             rawFocusedMovieId = movie.movieId
