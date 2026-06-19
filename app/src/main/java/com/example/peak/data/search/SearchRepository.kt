@@ -65,6 +65,13 @@ class SearchRepository(private val client: OkHttpClient) {
                         "$imageBaseUrl$posterPath"
                     } else null
 
+                    val backdropPath = item.optString("backdrop_path")
+                    val backdropUrl = if (!backdropPath.isNullOrBlank() && backdropPath != "null") {
+                        "https://image.tmdb.org/t/p/w1280$backdropPath"
+                    } else null
+
+                    val overview = item.optString("overview")
+                    val rating = item.optDouble("vote_average", 0.0)
                     val popularity = item.optDouble("popularity", 0.0)
 
                     results.add(
@@ -74,6 +81,9 @@ class SearchRepository(private val client: OkHttpClient) {
                             year = year,
                             type = type,
                             posterUrl = posterUrl,
+                            backdropUrl = backdropUrl,
+                            overview = overview,
+                            rating = rating,
                             popularity = popularity
                         )
                     )

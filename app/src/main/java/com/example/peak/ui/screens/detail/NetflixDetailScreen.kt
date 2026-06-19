@@ -58,10 +58,12 @@ fun NetflixDetailScreen(
     val totalDuration by viewModel.totalDuration.collectAsState()
 
     LaunchedEffect(movieId) {
-        viewModel.loadMovie(movieId)
+        if (movieId.isNotBlank()) {
+            viewModel.loadMovie(movieId)
+        }
     }
 
-    if (isLoading) {
+    if (isLoading || movieId.isBlank()) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             Text("Loading...", color = Color.White)
         }

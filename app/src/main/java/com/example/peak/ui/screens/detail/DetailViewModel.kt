@@ -2,16 +2,10 @@ package com.example.peak.ui.screens.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.peak.data.remote.dto.toMovie
-import com.example.peak.data.remote.retrofit.RetrofitInstance
 import com.example.peak.domain.model.Movie
-import com.example.peak.domain.model.sampleRows
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -38,6 +32,17 @@ class DetailViewModel(
 
     init {
         observeContinueWatching()
+        observeSelectedMovie()
+    }
+
+    private fun observeSelectedMovie() {
+        com.example.peak.ui.navigation.MovieSelectionTracker.selectedMovie
+            .onEach { selected ->
+                if (selected != null && selected.movieId == currentMovieId) {
+                    _movie.value = selected
+                    _isLoading.value = false
+                }
+            }.launchIn(viewModelScope)
     }
 
     private fun observeContinueWatching() {
@@ -50,33 +55,28 @@ class DetailViewModel(
     }
 
     fun loadMovie(movieId: String) {
+        if (movieId.isBlank()) {
+            _isLoading.value = false
+            return
+        }
         this.currentMovieId = movieId
-        viewModelScope.launch {
+        
+        // Trigger initial check for resume position
+        continueWatchingRepository?.let { repo ->
+            val item = repo.continueWatchingItems.value.find { it.movieId == movieId }
+            _resumePosition.value = item?.positionMs ?: 0L
+            _totalDuration.value = item?.durationMs ?: 0L
+        }
+
+        // Check if the movie is already selected in the tracker
+        val selected = com.example.peak.ui.navigation.MovieSelectionTracker.selectedMovie.value
+        if (selected != null && selected.movieId == movieId) {
+            _movie.value = selected
+            _isLoading.value = false
+        } else {
+            // If not found in tracker, we might still want to show something or wait for observation
+            // But the user said "Remove all API lookup logic"
             _isLoading.value = true
-            try {
-                // ... fetch movie logic
-                val response = withContext(Dispatchers.IO) {
-                    RetrofitInstance.api.getTrending()
-                }
-                val foundMovie = response.results.find { it.id.toString() == movieId }?.toMovie()
-
-                _movie.value = foundMovie
-                _similarMovies.value = response.results.take(10).map { it.toMovie() }
-
-                // Trigger initial check for resume position
-                continueWatchingRepository?.let { repo ->
-                    val item = repo.continueWatchingItems.value.find { it.movieId == movieId }
-                    _resumePosition.value = item?.positionMs ?: 0L
-                    _totalDuration.value = item?.durationMs ?: 0L
-                }
-
-                _isLoading.value = false
-            } catch (_: Exception) {
-                // ... fallback logic
-                _movie.value = sampleRows().firstOrNull()?.movies?.firstOrNull()
-                _similarMovies.value = sampleRows().flatMap { it.movies }
-                _isLoading.value = false
-            }
         }
     }
 }

@@ -23,6 +23,7 @@ import com.example.peak.ui.screens.detail.NetflixDetailScreen
 import com.example.peak.ui.screens.home.HomeScreen
 import com.example.peak.ui.screens.player.PlayerScreen
 import com.example.peak.ui.theme.PEAKTheme
+import com.example.peak.ui.search.toMovie
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +106,7 @@ fun PEAKApp() {
                 viewModel = homeViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
+                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -120,6 +122,7 @@ fun PEAKApp() {
                 viewModel = moviesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
+                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -135,6 +138,7 @@ fun PEAKApp() {
                 viewModel = seriesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
+                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -163,6 +167,7 @@ fun PEAKApp() {
                 },
                 onMovieClick = { movie ->
                     // Replace current detail instead of stacking
+                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}") {
                         popUpTo("home") { inclusive = false }
                     }
@@ -189,6 +194,8 @@ fun PEAKApp() {
             com.example.peak.ui.search.SearchScreen(
                 viewModel = searchViewModel,
                 onItemClick = { item ->
+                    val movie = item.toMovie()
+                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${item.id}")
                 }
             )
