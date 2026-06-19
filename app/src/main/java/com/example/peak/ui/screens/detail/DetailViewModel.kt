@@ -3,15 +3,17 @@ package com.example.peak.ui.screens.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.peak.domain.model.Movie
+import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 class DetailViewModel(
-    private val continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository? = null
+    private val movieRepository: MovieRepository,
+    private val continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository
 ) : ViewModel() {
     private val _movie = MutableStateFlow<Movie?>(null)
     val movie: StateFlow<Movie?> = _movie.asStateFlow()
@@ -21,6 +23,9 @@ class DetailViewModel(
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     private val _resumePosition = MutableStateFlow<Long>(0L)
     val resumePosition: StateFlow<Long> = _resumePosition.asStateFlow()
@@ -32,62 +37,57 @@ class DetailViewModel(
 
     init {
         observeContinueWatching()
-        observeSelectedMovie()
-    }
-
-    private fun observeSelectedMovie() {
-        com.example.peak.ui.navigation.MovieSelectionTracker.selectedMovie
-            .onEach { selected ->
-                if (selected != null && selected.movieId == currentMovieId) {
-                    _movie.value = selected
-                    _isLoading.value = false
-                }
-            }.launchIn(viewModelScope)
     }
 
     private fun observeContinueWatching() {
-        continueWatchingRepository?.continueWatchingItems?.onEach { items ->
+        continueWatchingRepository.continueWatchingItems.onEach { items ->
             val id = currentMovieId ?: return@onEach
             val item = items.find { it.movieId == id }
             _resumePosition.value = item?.positionMs ?: 0L
             _totalDuration.value = item?.durationMs ?: 0L
-        }?.launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
     }
 
     fun loadMovie(movieId: String) {
-        if (movieId.isBlank()) {
-            _isLoading.value = false
-            return
-        }
-        this.currentMovieId = movieId
+        if (movieId.isBlank() || currentMovieId == movieId) return
         
-        // Trigger initial check for resume position
-        continueWatchingRepository?.let { repo ->
-            val item = repo.continueWatchingItems.value.find { it.movieId == movieId }
+        this.currentMovieId = movieId
+        _isLoading.value = true
+        _error.value = null
+
+        viewModelScope.launch {
+            // 1. Initial check for resume position
+            val item = continueWatchingRepository.continueWatchingItems.value.find { it.movieId == movieId }
             _resumePosition.value = item?.positionMs ?: 0L
             _totalDuration.value = item?.durationMs ?: 0L
-        }
 
-        // Check if the movie is already selected in the tracker
-        val selected = com.example.peak.ui.navigation.MovieSelectionTracker.selectedMovie.value
-        if (selected != null && selected.movieId == movieId) {
-            _movie.value = selected
-            _isLoading.value = false
-        } else {
-            // If not found in tracker, we might still want to show something or wait for observation
-            // But the user said "Remove all API lookup logic"
-            _isLoading.value = true
+            // 2. Fetch full movie details from repository (Option A)
+            movieRepository.getMovieById(movieId)
+                .onSuccess { movieDetails ->
+                    _movie.value = movieDetails
+                    _isLoading.value = false
+                    
+                    // Fetch "similar" movies (using trending as fallback for now)
+                    movieRepository.getTrendingMovies().onSuccess { trending ->
+                        _similarMovies.value = trending.filter { it.movieId != movieId }.shuffled().take(12)
+                    }
+                }
+                .onFailure {
+                    _isLoading.value = false
+                    _error.value = "Failed to load movie details"
+                }
         }
     }
 }
 
 class DetailViewModelFactory(
+    private val movieRepository: MovieRepository,
     private val continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository
 ) : androidx.lifecycle.ViewModelProvider.Factory {
     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return DetailViewModel(continueWatchingRepository) as T
+            return DetailViewModel(movieRepository, continueWatchingRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

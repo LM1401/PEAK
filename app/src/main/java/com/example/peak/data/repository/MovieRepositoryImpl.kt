@@ -31,4 +31,13 @@ class MovieRepositoryImpl(
             Result.failure(e)
         }
     }
+
+    override suspend fun getMovieById(movieId: String): Result<Movie> {
+        return try {
+            val response = api.getMovieDetails(movieId)
+            Result.success(response.toMovie())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

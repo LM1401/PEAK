@@ -30,53 +30,60 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.tv.material3.*
 import coil.compose.rememberAsyncImagePainter
 import com.example.peak.domain.model.Movie
+import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
+import com.example.peak.data.repository.ContinueWatchingRepository
 
 /**
  * A Netflix-style Movie Detail Screen for Android TV.
+ * Refactored to Option A: movieId is the single source of truth.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun NetflixDetailScreen(
     movieId: String,
+    movieRepository: MovieRepository,
+    continueWatchingRepository: ContinueWatchingRepository,
     onPlayClick: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit,
-    continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository? = null
+    onMovieClick: (Movie) -> Unit
 ) {
-    val viewModel: DetailViewModel = if (continueWatchingRepository != null) {
-        androidx.lifecycle.viewmodel.compose.viewModel(
-            factory = DetailViewModelFactory(continueWatchingRepository)
-        )
-    } else {
-        androidx.lifecycle.viewmodel.compose.viewModel()
-    }
+    val viewModel: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = DetailViewModelFactory(movieRepository, continueWatchingRepository)
+    )
     
     val movie by viewModel.movie.collectAsState()
     val similarMovies by viewModel.similarMovies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     val resumePosition by viewModel.resumePosition.collectAsState()
     val totalDuration by viewModel.totalDuration.collectAsState()
 
     LaunchedEffect(movieId) {
-        if (movieId.isNotBlank()) {
-            viewModel.loadMovie(movieId)
-        }
+        viewModel.loadMovie(movieId)
     }
 
-    if (isLoading || movieId.isBlank()) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            Text("Loading...", color = Color.White)
-        }
-    } else {
-        movie?.let { currentMovie ->
-            NetflixDetailContent(
-                movie = currentMovie,
-                similarMovies = similarMovies,
-                resumePosition = resumePosition,
-                totalDuration = totalDuration,
-                onPlayClick = onPlayClick,
-                onMovieClick = onMovieClick
-            )
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        when {
+            isLoading && movie == null -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Loading Details...", color = Color.White)
+                }
+            }
+            error != null && movie == null -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(error ?: "Unknown Error", color = Color.Red)
+                }
+            }
+            movie != null -> {
+                NetflixDetailContent(
+                    movie = movie!!,
+                    similarMovies = similarMovies,
+                    resumePosition = resumePosition,
+                    totalDuration = totalDuration,
+                    onPlayClick = onPlayClick,
+                    onMovieClick = onMovieClick
+                )
+            }
         }
     }
 }

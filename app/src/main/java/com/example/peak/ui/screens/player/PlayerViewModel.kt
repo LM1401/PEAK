@@ -4,77 +4,84 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.data.repository.ContinueWatchingRepository
-import com.example.peak.ui.navigation.MovieSelectionTracker
+import com.example.peak.domain.model.Movie
+import com.example.peak.domain.repository.MovieRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for managing playback state and persisting progress.
  * Acts as the bridge between the Player UI and the Continue Watching system.
+ * Final Stability Pass: Reactive derived state for resume position.
  */
 class PlayerViewModel(
-    private val repository: ContinueWatchingRepository
+    private val repository: ContinueWatchingRepository,
+    private val movieRepository: MovieRepository
 ) : ViewModel() {
 
     private val _movieId = MutableStateFlow<String?>(null)
 
-    private val _resumePosition = MutableStateFlow(0L)
-    val resumePosition: StateFlow<Long> = _resumePosition.asStateFlow()
+    private val _movie = MutableStateFlow<Movie?>(null)
+    val movie: StateFlow<Movie?> = _movie.asStateFlow()
+
+    private val _videoUrl = MutableStateFlow<String?>(null)
+    val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
+
+    // ISSUE 2 — MAKE RESUME POSITION FULLY REACTIVE
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val resumePosition: StateFlow<Long> = _movieId
+        .filterNotNull()
+        .flatMapLatest { id ->
+            repository.continueWatchingItems.map { items ->
+                items.find { it.movieId == id }?.positionMs ?: 0L
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
-    private val _isResumeAvailable = MutableStateFlow(false)
-    val isResumeAvailable: StateFlow<Boolean> = _isResumeAvailable.asStateFlow()
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     // Lifecycle safety: tracking last save state to prevent duplicate writes
     private var lastSavedPosition: Long = -1L
     private var lastSaveTimestamp: Long = 0L
-    private val periodicSaveIntervalMs = 5000L // Periodic updates happen every 5s
-
-    init {
-        // Reactive sync with the Single Source of Truth
-        repository.continueWatchingItems
-            .onEach { items ->
-                val id = _movieId.value ?: return@onEach
-                val item = items.find { it.movieId == id }
-                if (item != null) {
-                    _resumePosition.value = item.positionMs
-                    _duration.value = item.durationMs
-                    // Item is resumable if there's progress and it's not yet finished (95% rule in model)
-                    _isResumeAvailable.value = item.positionMs > 0 && !item.isEffectivelyCompleted()
-                }
-            }
-            .launchIn(viewModelScope)
-    }
+    private val periodicSaveIntervalMs = 5000L
 
     /**
      * Initializes the playback session for a specific movie.
+     * Derived states (resumePosition) update automatically via flatMapLatest.
      */
     fun loadMovie(movieId: String) {
-        if (movieId.isBlank()) return
+        if (movieId.isBlank() || _movieId.value == movieId) return
         _movieId.value = movieId
+        _isLoading.value = true
         
-        // Snapshot current state for immediate UI feedback
-        val item = repository.continueWatchingItems.value.find { it.movieId == movieId }
-        if (item != null) {
-            _resumePosition.value = item.positionMs
-            _duration.value = item.durationMs
-            _isResumeAvailable.value = item.positionMs > 0 && !item.isEffectivelyCompleted()
+        viewModelScope.launch {
+            // Load full Movie object from repository (Option A)
+            movieRepository.getMovieById(movieId)
+                .onSuccess { movieDetails ->
+                    _movie.value = movieDetails
+                    _videoUrl.value = movieDetails.videoUrl
+                    _isLoading.value = false
+                }
+                .onFailure {
+                    _isLoading.value = false
+                    _videoUrl.value = null
+                }
         }
     }
 
     /**
      * Updates the playback progress in the repository.
-     * Includes a time-based debounce to prevent excessive writes during playback.
      */
     fun updatePlaybackPosition(positionMs: Long, durationMs: Long) {
         val movieId = _movieId.value ?: return
         if (durationMs <= 0) return
 
         val currentTime = System.currentTimeMillis()
-        
-        // Periodic Save Debounce: Only save if interval passed OR significant seek happened
         val isIntervalPassed = currentTime - lastSaveTimestamp >= periodicSaveIntervalMs
         val isSignificantSeek = kotlin.math.abs(positionMs - lastSavedPosition) > periodicSaveIntervalMs
 
@@ -84,24 +91,21 @@ class PlayerViewModel(
     }
 
     /**
-     * Final sync method called when playback is stopped (exit, background, dispose).
-     * Guaranteed to save the final state if it differs from the last periodic save.
+     * Final sync method called when playback is stopped.
      */
     fun onPlaybackStopped(positionMs: Long, durationMs: Long) {
         val movieId = _movieId.value ?: return
         if (durationMs <= 0) return
 
-        // 1. Apply completion rule (95%)
+        // Apply completion rule (95%)
         val completionRatio = positionMs.toDouble() / durationMs.toDouble()
         if (completionRatio >= 0.95) {
             markPlaybackCompleted()
             return
         }
 
-        // 2. Prevent duplicate write if we JUST saved this exact position
         if (positionMs == lastSavedPosition) return
 
-        // 3. Force final save (ignoring interval)
         saveProgressInternal(movieId, positionMs, durationMs)
     }
 
@@ -116,14 +120,13 @@ class PlayerViewModel(
             if (exists) {
                 repository.updatePosition(movieId, positionMs, durationMs)
             } else {
-                // Initialize the item in Continue Watching using the cached movie details
-                val selectedMovie = MovieSelectionTracker.selectedMovie.value
-                if (selectedMovie != null && selectedMovie.movieId == movieId) {
+                val movieData = _movie.value
+                if (movieData != null) {
                     repository.saveProgress(
-                        movieId = selectedMovie.movieId,
-                        title = selectedMovie.name,
-                        posterPath = selectedMovie.imageUrl,
-                        backdropPath = selectedMovie.backdropUrl,
+                        movieId = movieData.movieId,
+                        title = movieData.name,
+                        posterPath = movieData.imageUrl,
+                        backdropPath = movieData.backdropUrl,
                         mediaType = "movie",
                         positionMs = positionMs,
                         durationMs = durationMs
@@ -133,13 +136,9 @@ class PlayerViewModel(
         }
     }
 
-    /**
-     * Marks the current media as finished, which triggers removal from Continue Watching rows.
-     */
     fun markPlaybackCompleted() {
         val movieId = _movieId.value ?: return
         viewModelScope.launch {
-            // Setting position to duration triggers the 95% completion rule in the storage layer
             val currentDuration = _duration.value
             if (currentDuration > 0) {
                 repository.updatePosition(movieId, currentDuration, currentDuration)
@@ -149,9 +148,6 @@ class PlayerViewModel(
         }
     }
 
-    /**
-     * Forcibly removes the movie from the Continue Watching list.
-     */
     fun clearProgress() {
         val movieId = _movieId.value ?: return
         viewModelScope.launch {
@@ -160,16 +156,14 @@ class PlayerViewModel(
     }
 }
 
-/**
- * Factory for creating PlayerViewModel with its repository dependency.
- */
 class PlayerViewModelFactory(
-    private val repository: ContinueWatchingRepository
+    private val repository: ContinueWatchingRepository,
+    private val movieRepository: MovieRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PlayerViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PlayerViewModel(repository) as T
+            return PlayerViewModel(repository, movieRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

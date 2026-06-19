@@ -60,23 +60,6 @@ fun PEAKApp() {
         com.example.peak.data.repository.ContinueWatchingRepository(continueWatchingStorage)
     }
 
-    // DEBUG: Inject test item if list is empty
-    LaunchedEffect(Unit) {
-        val items = continueWatchingRepository.continueWatchingItems.value
-        if (items.isEmpty()) {
-            Log.d("CW_DEBUG", "Injecting test item...")
-            continueWatchingRepository.saveProgress(
-                movieId = "test_movie_1",
-                title = "Test Movie (Resume)",
-                posterPath = "https://image.tmdb.org/t/p/w500/8uO0gUMYvNqpgS71SFTjViIyR93.jpg",
-                backdropPath = "https://image.tmdb.org/t/p/original/6MKs9Y7uVpWp5tX1yS80m3096Z7.jpg",
-                mediaType = "movie",
-                positionMs = 3600000L, // 1 hour in
-                durationMs = 7200000L  // 2 hours total
-            )
-        }
-    }
-
     val onTabSelected: (String) -> Unit = { tab ->
         when (tab) {
             "Home" -> navController.navigate("home") {
@@ -106,7 +89,6 @@ fun PEAKApp() {
                 viewModel = homeViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -122,7 +104,6 @@ fun PEAKApp() {
                 viewModel = moviesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -138,7 +119,6 @@ fun PEAKApp() {
                 viewModel = seriesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
@@ -161,13 +141,13 @@ fun PEAKApp() {
             val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
             NetflixDetailScreen(
                 movieId = movieId,
+                movieRepository = movieRepository,
                 continueWatchingRepository = continueWatchingRepository,
                 onPlayClick = { movie ->
                     navController.navigate("player/${movie.movieId}")
                 },
                 onMovieClick = { movie ->
                     // Replace current detail instead of stacking
-                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${movie.movieId}") {
                         popUpTo("home") { inclusive = false }
                     }
@@ -175,18 +155,18 @@ fun PEAKApp() {
             )
         }
 
-        // 5. Proper Player Route
+        // 5. Proper Player Route (Refactored to Option A)
         composable(
             route = "player/{movieId}",
             arguments = listOf(navArgument("movieId") { type = NavType.StringType })
         ) { backStackEntry ->
             val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
-            // Using a placeholder URL as per existing PlayerScreen requirement
+            
             PlayerScreen(
                 movieId = movieId,
-                videoUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
                 onPlaybackFinished = { navController.popBackStack() },
-                continueWatchingRepository = continueWatchingRepository
+                continueWatchingRepository = continueWatchingRepository,
+                movieRepository = movieRepository
             )
         }
 
@@ -197,8 +177,6 @@ fun PEAKApp() {
             com.example.peak.ui.search.SearchScreen(
                 viewModel = searchViewModel,
                 onItemClick = { item ->
-                    val movie = item.toMovie()
-                    com.example.peak.ui.navigation.MovieSelectionTracker.setSelectedMovie(movie)
                     navController.navigate("movie_detail/${item.id}")
                 }
             )

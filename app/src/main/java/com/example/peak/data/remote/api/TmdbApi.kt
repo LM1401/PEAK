@@ -1,7 +1,9 @@
 package com.example.peak.data.remote.api
 
+import com.example.peak.data.remote.dto.TmdbMovie
 import com.example.peak.data.remote.dto.TmdbResponse
 import retrofit2.http.GET
+import retrofit2.http.Path
 
 /**
  * Retrofit interface for TMDB API.
@@ -13,4 +15,7 @@ interface TmdbApi {
 
     @GET("trending/tv/week")
     suspend fun getTrendingTv(): TmdbResponse
+
+    @GET("movie/{movie_id}")
+    suspend fun getMovieDetails(@Path("movie_id") movieId: String): TmdbMovie
 }
