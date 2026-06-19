@@ -179,11 +179,14 @@ fun PEAKApp() {
         composable(
             route = "player/{movieId}",
             arguments = listOf(navArgument("movieId") { type = NavType.StringType })
-        ) { _ ->
+        ) { backStackEntry ->
+            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
             // Using a placeholder URL as per existing PlayerScreen requirement
             PlayerScreen(
+                movieId = movieId,
                 videoUrl = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-                onPlaybackFinished = { navController.popBackStack() }
+                onPlaybackFinished = { navController.popBackStack() },
+                continueWatchingRepository = continueWatchingRepository
             )
         }
 
