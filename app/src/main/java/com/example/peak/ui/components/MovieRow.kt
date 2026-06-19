@@ -1,6 +1,5 @@
 package com.example.peak.ui.components
 
-import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -16,13 +15,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
+import com.example.peak.ui.focus.FocusMemoryManager
 import kotlinx.coroutines.delay
 
 /**
  * Reusable Movie Row component for TV browsing screens.
- * Mirrors the logic found in HomeScreen.kt.
+ * Enhanced with Focus Memory to remember last focused items.
  */
 @Composable
 fun MovieRow(
@@ -31,11 +33,34 @@ fun MovieRow(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
-    progressMap: Map<String, Float>? = null
+    progressMap: Map<String, Float>? = null,
+    focusManager: FocusMemoryManager? = null
 ) {
-    Log.d("CW_DEBUG", "MovieRow rendering -> title=${row.title}, movies=${row.movies.size}")
+    // Local focus state
+    var isRowFocused by remember { mutableStateOf(false) }
+    
     // Track the raw focus ID for immediate scaling feedback
-    var rawFocusedMovieId by remember { mutableStateOf<String?>(null) }
+    // Initialize from memory if available
+    var rawFocusedMovieId by remember { 
+        mutableStateOf<String?>(focusManager?.getRememberedId(row.title)) 
+    }
+    
+    // Requesters map for focus restoration
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+
+    // Restore focus when the row is re-entered
+    LaunchedEffect(isRowFocused) {
+        if (isRowFocused && rawFocusedMovieId != null) {
+            focusRequesters[rawFocusedMovieId]?.requestFocus()
+        }
+    }
+
+    // Persist focus to manager
+    LaunchedEffect(rawFocusedMovieId) {
+        rawFocusedMovieId?.let { id ->
+            focusManager?.saveFocus(row.title, id)
+        }
+    }
     
     // Debounce the expansion state to prevent layout jitter during fast scrolling
     var settledFocusedMovieId by remember { mutableStateOf<String?>(null) }
@@ -57,10 +82,7 @@ fun MovieRow(
             .fillMaxWidth()
             .padding(vertical = 12.dp)
             .onFocusChanged { focusState ->
-                // Clear the focused movie if the entire row loses focus
-                if (!focusState.hasFocus) {
-                    rawFocusedMovieId = null
-                }
+                isRowFocused = focusState.hasFocus
             }
     ) {
         Text(
@@ -98,7 +120,8 @@ fun MovieRow(
                     isSettled = isSettledFocused, // Sync image swap with expansion
                     modifier = Modifier
                         .width(cardWidth) 
-                        .height(270.dp),
+                        .height(270.dp)
+                        .focusRequester(focusRequesters.getOrPut(movie.movieId) { FocusRequester() }),
                     progress = progressMap?.get(movie.movieId),
                     onFocus = { focused -> 
                         if (focused != null) {
@@ -119,7 +142,7 @@ fun MovieRow(
 
         // METADATA UNDER THE CARD (Synced with settled focus)
         androidx.compose.animation.AnimatedVisibility(
-            visible = focusedMovie != null,
+            visible = isRowFocused && focusedMovie != null,
             enter = androidx.compose.animation.expandVertically(
                 animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
             ) + androidx.compose.animation.fadeIn(animationSpec = tween(metaTransitionDuration)),

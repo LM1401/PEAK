@@ -20,6 +20,7 @@ import com.example.peak.ui.components.CinematicBackground
 import com.example.peak.ui.components.HomeGradientsOverlay
 import com.example.peak.ui.components.TopNavigationBar
 import com.example.peak.ui.components.MovieRow
+import com.example.peak.ui.focus.rememberFocusMemoryManager
 import com.example.peak.ui.image.ImagePreloader
 
 /**
@@ -36,6 +37,8 @@ fun MoviesScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    val focusManager = rememberFocusMemoryManager()
 
     // Preload first few rows for smooth scrolling
     LaunchedEffect(state.rows) {
@@ -103,7 +106,8 @@ fun MoviesScreen(
                             row = row,
                             onMovieFocused = { viewModel.onMovieFocused(it) },
                             onMovieSelected = { viewModel.onMovieSelected(it) },
-                            onMovieClick = onMovieClick
+                            onMovieClick = onMovieClick,
+                            focusManager = focusManager
                         )
                     }
                 }

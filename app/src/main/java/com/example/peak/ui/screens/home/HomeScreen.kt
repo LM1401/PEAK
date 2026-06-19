@@ -33,6 +33,7 @@ import com.example.peak.ui.components.CinematicBackground
 import com.example.peak.ui.components.HomeGradientsOverlay
 import com.example.peak.ui.components.TopNavigationBar
 import com.example.peak.ui.components.MovieRow
+import com.example.peak.ui.focus.rememberFocusMemoryManager
 import com.example.peak.ui.image.ImagePreloader
 
 // STANDARDIZED TV LAYOUT CONSTANTS
@@ -48,6 +49,9 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    
+    // Create focus memory manager for this screen
+    val focusManager = rememberFocusMemoryManager()
     
     Log.d("CW_DEBUG", "UI state -> rows=${state.rows.size}, CW_progress_size=${state.continueWatchingProgress.size}")
 
@@ -107,7 +111,8 @@ fun HomeScreen(
                     onMovieFocused = { viewModel.onMovieFocused(it) },
                     onMovieSelected = { viewModel.onMovieSelected(it) },
                     onMovieClick = onMovieClick,
-                    progressMap = if (row.title == "Continue Watching") state.continueWatchingProgress else null
+                    progressMap = if (row.title == "Continue Watching") state.continueWatchingProgress else null,
+                    focusManager = focusManager
                 )
             }
 
