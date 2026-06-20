@@ -1,6 +1,5 @@
 package com.example.peak.ui.screens.movies
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,16 +15,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 import com.example.peak.domain.model.Movie
-import com.example.peak.ui.components.CinematicBackground
-import com.example.peak.ui.components.HomeGradientsOverlay
-import com.example.peak.ui.components.TopNavigationBar
+import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
 import com.example.peak.ui.focus.rememberFocusMemoryManager
 import com.example.peak.ui.image.ImagePreloader
 
 /**
  * Movies Screen. 
- * Refactored for extreme recomposition isolation.
+ * Refactored for extreme recomposition isolation and shared structural layout.
  */
 @Composable
 fun MoviesScreen(
@@ -35,36 +32,28 @@ fun MoviesScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        MoviesBackgroundLayer(viewModel)
+    val focusedMovie by viewModel.currentFocusedMovie.collectAsState()
+
+    HomeBaseLayout(
+        selectedTab = "Films",
+        onTabSelected = onTabSelected,
+        onSettingsClick = onSettingsClick,
+        onSearchClick = onSearchClick,
+        focusedMovie = focusedMovie
+    ) { modifier ->
         MoviesRowsLayer(
             viewModel = viewModel,
-            onTabSelected = onTabSelected,
             onMovieClick = onMovieClick,
-            onSettingsClick = onSettingsClick,
-            onSearchClick = onSearchClick
+            modifier = modifier
         )
     }
 }
 
 @Composable
-private fun MoviesBackgroundLayer(viewModel: MoviesViewModel) {
-    val backdropUrl by viewModel.focusedMovieBackdropUrl.collectAsState()
-    
-    CinematicBackgroundLayer(backdropUrl = backdropUrl)
-}
-
-@Composable
 private fun MoviesRowsLayer(
     viewModel: MoviesViewModel,
-    onTabSelected: (String) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit,
-    onSearchClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val rows by viewModel.rows.collectAsState()
     val focusedMovieId by viewModel.focusedMovieId.collectAsState()
@@ -85,7 +74,7 @@ private fun MoviesRowsLayer(
 
     if (loading && rows.isEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -98,21 +87,12 @@ private fun MoviesRowsLayer(
 
     if (rows.isNotEmpty()) {
         LazyColumn(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .zIndex(2f)
                 .focusRequester(contentFocusRequester),
-            contentPadding = PaddingValues(bottom = 64.dp)
+            contentPadding = PaddingValues(top = 340.dp, bottom = 320.dp)
         ) {
-            item {
-                TopNavigationBar(
-                    selectedTab = "Films",
-                    onTabSelected = onTabSelected,
-                    onSettingsClick = onSettingsClick,
-                    onSearchClick = onSearchClick
-                )
-            }
-
             items(
                 items = rows,
                 key = { it.id }
@@ -120,25 +100,14 @@ private fun MoviesRowsLayer(
                 MovieRow(
                     row = row,
                     focusedMovieId = focusedMovieId,
-                    onMovieFocused = { movie -> movie?.let(viewModel::onMovieFocused) },
+                    onMovieFocused = { id -> 
+                        row.movies.find { it.movieId == id }?.let(viewModel::onMovieFocused)
+                    },
                     onMovieSelected = viewModel::onMovieSelected,
                     onMovieClick = onMovieClick,
                     focusManager = focusManager
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun CinematicBackgroundLayer(backdropUrl: String?) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        CinematicBackground(
-            backdropUrl = backdropUrl,
-            modifier = Modifier.fillMaxSize().zIndex(0f)
-        )
-        HomeGradientsOverlay(
-            modifier = Modifier.fillMaxSize().zIndex(1f)
-        )
     }
 }

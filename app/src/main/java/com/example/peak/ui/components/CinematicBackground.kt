@@ -1,13 +1,10 @@
 package com.example.peak.ui.components
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -19,13 +16,12 @@ import coil.request.ImageRequest
 
 /**
  * A full-screen cinematic background component for Android TV.
- * Features a slow-zoom animation and dark gradient overlays.
- *
- * @param backdropUrl The URL of the image to display. If null, a fallback gradient is shown.
+ * Optimized for zero-lag replacement during D-pad navigation.
  */
 @Composable
 fun CinematicBackground(
     backdropUrl: String?,
+    movieId: String?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -45,24 +41,21 @@ fun CinematicBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black) // Base layer
+            .background(Color.Black)
     ) {
-        // 2. Image Layer with Crossfade for smooth URL transitions
-        Crossfade(
-            targetState = backdropUrl,
-            animationSpec = tween(600), // Faster, snappier transition
-            label = "BackdropCrossfade"
-        ) { url ->
-            if (url != null) {
-                val request = remember(url) {
-                    ImageRequest.Builder(context)
-                        .data(url)
-                        .crossfade(true)
-                        .build()
-                }
-
+        // 2. HARD REPLACEMENT RENDERING (Removes crossfade persistence)
+        key(movieId) {
+            if (backdropUrl != null) {
                 AsyncImage(
-                    model = request,
+                    model = remember(movieId) {
+                        ImageRequest.Builder(context)
+                            .data(backdropUrl)
+                            .memoryCacheKey("${movieId}-bg")
+                            .diskCacheKey("${movieId}-bg")
+                            .crossfade(false) // IMPORTANT: No blending with previous state
+                            .allowHardware(true)
+                            .build()
+                    },
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
@@ -73,7 +66,6 @@ fun CinematicBackground(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Fallback state when no URL is provided
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -86,8 +78,7 @@ fun CinematicBackground(
             }
         }
 
-        // 3. Cinematic Scrim Overlays
-        // Vertical Gradient (Top Transparent -> Bottom Deep Black)
+        // 3. Scrim Overlays (Static, do not recompose with image change)
         Box(
             modifier = Modifier
                 .fillMaxSize()

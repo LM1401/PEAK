@@ -23,5 +23,6 @@ data class Movie(
 data class Row(
     val id: String,
     val title: String,
-    val movies: List<Movie>
+    val movies: List<Movie>,
+    val isPlaceholder: Boolean = false
 )

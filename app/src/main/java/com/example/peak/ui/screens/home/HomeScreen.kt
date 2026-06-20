@@ -16,16 +16,15 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 import com.example.peak.domain.model.Movie
-import com.example.peak.ui.components.CinematicBackground
-import com.example.peak.ui.components.HomeGradientsOverlay
-import com.example.peak.ui.components.TopNavigationBar
-import com.example.peak.ui.components.MovieRow
+import com.example.peak.ui.components.*
+import com.example.peak.ui.components.metadata.MovieMetadataSection
 import com.example.peak.ui.focus.rememberFocusMemoryManager
-import com.example.peak.ui.image.ImagePreloader
+import com.example.peak.ui.image.ImageWarmingManager
+import com.example.peak.ui.image.PeakImageLoader
 
 /**
- * FIX 1 — REMOVE HOMESCREEN RECOMPOSITION HUB
- * Refactored into Layered components to isolate state changes.
+ * RECONSTRUCTED HOMESCREEN
+ * Strict layered architecture to resolve focus and layout conflicts.
  */
 @Composable
 fun HomeScreen(
@@ -35,43 +34,14 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        HomeBackgroundLayer(viewModel)
-        HomeRowsLayer(
-            viewModel = viewModel,
-            onTabSelected = onTabSelected,
-            onMovieClick = onMovieClick,
-            onSettingsClick = onSettingsClick,
-            onSearchClick = onSearchClick
-        )
-    }
-}
-
-@Composable
-private fun HomeBackgroundLayer(viewModel: HomeViewModel) {
-    val backdropUrl by viewModel.focusedMovieBackdropUrl.collectAsState()
-
-    CinematicBackgroundLayer(backdropUrl = backdropUrl)
-}
-
-@Composable
-private fun HomeRowsLayer(
-    viewModel: HomeViewModel,
-    onTabSelected: (String) -> Unit,
-    onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit,
-    onSearchClick: () -> Unit
-) {
+    val focusedMovie by viewModel.currentFocusedMovie.collectAsState()
     val rows by viewModel.rows.collectAsState()
     val focusedMovieId by viewModel.focusedMovieId.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val continueWatchingProgress by viewModel.continueWatchingProgress.collectAsState()
 
     val context = LocalContext.current
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
 
@@ -80,67 +50,99 @@ private fun HomeRowsLayer(
             val allUrls = rows.take(3).flatMap { row ->
                 row.movies.flatMap { listOf(it.imageUrl, it.backdropUrl) }
             }
-            ImagePreloader.preload(context, allUrls)
+            ImageWarmingManager.warm(context, imageLoader, allUrls)
         }
     }
 
-    LazyColumn(
+    // 1. ROOT LAYOUT
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .zIndex(2f)
-            .focusRequester(contentFocusRequester),
-        contentPadding = PaddingValues(bottom = 64.dp)
+            .background(Color.Black)
     ) {
-        item {
+        // 2. BACKGROUND LAYER (NON-FOCUS)
+        CinematicBackgroundLayer(movie = focusedMovie)
+
+        // 3. CONTENT LAYER (FOCUS SYSTEM)
+        Column(modifier = Modifier.fillMaxSize()) {
+            // A) TopNavigationBar - Must allow exit DOWN
             TopNavigationBar(
                 selectedTab = "Home",
                 onTabSelected = onTabSelected,
                 onSettingsClick = onSettingsClick,
                 onSearchClick = onSearchClick
             )
-        }
 
-        items(
-            items = rows,
-            key = { it.id }
-        ) { row ->
-            MovieRow(
-                row = row,
-                focusedMovieId = focusedMovieId,
-                onMovieFocused = { movie -> movie?.let(viewModel::onMovieFocused) },
-                onMovieSelected = viewModel::onMovieSelected,
-                onMovieClick = onMovieClick,
-                progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
-                focusManager = focusManager
-            )
-        }
+            // B) LazyColumn (MOVIE ROWS) - Weighted to fill space
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(contentFocusRequester),
+                contentPadding = PaddingValues(top = 160.dp), // Room for fixed HeroSection
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(
+                    items = rows,
+                    key = { it.id }
+                ) { row ->
+                    MovieRow(
+                        row = row,
+                        focusedMovieId = focusedMovieId,
+                        onMovieFocused = { id -> viewModel.onMovieFocused(id) },
+                        onMovieSelected = viewModel::onMovieSelected,
+                        onMovieClick = onMovieClick,
+                        progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
+                        focusManager = focusManager
+                    )
+                }
 
-        if (!loading && rows.isEmpty()) {
-            item {
-                EmptyHomePlaceholder()
+                if (!loading && rows.isEmpty()) {
+                    item { EmptyHomePlaceholder() }
+                }
             }
-        }
-    }
-
-    if (loading && rows.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize().zIndex(3f),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Loading PEAK...",
-                color = Color.White.copy(alpha = 0.7f),
-                style = MaterialTheme.typography.headlineMedium
+            
+            // 4. OVERLAY LAYER (NON-FOCUS / FIXED)
+            // Positioned at the bottom of the Column to ensure NO OVERLAP with LazyColumn
+            MovieMetadataSection(
+                movie = focusedMovie,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp)
+                    .background(Color.Black.copy(alpha = 0.4f)) // Subtle scrim
             )
+        }
+
+        // HERO SECTION (Read-only overlay)
+        // Positioned top-left, independent of scroll, but below TopNav
+        HeroSection(
+            movie = focusedMovie,
+            modifier = Modifier
+                .padding(top = 100.dp, start = 120.dp)
+                .align(Alignment.TopStart)
+        )
+
+        // LOADING STATE OVERLAY
+        if (loading && rows.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().zIndex(20f).background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Loading PEAK...",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CinematicBackgroundLayer(backdropUrl: String?) {
+private fun CinematicBackgroundLayer(movie: Movie?) {
     Box(modifier = Modifier.fillMaxSize()) {
         CinematicBackground(
-            backdropUrl = backdropUrl,
+            backdropUrl = movie?.backdropUrl,
+            movieId = movie?.movieId,
             modifier = Modifier.fillMaxSize().zIndex(0f)
         )
         HomeGradientsOverlay(

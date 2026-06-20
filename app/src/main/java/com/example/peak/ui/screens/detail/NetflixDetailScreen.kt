@@ -22,13 +22,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.tv.material3.*
-import coil.compose.rememberAsyncImagePainter
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
@@ -98,6 +100,7 @@ fun NetflixDetailContent(
     onPlayClick: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
+    val context = LocalContext.current
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
     var backdropMovie by remember(movie) { mutableStateOf(movie) }
 
@@ -124,8 +127,16 @@ fun NetflixDetailContent(
             .background(Color.Black)
     ) {
         // 1. BACKDROP (Fixed behind everything)
-        Image(
-            painter = rememberAsyncImagePainter(displayMovie.backdropUrl),
+        AsyncImage(
+            model = remember(displayMovie.movieId) {
+                ImageRequest.Builder(context)
+                    .data(displayMovie.backdropUrl)
+                    .memoryCacheKey("${displayMovie.movieId}-bg")
+                    .diskCacheKey("${displayMovie.movieId}-bg")
+                    .crossfade(false)
+                    .allowHardware(true)
+                    .build()
+            },
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()

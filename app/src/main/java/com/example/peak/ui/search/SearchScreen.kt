@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.peak.ui.image.ImagePreloader
 import com.example.peak.ui.image.PeakImageLoader
 import kotlinx.coroutines.flow.collectLatest
@@ -273,7 +274,15 @@ fun SearchGridItem(
 
             // IMAGE: Using the existing PeakImageLoader system
             AsyncImage(
-                model = PeakImageLoader.buildRequest(context, item.posterUrl),
+                model = remember(item.id) {
+                    ImageRequest.Builder(context)
+                        .data(item.posterUrl)
+                        .memoryCacheKey("${item.id}-poster")
+                        .diskCacheKey("${item.id}-poster")
+                        .crossfade(false)
+                        .allowHardware(true)
+                        .build()
+                },
                 imageLoader = PeakImageLoader.getInstance(context),
                 contentDescription = item.title,
                 contentScale = ContentScale.Crop,

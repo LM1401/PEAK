@@ -10,6 +10,5 @@ import com.example.peak.domain.model.Row
 data class HomeUiState(
     val rows: List<Row> = emptyList(),
     val loading: Boolean = false,
-    val selectedMovie: Movie? = null,
     val continueWatchingProgress: Map<String, Float> = emptyMap()
 )

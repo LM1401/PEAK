@@ -10,12 +10,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.image.PeakImageLoader
 
@@ -65,30 +71,57 @@ fun MovieCard(
                 ShimmerBox()
             }
 
-            // 2. ASYNC IMAGE WITH CROSSFADE (Netflix-style artwork swap)
-            AnimatedContent(
-                targetState = isFocused,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(200)) togetherWith 
-                    fadeOut(animationSpec = tween(200))
-                },
-                label = "ArtworkCrossfade"
-            ) { focused ->
-                val displayImageUrl = if (focused) movie.backdropUrl else movie.imageUrl
-                val imageRequest = remember(displayImageUrl) {
-                    PeakImageLoader.buildRequest(context, displayImageUrl)
-                }
+            // 2. IMMEDIATE IMAGE SWAP (Netflix-style artwork swap)
+            // ELIMINATE IMAGE REUSE ARTIFACTS: Bind request strictly to identity and focus state
+            val posterKey = "${movie.movieId}-poster"
+            val backdropKey = "${movie.movieId}-backdrop"
+            val isUsingBackdrop = isFocused && movie.backdropUrl.isNotBlank()
 
-                AsyncImage(
-                    model = imageRequest,
-                    imageLoader = imageLoader,
-                    contentDescription = movie.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+            val imageRequest = remember(movie.movieId, isFocused) {
+                ImageRequest.Builder(context)
+                    .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
+                    .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
+                    .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
+                    .crossfade(false) // IMPORTANT: No blending, instant switch
+                    .allowHardware(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .build()
             }
 
-            // Progress Bar Overlay
+            AsyncImage(
+                model = imageRequest,
+                imageLoader = imageLoader,
+                contentDescription = movie.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // 3. TITLE OVERLAY (As seen in screenshot)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
+                            startY = 400f
+                        )
+                    )
+            )
+
+            Text(
+                text = movie.name.uppercase(),
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 16.dp)
+            )
+
+            // 4. PROGRESS BAR OVERLAY
             if (progress != null && progress > 0f) {
                 Box(
                     modifier = Modifier
@@ -120,8 +153,14 @@ fun DetailMovieCard(
     onMovieClick: (Movie) -> Unit
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(movie.imageUrl) {
-        PeakImageLoader.buildRequest(context, movie.imageUrl)
+    val imageRequest = remember(movie.movieId) {
+        ImageRequest.Builder(context)
+            .data(movie.imageUrl)
+            .memoryCacheKey("${movie.movieId}-poster")
+            .diskCacheKey("${movie.movieId}-poster")
+            .crossfade(false)
+            .allowHardware(true)
+            .build()
     }
 
     Card(
@@ -164,5 +203,27 @@ fun DetailMovieCard(
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+}
+
+/**
+ * Skeleton placeholder for the Home Screen Movie Rows.
+ * Focusable to ensure D-pad navigation doesn't get stuck during loading.
+ */
+@Composable
+fun SkeletonMovieCard() {
+    Surface(
+        onClick = { /* Do nothing while loading */ },
+        modifier = Modifier
+            .width(180.dp)
+            .height(270.dp),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color(0xFF2A2A2A),
+            focusedContainerColor = Color(0xFF3A3A3A)
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)
+    ) {
+        ShimmerBox()
     }
 }

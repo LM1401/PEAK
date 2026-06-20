@@ -31,6 +31,9 @@ class MoviesViewModel(
     private val _focusedMovieId = MutableStateFlow<String?>(null)
     val focusedMovieId: StateFlow<String?> = _focusedMovieId.asStateFlow()
 
+    private val _currentFocusedMovie = MutableStateFlow<Movie?>(null)
+    val currentFocusedMovie: StateFlow<Movie?> = _currentFocusedMovie.asStateFlow()
+
     private val _focusedMovieBackdropUrl = MutableStateFlow<String?>(null)
     val focusedMovieBackdropUrl = _focusedMovieBackdropUrl.asStateFlow()
 
@@ -84,6 +87,7 @@ class MoviesViewModel(
         if (_focusedMovieId.value == movie.movieId) return
         _focusedMovieId.value = movie.movieId
         _focusedMovieBackdropUrl.value = movie.backdropUrl
+        _currentFocusedMovie.value = movie
         
         // Background preloading of metadata
         focusDebounceJob?.cancel()

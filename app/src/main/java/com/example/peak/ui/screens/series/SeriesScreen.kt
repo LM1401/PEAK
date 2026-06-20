@@ -55,8 +55,9 @@ fun SeriesScreen(
 @Composable
 private fun SeriesBackgroundLayer(viewModel: SeriesViewModel) {
     val backdropUrl by viewModel.focusedMovieBackdropUrl.collectAsState()
+    val focusedMovieId by viewModel.focusedMovieId.collectAsState()
     
-    CinematicBackgroundLayer(backdropUrl = backdropUrl)
+    CinematicBackgroundLayer(backdropUrl = backdropUrl, movieId = focusedMovieId)
 }
 
 @Composable
@@ -121,7 +122,9 @@ private fun SeriesRowsLayer(
                 MovieRow(
                     row = row,
                     focusedMovieId = focusedMovieId,
-                    onMovieFocused = { movie -> movie?.let(viewModel::onMovieFocused) },
+                    onMovieFocused = { id -> 
+                        row.movies.find { it.movieId == id }?.let(viewModel::onMovieFocused)
+                    },
                     onMovieSelected = viewModel::onMovieSelected,
                     onMovieClick = onMovieClick,
                     focusManager = focusManager
@@ -132,10 +135,11 @@ private fun SeriesRowsLayer(
 }
 
 @Composable
-private fun CinematicBackgroundLayer(backdropUrl: String?) {
+private fun CinematicBackgroundLayer(backdropUrl: String?, movieId: String?) {
     Box(modifier = Modifier.fillMaxSize()) {
         CinematicBackground(
             backdropUrl = backdropUrl,
+            movieId = movieId,
             modifier = Modifier.fillMaxSize().zIndex(0f)
         )
         HomeGradientsOverlay(

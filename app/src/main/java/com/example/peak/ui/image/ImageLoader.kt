@@ -30,7 +30,7 @@ object PeakImageLoader {
                 }
                 // TV Optimizations
                 .allowHardware(true)
-                .crossfade(true)
+                .crossfade(false)
                 .build()
         }
         return instance!!
@@ -46,7 +46,7 @@ object PeakImageLoader {
             .data(safeUrl)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
-            .crossfade(true)
+            .crossfade(false)
             .build()
     }
 }

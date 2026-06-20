@@ -1,5 +1,7 @@
 package com.example.peak.data.repository
 
+import android.util.Log
+import com.example.peak.data.network.SafeApiCall
 import com.example.peak.data.remote.api.TmdbApi
 import com.example.peak.data.remote.dto.toMovie
 import com.example.peak.domain.model.Movie
@@ -46,23 +48,28 @@ class MovieRepositoryImpl(
                 return@withLock Result.success(trendingMoviesCache!!)
             }
 
-            try {
-                val response = api.getTrending()
-                val movies = response.results.map { it.toMovie() }
-                
-                // FIX 2 & 3: Only update on success and warm detail cache
-                if (movies.isNotEmpty()) {
+            // SAFE CALL: SSL / Network errors are non-fatal
+            val result = SafeApiCall.execute("MovieRepository") {
+                api.getTrending()
+            }
+
+            return@withLock when {
+                result.data != null -> {
+                    Log.d("MovieRepo", "NETWORK data used (Movies)")
+                    val movies = result.data.results.map { it.toMovie() }
                     trendingMoviesCache = movies
                     trendingMoviesTimestamp = System.currentTimeMillis()
-                    
-                    // WARM DETAIL CACHE: Pre-inject trending movies into detail cache
                     movies.forEach { movieDetailsCache[it.movieId] = it }
+                    Result.success(movies)
                 }
-                
-                Result.success(movies)
-            } catch (e: Exception) {
-                // Return stale cache if available on failure, otherwise return error
-                trendingMoviesCache?.let { Result.success(it) } ?: Result.failure(e)
+                trendingMoviesCache != null -> {
+                    Log.d("MovieRepo", "CACHE fallback used (Movies)")
+                    Result.success(trendingMoviesCache!!)
+                }
+                else -> {
+                    Log.d("MovieRepo", "EMPTY fallback used (Movies)")
+                    Result.success(emptyList())
+                }
             }
         }
     }
@@ -78,19 +85,27 @@ class MovieRepositoryImpl(
                 return@withLock Result.success(trendingSeriesCache!!)
             }
 
-            try {
-                val response = api.getTrendingTv()
-                val series = response.results.map { it.toMovie() }
-                
-                if (series.isNotEmpty()) {
+            val result = SafeApiCall.execute("MovieRepository") {
+                api.getTrendingTv()
+            }
+
+            return@withLock when {
+                result.data != null -> {
+                    Log.d("MovieRepo", "NETWORK data used (Series)")
+                    val series = result.data.results.map { it.toMovie() }
                     trendingSeriesCache = series
                     trendingSeriesTimestamp = System.currentTimeMillis()
                     series.forEach { movieDetailsCache[it.movieId] = it }
+                    Result.success(series)
                 }
-                
-                Result.success(series)
-            } catch (e: Exception) {
-                trendingSeriesCache?.let { Result.success(it) } ?: Result.failure(e)
+                trendingSeriesCache != null -> {
+                    Log.d("MovieRepo", "CACHE fallback used (Series)")
+                    Result.success(trendingSeriesCache!!)
+                }
+                else -> {
+                    Log.d("MovieRepo", "EMPTY fallback used (Series)")
+                    Result.success(emptyList())
+                }
             }
         }
     }
@@ -107,16 +122,21 @@ class MovieRepositoryImpl(
                 return@withLock Result.success(it)
             }
 
-            try {
-                val response = api.getMovieDetails(movieId)
-                val movie = response.toMovie()
-                
-                // FIX 2: Success only update
-                movieDetailsCache[movieId] = movie
-                
-                Result.success(movie)
-            } catch (e: Exception) {
-                Result.failure(e)
+            val result = SafeApiCall.execute("MovieRepository") {
+                api.getMovieDetails(movieId)
+            }
+
+            return@withLock when {
+                result.data != null -> {
+                    Log.d("MovieRepo", "NETWORK data used (ID: $movieId)")
+                    val movie = result.data.toMovie()
+                    movieDetailsCache[movieId] = movie
+                    Result.success(movie)
+                }
+                else -> {
+                    Log.d("MovieRepo", "ERROR/EMPTY fallback (ID: $movieId)")
+                    Result.failure(result.error ?: Exception("Movie not found or network error"))
+                }
             }
         }
     }
