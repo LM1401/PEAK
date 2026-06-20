@@ -20,4 +20,8 @@ data class Movie(
     val videoUrl: String? = null
 )
 
-data class Row(val title: String, val movies: List<Movie>)
+data class Row(
+    val id: String,
+    val title: String,
+    val movies: List<Movie>
+)

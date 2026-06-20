@@ -8,16 +8,12 @@ import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Series screen.
- * Mirrors HomeViewModel pattern.
+ * Refactored for extreme recomposition isolation.
  */
 class SeriesViewModel(
     private val repository: MovieRepository,
@@ -25,6 +21,21 @@ class SeriesViewModel(
 
     private val _uiState = MutableStateFlow(SeriesUiState())
     val uiState: StateFlow<SeriesUiState> = _uiState.asStateFlow()
+
+    val rows = _uiState.map { it.rows }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val selectedMovie = _uiState.map { it.selectedMovie }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _focusedMovieId = MutableStateFlow<String?>(null)
+    val focusedMovieId: StateFlow<String?> = _focusedMovieId.asStateFlow()
+
+    private val _focusedMovieBackdropUrl = MutableStateFlow<String?>(null)
+    val focusedMovieBackdropUrl = _focusedMovieBackdropUrl.asStateFlow()
+
+    val loading = _uiState.map { it.loading }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private var focusDebounceJob: Job? = null
 
@@ -38,20 +49,24 @@ class SeriesViewModel(
             repository.getTrendingSeries()
                 .onSuccess { series ->
                     if (series.isNotEmpty()) {
-                        val movieRows = mutableListOf<Row>()
-                        
-                        movieRows.add(Row("Trending Series", series.shuffled().take(10)))
-                        movieRows.add(Row("Binge-worthy Dramas", series.shuffled().take(10)))
-                        movieRows.add(Row("Comedy Series", series.shuffled().take(10)))
-                        movieRows.add(Row("Sci-Fi Series", series.shuffled().take(10)))
-                        movieRows.add(Row("Documentary Series", series.shuffled().take(10)))
+                        val movieRows = listOf(
+                            Row("series_trending", "Trending Series", series.shuffled().take(10)),
+                            Row("series_drama", "Binge-worthy Dramas", series.shuffled().take(10)),
+                            Row("series_comedy", "Comedy Series", series.shuffled().take(10)),
+                            Row("series_scifi", "Sci-Fi Series", series.shuffled().take(10)),
+                            Row("series_doc", "Documentary Series", series.shuffled().take(10))
+                        )
 
+                        val initialSeries = series.firstOrNull()
                         _uiState.update { 
                             it.copy(
                                 rows = movieRows, 
                                 loading = false, 
-                                selectedMovie = series.first()
+                                selectedMovie = initialSeries
                             ) 
+                        }
+                        if (_focusedMovieBackdropUrl.value == null) {
+                            _focusedMovieBackdropUrl.value = initialSeries?.backdropUrl
                         }
                     } else {
                         _uiState.update { it.copy(loading = false) }
@@ -65,15 +80,18 @@ class SeriesViewModel(
     }
 
     fun onMovieFocused(movie: Movie) {
+        if (_focusedMovieId.value == movie.movieId) return
+        _focusedMovieId.value = movie.movieId
+        _focusedMovieBackdropUrl.value = movie.backdropUrl
+        
+        // Background preloading of metadata
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            delay(180) 
-            _uiState.update { it.copy(selectedMovie = movie) }
+            launch { repository.getMovieById(movie.movieId) }
         }
     }
 
     fun onMovieSelected(movie: Movie) {
-        focusDebounceJob?.cancel()
         _uiState.update { it.copy(selectedMovie = movie) }
     }
 }

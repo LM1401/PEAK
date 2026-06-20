@@ -173,7 +173,9 @@ fun PEAKApp() {
         composable("search") {
             val okHttpClient = okhttp3.OkHttpClient()
             val searchRepository = com.example.peak.data.search.SearchRepository(okHttpClient)
-            val searchViewModel = com.example.peak.ui.search.SearchViewModel(searchRepository)
+            val searchViewModel: com.example.peak.ui.search.SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.search.SearchViewModelFactory(searchRepository, movieRepository)
+            )
             com.example.peak.ui.search.SearchScreen(
                 viewModel = searchViewModel,
                 onItemClick = { item ->

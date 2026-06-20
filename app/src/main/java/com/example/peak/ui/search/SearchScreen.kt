@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -203,7 +204,8 @@ fun SearchScreen(
                         items(displayItems, key = { it.id }) { item ->
                             SearchGridItem(
                                 item = item,
-                                onClick = { onItemClick(item) }
+                                onClick = { onItemClick(item) },
+                                onFocus = { viewModel.onItemFocused(item) }
                             )
                         }
                     }
@@ -245,7 +247,8 @@ fun KeyItem(
 @Composable
 fun SearchGridItem(
     item: SearchItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onFocus: () -> Unit = {}
 ) {
     val context = LocalContext.current
     
@@ -253,15 +256,16 @@ fun SearchGridItem(
         onClick = onClick,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+        modifier = Modifier
+            .aspectRatio(16f / 9f)
+            .fillMaxWidth()
+            .onFocusChanged { if (it.isFocused) onFocus() },
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
                 border = BorderStroke(3.dp, Color.White),
                 shape = RoundedCornerShape(4.dp)
             )
-        ),
-        modifier = Modifier
-            .aspectRatio(16f / 9f)
-            .fillMaxWidth()
+        )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // BACKUP: Placeholder background if image is loading or missing

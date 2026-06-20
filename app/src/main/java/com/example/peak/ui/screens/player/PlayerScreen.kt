@@ -22,6 +22,7 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import com.example.peak.data.repository.ContinueWatchingRepository
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.player.CachedMediaSourceFactory
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -47,9 +48,12 @@ fun PlayerScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val resumePosition by viewModel.resumePosition.collectAsState()
     
-    // STABLE EXOPLAYER INSTANCE
+    // STABLE EXOPLAYER INSTANCE with Disk Caching
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build()
+        val mediaSourceFactory = CachedMediaSourceFactory.getInstance(context)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
     }
 
     // ISSUE 4 — STABILISE INITIALISATION (ONE TRIGGER PER MOVIEID)

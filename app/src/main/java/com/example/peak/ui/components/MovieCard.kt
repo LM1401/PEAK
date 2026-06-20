@@ -1,9 +1,8 @@
 package com.example.peak.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,17 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.image.PeakImageLoader
 
@@ -34,32 +27,24 @@ import com.example.peak.ui.image.PeakImageLoader
 @Composable
 fun MovieCard(
     movie: Movie,
-    isSettled: Boolean, // Synced with Row-level timing
+    isFocused: Boolean, // SINGLE SOURCE OF TRUTH: focusedMovieId == movie.movieId
     onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
     progress: Float? = null
 ) {
     val context = LocalContext.current
-    var isFocused by remember { mutableStateOf(false) }
-    
-    // Switch to high-res backdrop only when the Row tells us it's settled
-    val displayImageUrl = if (isSettled) movie.backdropUrl else movie.imageUrl
-    
-    val imageRequest = remember(displayImageUrl) {
-        PeakImageLoader.buildRequest(context, displayImageUrl)
-    }
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
 
     Card(
         onClick = { onClick(movie) },
         modifier = modifier
             .onFocusChanged { state ->
-                isFocused = state.isFocused
                 if (state.isFocused) {
                     onFocus(movie)
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.1f),
+        scale = CardDefaults.scale(focusedScale = 1f), // Physical width animation handles scale
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(
@@ -80,14 +65,28 @@ fun MovieCard(
                 ShimmerBox()
             }
 
-            // 2. ASYNC IMAGE (Loaded smoothly in background)
-            AsyncImage(
-                model = imageRequest,
-                imageLoader = PeakImageLoader.getInstance(context),
-                contentDescription = movie.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            // 2. ASYNC IMAGE WITH CROSSFADE (Netflix-style artwork swap)
+            AnimatedContent(
+                targetState = isFocused,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(200)) togetherWith 
+                    fadeOut(animationSpec = tween(200))
+                },
+                label = "ArtworkCrossfade"
+            ) { focused ->
+                val displayImageUrl = if (focused) movie.backdropUrl else movie.imageUrl
+                val imageRequest = remember(displayImageUrl) {
+                    PeakImageLoader.buildRequest(context, displayImageUrl)
+                }
+
+                AsyncImage(
+                    model = imageRequest,
+                    imageLoader = imageLoader,
+                    contentDescription = movie.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             // Progress Bar Overlay
             if (progress != null && progress > 0f) {

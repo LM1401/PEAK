@@ -6,12 +6,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -20,62 +21,62 @@ import androidx.compose.ui.focus.focusRequester
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.focus.FocusMemoryManager
-import kotlinx.coroutines.delay
+import com.example.peak.ui.image.ImagePreloader
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * Reusable Movie Row component for TV browsing screens.
- * Enhanced with Focus Memory to remember last focused items.
+ * Refactored to use direct state snapshot for focus to ensure stability and predictability.
  */
 @Composable
 fun MovieRow(
     row: Row,
-    onMovieFocused: (Movie) -> Unit,
+    focusedMovieId: String?,
+    onMovieFocused: (Movie?) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
     progressMap: Map<String, Float>? = null,
     focusManager: FocusMemoryManager? = null
 ) {
-    // Local focus state
-    var isRowFocused by remember { mutableStateOf(false) }
-    
-    // Track the raw focus ID for immediate scaling feedback
-    // Initialize from memory if available
-    var rawFocusedMovieId by remember { 
-        mutableStateOf<String?>(focusManager?.getRememberedId(row.title)) 
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+
+    // PREDICTIVE SCROLL PRELOADING
+    LaunchedEffect(row.movies) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collectLatest { index ->
+                if (row.movies.isNotEmpty()) {
+                    val endIndex = (index + 10).coerceAtMost(row.movies.size)
+                    val urls = row.movies.subList(index, endIndex)
+                        .flatMap { listOf(it.imageUrl, it.backdropUrl) }
+                    ImagePreloader.preload(context, urls)
+                }
+            }
     }
-    
-    // Requesters map for focus restoration
+
+    var isRowFocused by remember { mutableStateOf(false) }
     val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
 
     // Restore focus when the row is re-entered
     LaunchedEffect(isRowFocused) {
-        if (isRowFocused && rawFocusedMovieId != null) {
-            focusRequesters[rawFocusedMovieId]?.requestFocus()
+        if (isRowFocused) {
+            val lastId = focusManager?.getRememberedId(row.id)
+            if (lastId != null) {
+                focusRequesters[lastId]?.requestFocus()
+            }
         }
     }
 
     // Persist focus to manager
-    LaunchedEffect(rawFocusedMovieId) {
-        rawFocusedMovieId?.let { id ->
-            focusManager?.saveFocus(row.title, id)
+    LaunchedEffect(focusedMovieId) {
+        val matchingMovie = row.movies.find { it.movieId == focusedMovieId }
+        if (matchingMovie != null) {
+            focusManager?.saveFocus(row.id, matchingMovie.movieId)
         }
     }
-    
-    // Debounce the expansion state to prevent layout jitter during fast scrolling
-    var settledFocusedMovieId by remember { mutableStateOf<String?>(null) }
-    
-    LaunchedEffect(rawFocusedMovieId) {
-        if (rawFocusedMovieId == null) {
-            settledFocusedMovieId = null
-        } else {
-            // Wait for focus to settle before triggering heavy layout changes or metadata
-            delay(80) 
-            settledFocusedMovieId = rawFocusedMovieId
-        }
-    }
-
-    val focusedMovie = row.movies.find { it.movieId == settledFocusedMovieId }
 
     Column(
         modifier = modifier
@@ -89,12 +90,14 @@ fun MovieRow(
             text = row.title,
             color = Color.White,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 120.dp, bottom = 12.dp)
         )
 
         LazyRow(
-            modifier = Modifier.height(300.dp), 
+            state = listState,
+            modifier = Modifier
+                .height(340.dp)
+                .fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 120.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -103,61 +106,102 @@ fun MovieRow(
                 items = row.movies,
                 key = { it.movieId }
             ) { movie ->
-                val isSettledFocused = settledFocusedMovieId == movie.movieId
-                
-                // 350ms duration for high-end TV responsiveness
-                val transitionDuration = 350
-                val easing = FastOutSlowInEasing
+                // Direct focus signal from ViewModel to restore continuous expansion identity
+                val isFocused = focusedMovieId == movie.movieId
 
-                val cardWidth by animateDpAsState(
-                    targetValue = if (isSettledFocused) 420.dp else 180.dp,
-                    animationSpec = tween(transitionDuration, easing = easing),
-                    label = "cardWidth"
-                )
-
-                MovieCard(
+                StableMovieCardWrapper(
                     movie = movie,
-                    isSettled = isSettledFocused, // Sync image swap with expansion
-                    modifier = Modifier
-                        .width(cardWidth) 
-                        .height(270.dp)
-                        .focusRequester(focusRequesters.getOrPut(movie.movieId) { FocusRequester() }),
+                    isFocused = isFocused,
                     progress = progressMap?.get(movie.movieId),
-                    onFocus = { focused -> 
-                        if (focused != null) {
-                            rawFocusedMovieId = movie.movieId
-                            onMovieFocused(focused)
-                        }
+                    focusRequester = focusRequesters.getOrPut(movie.movieId) {
+                        FocusRequester()
                     },
-                    onClick = { 
-                        onMovieSelected(movie)
-                        onMovieClick(movie)
-                    }
+                    onFocus = onMovieFocused,
+                    onMovieSelected = onMovieSelected,
+                    onMovieClick = onMovieClick
                 )
             }
         }
 
-        // Use a consistent duration for metadata appearance
-        val metaTransitionDuration = 350
+        // ISOLATED METADATA SECTION
+        MovieMetadataSection(
+            movies = row.movies,
+            focusedMovieId = focusedMovieId,
+            isRowFocused = isRowFocused
+        )
+    }
+}
 
-        // METADATA UNDER THE CARD (Synced with settled focus)
-        androidx.compose.animation.AnimatedVisibility(
-            visible = isRowFocused && focusedMovie != null,
-            enter = androidx.compose.animation.expandVertically(
-                animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeIn(animationSpec = tween(metaTransitionDuration)),
-            exit = androidx.compose.animation.shrinkVertically(
-                animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
-            ) + androidx.compose.animation.fadeOut(animationSpec = tween(metaTransitionDuration))
-        ) {
-            focusedMovie?.let { movie ->
-                HeroSection(
-                    movie = movie,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                )
-            }
+/**
+ * Isolated metadata section to prevent entire MovieRow from recomposing.
+ */
+@Composable
+private fun MovieMetadataSection(
+    movies: List<Movie>,
+    focusedMovieId: String?,
+    isRowFocused: Boolean
+) {
+    val metaTransitionDuration = 350
+    
+    // Visibility logic: Row must have focus AND contain the focused movie
+    val focusedMovieInRow = if (isRowFocused) {
+        movies.find { it.movieId == focusedMovieId }
+    } else null
+
+    androidx.compose.animation.AnimatedVisibility(
+        visible = focusedMovieInRow != null,
+        enter = androidx.compose.animation.expandVertically(
+            animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
+        ) + androidx.compose.animation.fadeIn(animationSpec = tween(metaTransitionDuration)),
+        exit = androidx.compose.animation.shrinkVertically(
+            animationSpec = tween(metaTransitionDuration, easing = FastOutSlowInEasing)
+        ) + androidx.compose.animation.fadeOut(animationSpec = tween(metaTransitionDuration))
+    ) {
+        focusedMovieInRow?.let { movie ->
+            HeroSection(
+                movie = movie,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            )
         }
     }
+}
+
+/**
+ * Performance-optimised wrapper to isolate card recomposition and expansion animations.
+ */
+@Composable
+private fun StableMovieCardWrapper(
+    movie: Movie,
+    isFocused: Boolean,
+    progress: Float?,
+    focusRequester: FocusRequester,
+    onFocus: (Movie?) -> Unit,
+    onMovieSelected: (Movie) -> Unit,
+    onMovieClick: (Movie) -> Unit
+) {
+    val animatedWidth by animateDpAsState(
+        targetValue = if (isFocused) 430.dp else 180.dp,
+        animationSpec = tween(
+            durationMillis = 280,
+            easing = FastOutSlowInEasing
+        ),
+        label = "NetflixCardWidth"
+    )
+
+    MovieCard(
+        movie = movie,
+        isFocused = isFocused,
+        modifier = Modifier
+            .width(animatedWidth)
+            .height(270.dp)
+            .focusRequester(focusRequester),
+        progress = progress,
+        onFocus = onFocus,
+        onClick = { 
+            onMovieSelected(movie)
+            onMovieClick(movie)
+        }
+    )
 }

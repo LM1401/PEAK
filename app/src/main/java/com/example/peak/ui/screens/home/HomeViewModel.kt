@@ -8,20 +8,14 @@ import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-
 import android.util.Log
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 
 /**
  * ViewModel for the Home screen.
  * Consolidates multiple data sources into a single reactive UI state pipeline.
+ * Refactored for extreme recomposition isolation.
  */
 class HomeViewModel(
     private val repository: MovieRepository,
@@ -31,7 +25,34 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // Internal state for API-sourced rows to prevent race conditions with Continue Watching
+    // Granular flows to avoid full-screen recomposition
+    val rows = _uiState.map { it.rows }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // FIX 3: selectedMovie updates ONLY on click/navigation (background/Hero source)
+    val selectedMovie = _uiState.map { it.selectedMovie }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // FIX 1: Stable Snapshot Flow for Focus (Zero Global Ripple)
+    private val _focusedMovieId = MutableStateFlow<String?>(null)
+    val focusedMovieId = _focusedMovieId
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            null
+        )
+
+    // Flow specifically for the browsing background (follows focus)
+    private val _focusedMovieBackdropUrl = MutableStateFlow<String?>(null)
+    val focusedMovieBackdropUrl = _focusedMovieBackdropUrl.asStateFlow()
+
+    val loading = _uiState.map { it.loading }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val continueWatchingProgress = _uiState.map { it.continueWatchingProgress }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    // Internal state for API-sourced rows
     private val _apiRows = MutableStateFlow<List<Row>>(emptyList())
     private var focusDebounceJob: Job? = null
 
@@ -40,26 +61,18 @@ class HomeViewModel(
         fetchMovies()
     }
 
-    /**
-     * Consolidates all data streams into a single source of truth for the UI.
-     * Prevents flickering by ensuring 'rows' are calculated in one place.
-     */
     private fun setupStatePipeline() {
         combine(
             continueWatchingRepository.continueWatchingItems,
             _apiRows
         ) { cwItems, apiRows ->
-            Log.d("CW_DEBUG", "ViewModel received -> cwItems size=${cwItems.size}, apiRows size=${apiRows.size}")
             val progressMap = cwItems.associateBy({ it.movieId }, { it.progress })
-            val cwRowTitle = "Continue Watching"
-            
             val combinedRows = if (cwItems.isNotEmpty()) {
-                val cwRow = Row(cwRowTitle, cwItems.map { it.toMovie() })
+                val cwRow = Row("continue_watching", "Continue Watching", cwItems.map { it.toMovie() })
                 listOf(cwRow) + apiRows
             } else {
                 apiRows
             }
-            
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
             _uiState.update { it.copy(
@@ -76,19 +89,20 @@ class HomeViewModel(
                 .onSuccess { movies ->
                     if (movies.isNotEmpty()) {
                         val movieRows = listOf(
-                            Row("Trending This Week", movies.shuffled().take(10)),
-                            Row("Top Picks for You", movies.shuffled().take(10)),
-                            Row("Action & Adventure", movies.shuffled().take(10)),
-                            Row("New Releases", movies.shuffled().take(10)),
-                            Row("Documentaries", movies.shuffled().take(10)),
-                            Row("Award-Winning Movies", movies.shuffled().take(10))
+                            Row("trending", "Trending This Week", movies.shuffled().take(10)),
+                            Row("top_picks", "Top Picks for You", movies.shuffled().take(10)),
+                            Row("action", "Action & Adventure", movies.shuffled().take(10))
                         )
-
                         _apiRows.value = movieRows
+                        val initialMovie = movies.firstOrNull()
                         _uiState.update { it.copy(
                             loading = false,
-                            selectedMovie = it.selectedMovie ?: movies.firstOrNull()
+                            selectedMovie = it.selectedMovie ?: initialMovie
                         ) }
+                        // Set initial background
+                        if (_focusedMovieBackdropUrl.value == null) {
+                            _focusedMovieBackdropUrl.value = initialMovie?.backdropUrl
+                        }
                     } else {
                         _uiState.update { it.copy(loading = false) }
                     }
@@ -100,29 +114,30 @@ class HomeViewModel(
     }
 
     /**
-     * Debounces the selection update to prevent Hero flickering while scrolling.
-     * ViewModel updates only occur when focus has settled.
+     * FIX 1: Update only the decoupled focusedMovieId.
+     * HARD GUARD: Prevent redundant emissions from D-pad spam.
      */
     fun onMovieFocused(movie: Movie) {
+        if (_focusedMovieId.value == movie.movieId) return
+        _focusedMovieId.value = movie.movieId
+        _focusedMovieBackdropUrl.value = movie.backdropUrl
+        
+        // Background preloading of metadata remains
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            delay(180) // SNAPPY: Reduced delay for more responsive cinematic background transitions
-            _uiState.update { it.copy(selectedMovie = movie) }
+            launch { repository.getMovieById(movie.movieId) }
         }
     }
 
     /**
-     * Updates the master selection immediately (e.g. on click).
+     * Updates the master selection (e.g. on click).
+     * Triggers background/Hero changes.
      */
     fun onMovieSelected(movie: Movie) {
-        focusDebounceJob?.cancel()
         _uiState.update { it.copy(selectedMovie = movie) }
     }
 }
 
-/**
- * Simple factory to create HomeViewModel with its repository dependency.
- */
 class HomeViewModelFactory(
     private val repository: MovieRepository,
     private val continueWatchingRepository: com.example.peak.data.repository.ContinueWatchingRepository

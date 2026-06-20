@@ -2,15 +2,20 @@ package com.example.peak.ui.search
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.data.search.SearchRepository
+import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 @OptIn(FlowPreview::class)
-class SearchViewModel(private val repository: SearchRepository) : ViewModel() {
+class SearchViewModel(
+    private val repository: SearchRepository,
+    private val movieRepository: MovieRepository
+) : ViewModel() {
 
     private val TAG = "SearchVM"
     private val _uiState = MutableStateFlow(SearchState())
@@ -50,6 +55,16 @@ class SearchViewModel(private val repository: SearchRepository) : ViewModel() {
     fun onQueryChanged(newQuery: String) {
         _query.value = newQuery
         _uiState.update { it.copy(query = newQuery) }
+    }
+
+    /**
+     * PREDICTIVE PRELOADING: Prefetch movie details when a search result is focused.
+     * This ensures that if the user clicks, the Detail screen has data immediately.
+     */
+    fun onItemFocused(item: SearchItem) {
+        viewModelScope.launch {
+            movieRepository.getMovieById(item.id)
+        }
     }
 
     private fun loadTrending() {
@@ -102,40 +117,41 @@ class SearchViewModel(private val repository: SearchRepository) : ViewModel() {
         }
     }
 
-    /**
-     * Netflix-style ranking algorithm.
-     * Prioritises exact matches, word starts, and popularity.
-     */
     private fun rankResults(items: List<SearchItem>, query: String): List<SearchItem> {
         if (query.isEmpty()) return items
 
         return items.sortedByDescending { item ->
             val title = item.title.lowercase()
-            var score = item.popularity * 0.1 // Use popularity as a base tie-breaker
+            var score = item.popularity * 0.1
 
-            // 1. Exact match (Highest Priority)
             if (title == query) {
                 score += 10000.0
-            } 
-            // 2. Starts with query (High Priority)
-            else if (title.startsWith(query)) {
+            } else if (title.startsWith(query)) {
                 score += 5000.0
-            } 
-            // 3. Contains as a distinct word
-            else if (title.contains(" $query")) {
+            } else if (title.contains(" $query")) {
                 score += 2000.0
-            }
-            // 4. Contains query anywhere
-            else if (title.contains(query)) {
+            } else if (title.contains(query)) {
                 score += 500.0
             }
 
-            // 5. Media type bias: prefer movies slightly over TV/Person for short queries
             if (item.type == "movie") {
                 score += 100.0
             }
 
             score
         }
+    }
+}
+
+class SearchViewModelFactory(
+    private val repository: SearchRepository,
+    private val movieRepository: MovieRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(SearchViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return SearchViewModel(repository, movieRepository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
