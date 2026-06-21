@@ -23,8 +23,8 @@ fun HomeGradientsOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.85f),
-                        0.4f to Color.Black.copy(alpha = 0.4f),
+                        0.0f to Color.Black.copy(alpha = 0.45f),
+                        0.4f to Color.Black.copy(alpha = 0.20f),
                         0.7f to Color.Transparent
                     )
                 )
@@ -36,11 +36,11 @@ fun HomeGradientsOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.6f),
-                        0.3f to Color.Black.copy(alpha = 0.3f),
+                        0.0f to Color.Black.copy(alpha = 0.25f),
+                        0.3f to Color.Black.copy(alpha = 0.10f),
                         0.5f to Color.Transparent,
-                        0.8f to Color.Black.copy(alpha = 0.6f),
-                        1.0f to Color.Black
+                        0.8f to Color.Black.copy(alpha = 0.35f),
+                        1.0f to Color.Black.copy(alpha = 0.65f)
                     )
                 )
         )
@@ -53,7 +53,7 @@ fun HomeGradientsOverlay(
                     Brush.radialGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.3f)
+                            Color.Black.copy(alpha = 0.15f)
                         ),
                         radius = 1200f
                     )

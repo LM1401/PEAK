@@ -77,18 +77,5 @@ fun CinematicBackground(
                 )
             }
         }
-
-        // 3. Scrim Overlays (Static, do not recompose with image change)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0.0f to Color.Transparent,
-                        0.5f to Color.Black.copy(alpha = 0.4f),
-                        1.0f to Color.Black.copy(alpha = 0.8f)
-                    )
-                )
-        )
     }
 }

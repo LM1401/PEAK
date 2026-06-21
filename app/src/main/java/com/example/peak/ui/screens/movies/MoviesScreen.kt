@@ -33,13 +33,16 @@ fun MoviesScreen(
     onSearchClick: () -> Unit = {}
 ) {
     val focusedMovie by viewModel.currentFocusedMovie.collectAsState()
+    val rows by viewModel.rows.collectAsState()
+    val loading by viewModel.loading.collectAsState()
 
     HomeBaseLayout(
         selectedTab = "Films",
         onTabSelected = onTabSelected,
         onSettingsClick = onSettingsClick,
         onSearchClick = onSearchClick,
-        focusedMovie = focusedMovie
+        focusedMovie = focusedMovie,
+        showLoadingOverlay = loading && rows.isEmpty()
     ) { modifier ->
         MoviesRowsLayer(
             viewModel = viewModel,
