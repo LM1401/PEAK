@@ -75,7 +75,7 @@ fun HomeBaseLayout(
                 movie = focusedMovie,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 140.dp)
+                    .height(140.dp) // SYNCED FIXED HEIGHT
                     .background(Color.Black.copy(alpha = 0.4f)) // Subtle scrim
             )
         }

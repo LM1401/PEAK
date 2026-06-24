@@ -50,7 +50,7 @@ fun SearchScreen(
         listOf("5", "6", "7", "8", "9", "0")
     )
 
-    // Preloader Integration: Optimized for TV performance using snapshotFlow
+    // UNIFIED CACHE IDENTITY: Using ID instead of URL for stable TV caching
     val displayItems = if (uiState.query.isEmpty()) uiState.trendingResults else uiState.results
     LaunchedEffect(displayItems) {
         snapshotFlow { gridState.firstVisibleItemIndex }
@@ -59,9 +59,22 @@ fun SearchScreen(
                 if (displayItems.isNotEmpty()) {
                     val startIndex = index
                     val endIndex = (startIndex + 15).coerceAtMost(displayItems.size)
-                    val urls = displayItems.subList(startIndex, endIndex)
-                        .mapNotNull { it.posterUrl }
-                    ImagePreloader.preload(context, urls)
+                    val itemsToWarm = displayItems.subList(startIndex, endIndex)
+                    
+                    val imageLoader = PeakImageLoader.getInstance(context)
+                    itemsToWarm.forEach { item ->
+                        if (!item.posterUrl.isNullOrBlank()) {
+                            imageLoader.enqueue(
+                                ImageRequest.Builder(context)
+                                    .data(item.posterUrl)
+                                    .memoryCacheKey(item.id)
+                                    .diskCacheKey(item.id)
+                                    .allowHardware(true)
+                                    .crossfade(false)
+                                    .build()
+                            )
+                        }
+                    }
                 }
             }
     }
@@ -272,13 +285,13 @@ fun SearchGridItem(
             // BACKUP: Placeholder background if image is loading or missing
             Box(modifier = Modifier.fillMaxSize().background(Color(0xFF222222)))
 
-            // IMAGE: Using the existing PeakImageLoader system
+            // IMAGE: Using the existing PeakImageLoader system with UNIFIED identity keys
             AsyncImage(
                 model = remember(item.id) {
                     ImageRequest.Builder(context)
                         .data(item.posterUrl)
-                        .memoryCacheKey("${item.id}-poster")
-                        .diskCacheKey("${item.id}-poster")
+                        .memoryCacheKey(item.id)
+                        .diskCacheKey(item.id)
                         .crossfade(false)
                         .allowHardware(true)
                         .build()

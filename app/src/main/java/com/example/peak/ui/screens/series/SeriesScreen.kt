@@ -1,6 +1,5 @@
 package com.example.peak.ui.screens.series
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,17 +15,15 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 import com.example.peak.domain.model.Movie
-import com.example.peak.ui.components.CinematicBackground
-import com.example.peak.ui.components.HomeGradientsOverlay
-import com.example.peak.ui.components.TopNavigationBar
+import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
 import com.example.peak.ui.focus.rememberFocusMemoryManager
-import com.example.peak.ui.image.ImagePreloader
+import com.example.peak.ui.image.ImageWarmingManager
+import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * Series Screen. 
- * Replicates HomeScreen layout exactly but for Series content.
- * Refactored for extreme recomposition isolation using granular flows.
+ * Optimized for synchronous focus response and zero-lag rendering.
  */
 @Composable
 fun SeriesScreen(
@@ -36,58 +33,52 @@ fun SeriesScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        SeriesBackgroundLayer(viewModel)
+    val focusState by viewModel.focusState.collectAsState()
+    val rows by viewModel.rows.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+
+    HomeBaseLayout(
+        selectedTab = "Series",
+        onTabSelected = onTabSelected,
+        onSettingsClick = onSettingsClick,
+        onSearchClick = onSearchClick,
+        focusedMovie = focusState?.movie,
+        showLoadingOverlay = loading && rows.isEmpty()
+    ) { modifier ->
         SeriesRowsLayer(
             viewModel = viewModel,
-            onTabSelected = onTabSelected,
             onMovieClick = onMovieClick,
-            onSettingsClick = onSettingsClick,
-            onSearchClick = onSearchClick
+            focusedMovieId = focusState?.movieId,
+            modifier = modifier
         )
     }
 }
 
 @Composable
-private fun SeriesBackgroundLayer(viewModel: SeriesViewModel) {
-    val backdropUrl by viewModel.focusedMovieBackdropUrl.collectAsState()
-    val focusedMovieId by viewModel.focusedMovieId.collectAsState()
-    
-    CinematicBackgroundLayer(backdropUrl = backdropUrl, movieId = focusedMovieId)
-}
-
-@Composable
 private fun SeriesRowsLayer(
     viewModel: SeriesViewModel,
-    onTabSelected: (String) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit,
-    onSearchClick: () -> Unit
+    focusedMovieId: String?,
+    modifier: Modifier = Modifier
 ) {
     val rows by viewModel.rows.collectAsState()
-    val focusedMovieId by viewModel.focusedMovieId.collectAsState()
     val loading by viewModel.loading.collectAsState()
 
     val context = LocalContext.current
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
-            val allUrls = rows.take(3).flatMap { row ->
-                row.movies.flatMap { listOf(it.imageUrl, it.backdropUrl) }
-            }
-            ImagePreloader.preload(context, allUrls)
+            val moviesToWarm = rows.take(3).flatMap { it.movies }
+            ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
         }
     }
 
     if (loading && rows.isEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -100,21 +91,13 @@ private fun SeriesRowsLayer(
 
     if (rows.isNotEmpty()) {
         LazyColumn(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .zIndex(2f)
                 .focusRequester(contentFocusRequester),
-            contentPadding = PaddingValues(bottom = 64.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            item {
-                TopNavigationBar(
-                    selectedTab = "Series",
-                    onTabSelected = onTabSelected,
-                    onSettingsClick = onSettingsClick,
-                    onSearchClick = onSearchClick
-                )
-            }
-
             items(
                 items = rows,
                 key = { it.id }
@@ -131,19 +114,5 @@ private fun SeriesRowsLayer(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun CinematicBackgroundLayer(backdropUrl: String?, movieId: String?) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        CinematicBackground(
-            backdropUrl = backdropUrl,
-            movieId = movieId,
-            modifier = Modifier.fillMaxSize().zIndex(0f)
-        )
-        HomeGradientsOverlay(
-            modifier = Modifier.fillMaxSize().zIndex(1f)
-        )
     }
 }

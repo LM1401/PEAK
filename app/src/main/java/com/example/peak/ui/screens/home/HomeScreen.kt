@@ -4,13 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.example.peak.domain.model.Movie
@@ -22,7 +18,7 @@ import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * HomeScreen.
- * Uses the canonical HomeBaseLayout to ensure zero structural duplication.
+ * Optimized for frame-perfect focus response by collecting a single FocusState.
  */
 @Composable
 fun HomeScreen(
@@ -32,9 +28,10 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    val focusedMovie by viewModel.currentFocusedMovie.collectAsState()
+    // SINGLE COLLECTOR: Synchronizes Background, Hero, and Metadata in a single frame.
+    val focusState by viewModel.focusState.collectAsState()
+    
     val rows by viewModel.rows.collectAsState()
-    val focusedMovieId by viewModel.focusedMovieId.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val continueWatchingProgress by viewModel.continueWatchingProgress.collectAsState()
 
@@ -45,10 +42,8 @@ fun HomeScreen(
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
-            val allUrls = rows.take(3).flatMap { row ->
-                row.movies.flatMap { listOf(it.imageUrl, it.backdropUrl) }
-            }
-            ImageWarmingManager.warm(context, imageLoader, allUrls)
+            val moviesToWarm = rows.take(3).flatMap { it.movies }
+            ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
         }
     }
 
@@ -57,7 +52,7 @@ fun HomeScreen(
         onTabSelected = onTabSelected,
         onSettingsClick = onSettingsClick,
         onSearchClick = onSearchClick,
-        focusedMovie = focusedMovie,
+        focusedMovie = focusState?.movie,
         showLoadingOverlay = loading && rows.isEmpty()
     ) { modifier ->
         LazyColumn(
@@ -71,7 +66,7 @@ fun HomeScreen(
             ) { row ->
                 MovieRow(
                     row = row,
-                    focusedMovieId = focusedMovieId,
+                    focusedMovieId = focusState?.movieId,
                     onMovieFocused = { id -> viewModel.onMovieFocused(id) },
                     onMovieSelected = viewModel::onMovieSelected,
                     onMovieClick = onMovieClick,
@@ -96,19 +91,19 @@ fun EmptyHomePlaceholder() {
             .fillMaxWidth()
             .height(400.dp)
             .padding(horizontal = 120.dp),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = androidx.compose.ui.Alignment.CenterStart
     ) {
-        Column {
-            Text(
+        androidx.compose.foundation.layout.Column {
+            androidx.tv.material3.Text(
                 text = "No content available right now.",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White
+                style = androidx.tv.material3.MaterialTheme.typography.headlineSmall,
+                color = androidx.compose.ui.graphics.Color.White
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
+            androidx.tv.material3.Text(
                 text = "Try checking your internet connection or come back later.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
+                style = androidx.tv.material3.MaterialTheme.typography.bodyMedium,
+                color = androidx.compose.ui.graphics.Color.Gray
             )
         }
     }

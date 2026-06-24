@@ -50,8 +50,8 @@ fun CinematicBackground(
                     model = remember(movieId) {
                         ImageRequest.Builder(context)
                             .data(backdropUrl)
-                            .memoryCacheKey("${movieId}-bg")
-                            .diskCacheKey("${movieId}-bg")
+                            .memoryCacheKey("${movieId}_backdrop")
+                            .diskCacheKey("${movieId}_backdrop")
                             .crossfade(false) // IMPORTANT: No blending with previous state
                             .allowHardware(true)
                             .build()

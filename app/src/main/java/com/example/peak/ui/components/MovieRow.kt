@@ -1,19 +1,22 @@
 package com.example.peak.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
@@ -22,16 +25,14 @@ import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.focus.FocusMemoryManager
-import com.example.peak.ui.image.ImagePreloader
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
-import coil.ImageLoader
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * Reusable Movie Row component for TV browsing screens.
- * Refactored to use direct state snapshot for focus to ensure stability and predictability.
+ * Optimized for GPU-accelerated expansion and synchronous focus warming.
  */
 @Composable
 fun MovieRow(
@@ -55,23 +56,15 @@ fun MovieRow(
             .collectLatest { index ->
                 if (row.movies.isNotEmpty()) {
                     val endIndex = (index + 10).coerceAtMost(row.movies.size)
-                    val urls = row.movies.subList(index, endIndex)
-                        .flatMap { listOf(it.imageUrl, it.backdropUrl) }
-                    ImageWarmingManager.warm(context, imageLoader, urls)
+                    val moviesToWarm = row.movies.subList(index, endIndex)
+                    ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
                 }
             }
     }
 
     var isRowFocused by remember { mutableStateOf(false) }
 
-    // Restore focus when the row is re-entered
-    LaunchedEffect(isRowFocused) {
-        if (isRowFocused) {
-            // Restore logic is now handled per-item in the LazyRow loop to prevent stale FocusRequesters
-        }
-    }
-
-    // Persist focus to manager and PRELOAD BOTH IMAGE TYPES
+    // Persist focus and trigger DIRECT WARMING on focus change
     LaunchedEffect(focusedMovieId) {
         val index = row.movies.indexOfFirst { it.movieId == focusedMovieId }
         val focused = row.movies.getOrNull(index)
@@ -79,34 +72,13 @@ fun MovieRow(
         focused?.let {
             focusManager?.saveFocus(row.id, it.movieId)
             
-            // PRELOAD POSTER
-            imageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(it.imageUrl)
-                    .crossfade(false)
-                    .build()
-            )
+            // DIRECT WARMING: Fire-and-forget immediate decode trigger
+            ImageWarmingManager.warm(context, imageLoader, listOf(it))
 
-            // PRELOAD BACKDROP
-            imageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(it.backdropUrl)
-                    .crossfade(false)
-                    .build()
-            )
-
-            // PREDICTIVE PRE-DECODING (WARMING): Removes decode flash during D-pad navigation
+            // Predictive pre-decoding for neighbors
             val nextMovie = row.movies.getOrNull(index + 1)
             val prevMovie = row.movies.getOrNull(index - 1)
-            
-            ImageWarmingManager.warm(
-                context = context,
-                imageLoader = imageLoader,
-                urls = listOfNotNull(
-                    nextMovie?.backdropUrl,
-                    prevMovie?.backdropUrl
-                )
-            )
+            ImageWarmingManager.warm(context, imageLoader, listOfNotNull(nextMovie, prevMovie))
         }
     }
 
@@ -128,7 +100,7 @@ fun MovieRow(
         if (row.isPlaceholder) {
             LazyRow(
                 modifier = Modifier
-                    .height(340.dp)
+                    .height(280.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -142,7 +114,7 @@ fun MovieRow(
             LazyRow(
                 state = listState,
                 modifier = Modifier
-                    .height(340.dp)
+                    .height(280.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -152,7 +124,6 @@ fun MovieRow(
                     items = row.movies,
                     key = { it.movieId }
                 ) { movie ->
-                    // Direct focus signal from ViewModel to restore continuous expansion identity
                     val isFocused = focusedMovieId == movie.movieId
                     val focusRequester = remember(movie.movieId) { FocusRequester() }
 
@@ -182,7 +153,8 @@ fun MovieRow(
 }
 
 /**
- * Performance-optimised wrapper to isolate card recomposition and expansion animations.
+ * Performance-optimised wrapper.
+ * Uses GPU scale transformations instead of width-based layout remeasurement.
  */
 @Composable
 private fun StableMovieCardWrapper(
@@ -194,21 +166,31 @@ private fun StableMovieCardWrapper(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
-    val animatedWidth by animateDpAsState(
-        targetValue = if (isFocused) 430.dp else 180.dp,
+    // GPU-ACCELERATED SCALE (Replaces width animation to prevent jitter)
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.12f else 1.0f, // Adjusted for safe TV overscan
         animationSpec = tween(
-            durationMillis = 280,
+            durationMillis = 220, // Perfectly balanced for TV focus response
             easing = FastOutSlowInEasing
         ),
-        label = "NetflixCardWidth"
+        label = "GPUExpansion"
     )
 
     MovieCard(
         movie = movie,
         isFocused = isFocused,
         modifier = Modifier
-            .width(animatedWidth)
-            .height(270.dp)
+            .width(180.dp) // Fixed width prevents layout remeasurement pass
+            .height(250.dp)
+            .zIndex(if (isFocused) 10f else 1f) // CRITICAL: Ensure expanded card stays on top of neighbors
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                // Apply a slight shadow elevation on expansion for depth
+                shadowElevation = if (isFocused) 12f else 0f
+                shape = RoundedCornerShape(8.dp)
+                clip = true
+            }
             .focusRequester(focusRequester),
         progress = progress,
         onFocus = onFocus,

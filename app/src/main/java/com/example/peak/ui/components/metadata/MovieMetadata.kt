@@ -104,6 +104,7 @@ fun MovieMetadata(
  * MovieMetadataSection is a wrapper that ensures the metadata is displayed
  * in a consistent way, especially when placed under rows.
  */
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MovieMetadataSection(
     movie: Movie?,
@@ -113,16 +114,30 @@ fun MovieMetadataSection(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
-            .heightIn(min = 120.dp),
+            .height(140.dp), // FIXED HEIGHT: Ensures LazyColumn contentPadding remains valid
         contentAlignment = Alignment.TopStart
     ) {
-        if (movie != null) {
-            MovieMetadata(
-                movie = movie,
-                isFocused = true,
-                showDescription = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+        AnimatedContent(
+            targetState = movie,
+            transitionSpec = {
+                fadeIn(
+                    animationSpec = tween(220) // Synced with Card expansion
+                ) togetherWith fadeOut(
+                    animationSpec = tween(220)
+                )
+            },
+            label = "MetadataTransition"
+        ) { currentMovie ->
+            if (currentMovie != null) {
+                MovieMetadata(
+                    movie = currentMovie,
+                    isFocused = true,
+                    showDescription = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Spacer(modifier = Modifier.fillMaxSize())
+            }
         }
     }
 }

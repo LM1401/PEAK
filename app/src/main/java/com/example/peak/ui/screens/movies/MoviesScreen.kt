@@ -18,11 +18,12 @@ import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
 import com.example.peak.ui.focus.rememberFocusMemoryManager
-import com.example.peak.ui.image.ImagePreloader
+import com.example.peak.ui.image.ImageWarmingManager
+import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * Movies Screen. 
- * Refactored for extreme recomposition isolation and shared structural layout.
+ * Optimized for synchronous focus response and zero-lag rendering.
  */
 @Composable
 fun MoviesScreen(
@@ -32,7 +33,7 @@ fun MoviesScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    val focusedMovie by viewModel.currentFocusedMovie.collectAsState()
+    val focusState by viewModel.focusState.collectAsState()
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
 
@@ -41,12 +42,13 @@ fun MoviesScreen(
         onTabSelected = onTabSelected,
         onSettingsClick = onSettingsClick,
         onSearchClick = onSearchClick,
-        focusedMovie = focusedMovie,
+        focusedMovie = focusState?.movie,
         showLoadingOverlay = loading && rows.isEmpty()
     ) { modifier ->
         MoviesRowsLayer(
             viewModel = viewModel,
             onMovieClick = onMovieClick,
+            focusedMovieId = focusState?.movieId,
             modifier = modifier
         )
     }
@@ -56,22 +58,21 @@ fun MoviesScreen(
 private fun MoviesRowsLayer(
     viewModel: MoviesViewModel,
     onMovieClick: (Movie) -> Unit,
+    focusedMovieId: String?,
     modifier: Modifier = Modifier
 ) {
     val rows by viewModel.rows.collectAsState()
-    val focusedMovieId by viewModel.focusedMovieId.collectAsState()
     val loading by viewModel.loading.collectAsState()
 
     val context = LocalContext.current
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
-            val allUrls = rows.take(3).flatMap { row ->
-                row.movies.flatMap { listOf(it.imageUrl, it.backdropUrl) }
-            }
-            ImagePreloader.preload(context, allUrls)
+            val moviesToWarm = rows.take(3).flatMap { it.movies }
+            ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
         }
     }
 
@@ -94,7 +95,8 @@ private fun MoviesRowsLayer(
                 .fillMaxSize()
                 .zIndex(2f)
                 .focusRequester(contentFocusRequester),
-            contentPadding = PaddingValues(top = 340.dp, bottom = 320.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             items(
                 items = rows,

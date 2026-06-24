@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
@@ -13,7 +14,7 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Movies screen.
- * Refactored for extreme recomposition isolation.
+ * Refactored for extreme recomposition isolation and synchronous focus response.
  */
 class MoviesViewModel(
     private val repository: MovieRepository,
@@ -28,14 +29,11 @@ class MoviesViewModel(
     val selectedMovie = _uiState.map { it.selectedMovie }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _focusedMovieId = MutableStateFlow<String?>(null)
-    val focusedMovieId: StateFlow<String?> = _focusedMovieId.asStateFlow()
-
-    private val _currentFocusedMovie = MutableStateFlow<Movie?>(null)
-    val currentFocusedMovie: StateFlow<Movie?> = _currentFocusedMovie.asStateFlow()
-
-    private val _focusedMovieBackdropUrl = MutableStateFlow<String?>(null)
-    val focusedMovieBackdropUrl = _focusedMovieBackdropUrl.asStateFlow()
+    /**
+     * SINGLE SOURCE OF TRUTH: The currently focused movie state.
+     */
+    private val _focusState = MutableStateFlow<FocusState?>(null)
+    val focusState: StateFlow<FocusState?> = _focusState.asStateFlow()
 
     val loading = _uiState.map { it.loading }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -69,8 +67,10 @@ class MoviesViewModel(
                                 selectedMovie = initialMovie
                             ) 
                         }
-                        if (_focusedMovieBackdropUrl.value == null) {
-                            _focusedMovieBackdropUrl.value = initialMovie?.backdropUrl
+                        
+                        // Set initial focus
+                        if (_focusState.value == null && initialMovie != null) {
+                            _focusState.value = FocusState(initialMovie.movieId, initialMovie)
                         }
                     } else {
                         _uiState.update { it.copy(loading = false) }
@@ -83,16 +83,25 @@ class MoviesViewModel(
         }
     }
 
+    /**
+     * Synchronous focus handler to eliminate propagation latency.
+     */
     fun onMovieFocused(movie: Movie) {
-        if (_focusedMovieId.value == movie.movieId) return
-        _focusedMovieId.value = movie.movieId
-        _focusedMovieBackdropUrl.value = movie.backdropUrl
-        _currentFocusedMovie.value = movie
+        if (_focusState.value?.movieId == movie.movieId) return
         
-        // Background preloading of metadata
-        focusDebounceJob?.cancel()
-        focusDebounceJob = viewModelScope.launch {
-            launch { repository.getMovieById(movie.movieId) }
+        // 1. Immediate state update from memory
+        _focusState.value = FocusState(movie.movieId, movie)
+        
+        // 2. Background enrichment of metadata if necessary
+        if (movie.description.isBlank()) {
+            focusDebounceJob?.cancel()
+            focusDebounceJob = viewModelScope.launch {
+                repository.getMovieById(movie.movieId).onSuccess { fullMovie ->
+                    if (_focusState.value?.movieId == movie.movieId) {
+                        _focusState.value = FocusState(movie.movieId, fullMovie)
+                    }
+                }
+            }
         }
     }
 

@@ -26,3 +26,8 @@ data class Row(
     val movies: List<Movie>,
     val isPlaceholder: Boolean = false
 )
+
+data class FocusState(
+    val movieId: String,
+    val movie: Movie?
+)

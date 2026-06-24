@@ -30,16 +30,16 @@ fun HeroSection(
         Box(
             modifier = modifier
                 .background(Color.Transparent)
-                .heightIn(min = 100.dp),
-            contentAlignment = Alignment.TopStart
+                .height(200.dp), // FIXED HEIGHT: Prevents layout shift during transition
+            contentAlignment = Alignment.BottomStart
         ) {
             AnimatedContent(
                 targetState = movie,
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = tween(120, easing = FastOutSlowInEasing)
+                        animationSpec = tween(220, easing = FastOutSlowInEasing) // Synced with Card expansion
                     ) togetherWith fadeOut(
-                        animationSpec = tween(120, easing = FastOutSlowInEasing)
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
                     )
                 },
                 label = "HeroTransition"
@@ -54,7 +54,7 @@ fun HeroSection(
                         overflow = TextOverflow.Ellipsis
                     )
                 } else {
-                    Spacer(modifier = Modifier.height(0.dp))
+                    Spacer(modifier = Modifier.fillMaxSize())
                 }
             }
         }

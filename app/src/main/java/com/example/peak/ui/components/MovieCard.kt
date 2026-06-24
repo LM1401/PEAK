@@ -72,9 +72,9 @@ fun MovieCard(
             }
 
             // 2. IMMEDIATE IMAGE SWAP (Netflix-style artwork swap)
-            // ELIMINATE IMAGE REUSE ARTIFACTS: Bind request strictly to identity and focus state
-            val posterKey = "${movie.movieId}-poster"
-            val backdropKey = "${movie.movieId}-backdrop"
+            // UNIFIED CACHE IDENTITY: Bind request strictly to movieId and type
+            val posterKey = movie.movieId
+            val backdropKey = "${movie.movieId}_backdrop"
             val isUsingBackdrop = isFocused && movie.backdropUrl.isNotBlank()
 
             val imageRequest = remember(movie.movieId, isFocused) {
@@ -156,8 +156,8 @@ fun DetailMovieCard(
     val imageRequest = remember(movie.movieId) {
         ImageRequest.Builder(context)
             .data(movie.imageUrl)
-            .memoryCacheKey("${movie.movieId}-poster")
-            .diskCacheKey("${movie.movieId}-poster")
+            .memoryCacheKey(movie.movieId)
+            .diskCacheKey(movie.movieId)
             .crossfade(false)
             .allowHardware(true)
             .build()

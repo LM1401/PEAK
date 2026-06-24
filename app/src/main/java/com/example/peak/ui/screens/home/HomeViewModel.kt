@@ -4,9 +4,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.ui.image.ImageWarmingManager
+import com.example.peak.ui.image.PeakImageLoader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -15,7 +18,7 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for the Home screen.
  * Consolidates multiple data sources into a single reactive UI state pipeline.
- * Hardened against network failures with a unified, atomic focus state.
+ * Synchronous focus model for frame-perfect UI response.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
@@ -26,38 +29,16 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _focusedMovieId = MutableStateFlow<String?>(null)
-
     /**
-     * SINGLE SOURCE OF TRUTH: The currently focused movie.
-     * Derived atomically from the focused ID and available data sources.
+     * SINGLE SOURCE OF TRUTH: The currently focused movie state.
+     * Updated synchronously whenever possible to eliminate Flow propagation lag.
      */
-    val currentFocusedMovie: StateFlow<Movie?> = _focusedMovieId
-        .flatMapLatest { id ->
-            if (id == null) flowOf(null)
-            else flow<Movie?> {
-                // 1. Instant sync from current rows
-                val cached = _uiState.value.rows.flatMap { it.movies }.find { it.movieId == id }
-                emit(cached)
-                
-                // 2. Refresh with full metadata if needed
-                if (cached == null || cached.description.isEmpty()) {
-                    val result = repository.getMovieById(id)
-                    emit(result.getOrNull())
-                }
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    private val _focusState = MutableStateFlow<FocusState?>(null)
+    val focusState: StateFlow<FocusState?> = _focusState.asStateFlow()
 
-    // Granular flows derived from the single source of truth to ensure absolute synchronization
+    // Granular flows derived from UI state to ensure absolute synchronization
     val rows = _uiState.map { it.rows }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val focusedMovieId = currentFocusedMovie.map { it?.movieId }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    val focusedMovieBackdropUrl = currentFocusedMovie.map { it?.backdropUrl }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val loading = _uiState.map { it.loading }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -92,11 +73,20 @@ class HomeViewModel(
                     add(Row("popular", "Popular", emptyList(), isPlaceholder = true))
                 }
             }
+
+            // AUTOMATIC FOCUS SYNC: Ensure focused state points to the first available movie if not set
+            if (_focusState.value == null) {
+                combinedRows.firstOrNull { !it.isPlaceholder }?.movies?.firstOrNull()?.let { 
+                    _focusState.value = FocusState(it.movieId, it)
+                }
+            }
+
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
             _uiState.update { it.copy(
                 rows = rows,
-                continueWatchingProgress = progressMap
+                continueWatchingProgress = progressMap,
+                loading = false // Ensure loading is false ONLY when we have rows
             ) }
         }.launchIn(viewModelScope)
     }
@@ -114,25 +104,42 @@ class HomeViewModel(
                     Row("action", "Action & Adventure", movies.shuffled().take(10))
                 )
                 _apiRows.value = movieRows
-                
-                // Set initial focus if none exists
-                if (_focusedMovieId.value == null) {
-                    _focusedMovieId.value = movies.firstOrNull()?.movieId
-                }
-                _uiState.update { it.copy(loading = false) }
             } else {
                 _uiState.update { it.copy(loading = false) }
             }
         }
     }
 
+    /**
+     * Handles movie focus events from the UI.
+     * Performs synchronous lookup to eliminate "first frame delay".
+     */
     fun onMovieFocused(movieId: String) {
-        if (_focusedMovieId.value == movieId) return
-        _focusedMovieId.value = movieId
+        if (_focusState.value?.movieId == movieId) return
         
+        // 1. Synchronous Cache Lookup (Zero Latency)
+        val cachedMovie = _uiState.value.rows.flatMap { it.movies }.find { it.movieId == movieId }
+        
+        if (cachedMovie != null && cachedMovie.description.isNotBlank()) {
+            _focusState.value = FocusState(movieId, cachedMovie)
+            return
+        }
+
+        // 2. Immediate partial state update if ID exists but metadata is thin
+        if (cachedMovie != null) {
+            _focusState.value = FocusState(movieId, cachedMovie)
+        }
+
+        // 3. Asynchronous Enrichment (Only if metadata is missing)
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            repository.getMovieById(movieId)
+            val result = repository.getMovieById(movieId)
+            result.getOrNull()?.let { movie ->
+                // Ensure we haven't navigated away during fetch
+                if (_focusState.value?.movieId == movieId) {
+                    _focusState.value = FocusState(movieId, movie)
+                }
+            }
         }
     }
 
