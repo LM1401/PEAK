@@ -71,7 +71,8 @@ fun HomeScreen(
                 .focusProperties {
                     up = navFocusRequester
                 },
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(48.dp), 
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp)
         ) {
             items(
                 items = rows,

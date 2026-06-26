@@ -1,6 +1,5 @@
 package com.example.peak.ui.components.metadata
 
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -9,95 +8,40 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 
 /**
- * Dedicated Metadata component for the PEAK app.
- * Ensures consistent rendering of movie information across Hero and Row sections.
+ * Supporting Detail Layer HUD.
+ * Refined to show technical details and secondary metadata without competing with Hero.
  */
 @Composable
 fun MovieMetadata(
     movie: Movie,
-    modifier: Modifier = Modifier,
-    isFocused: Boolean = true,
-    showDescription: Boolean = true,
-    progress: Float? = null
+    modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 120.dp), // NETFLIX 2024 GRID: 120dp safe margin
-        verticalArrangement = Arrangement.Top
+            .padding(horizontal = 120.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
-        // 1. PRIMARY METADATA (Match Score, Year, Duration)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "98% Match",
-                color = Color(0xFF46D369), // Netflix Green
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelLarge
-            )
-            Text(
-                text = movie.year,
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.labelLarge
-            )
-            
-            // Age Rating Badge
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = movie.ageRating,
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Text(
-                text = movie.duration,
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-
-        // 2. DESCRIPTION (Clean, readable under the row)
-        if (showDescription) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = movie.description,
-                color = Color.White.copy(alpha = 0.8f),
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp
-            )
-        }
-
-        // 3. SECONDARY METADATA (Genres/Cast)
-        if (movie.genres.isNotBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
+        // 1. SECONDARY METADATA (Director / Genres)
+        Column {
             Text(
                 text = movie.genres,
-                color = Color.White.copy(alpha = 0.5f),
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1
+                color = Color.White.copy(alpha = 0.6f),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Directed by ${movie.director}",
+                color = Color.White.copy(alpha = 0.4f),
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }
@@ -105,7 +49,7 @@ fun MovieMetadata(
 
 /**
  * MovieMetadataSection is a wrapper that ensures the metadata is displayed
- * in a consistent way, especially when placed under rows.
+ * as a consistent floating HUD.
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -116,21 +60,17 @@ fun MovieMetadataSection(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 32.dp)
-            .height(140.dp) // FIXED HEIGHT: Ensures LazyColumn contentPadding remains valid
-            .onGloballyPositioned { coords ->
-                val pos = coords.positionInWindow()
-                Log.d("PEAK_METADATA", "MovieMetadataSection:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
-            },
-        contentAlignment = Alignment.TopStart
+            .height(120.dp) // Optimized height for gradient + badges
+            .padding(bottom = 32.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedContent(
             targetState = movie,
             transitionSpec = {
                 fadeIn(
-                    animationSpec = tween(220) // Synced with Card expansion
+                    animationSpec = tween(400, delayMillis = 120) // Ripple staggered entry
                 ) togetherWith fadeOut(
-                    animationSpec = tween(220)
+                    animationSpec = tween(200)
                 )
             },
             label = "MetadataTransition"
@@ -138,8 +78,6 @@ fun MovieMetadataSection(
             if (currentMovie != null) {
                 MovieMetadata(
                     movie = currentMovie,
-                    isFocused = true,
-                    showDescription = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {

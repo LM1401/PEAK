@@ -67,9 +67,11 @@ class SeriesViewModel(
                             ) 
                         }
                         
-                        // Set initial focus
+                        // Set initial focus (Rule 3 Fix)
                         if (_focusState.value == null && initialSeries != null) {
-                            _focusState.value = FocusState(initialSeries.movieId, initialSeries)
+                            if (initialSeries.movieId.isNotBlank()) {
+                                _focusState.value = FocusState(initialSeries.movieId, initialSeries)
+                            }
                         }
                     } else {
                         _uiState.update { it.copy(loading = false) }

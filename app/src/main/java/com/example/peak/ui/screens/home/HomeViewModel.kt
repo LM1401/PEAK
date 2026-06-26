@@ -60,11 +60,22 @@ class HomeViewModel(
             continueWatchingRepository.continueWatchingItems,
             _apiRows
         ) { cwItems, apiRows ->
-            val progressMap = cwItems.associateBy({ it.movieId }, { it.progress })
+            // PHASE 2 — REMOVE TEST/INVALID CONTENT (Rule 1 & 2)
+            // Filter invalid items: must have ID, title, poster, and meaningful progress (not finished).
+            val validCwItems = cwItems.filter { item ->
+                item.movieId.isNotBlank() &&
+                item.title.isNotBlank() &&
+                item.progress > 0.01f &&
+                item.progress < 0.95f &&
+                !item.posterPath.isNullOrBlank() &&
+                !item.movieId.startsWith("test_")
+            }
+
+            val progressMap = validCwItems.associateBy({ it.movieId }, { it.progress })
             
             val combinedRows = buildList {
-                if (cwItems.isNotEmpty()) {
-                    add(Row("continue_watching", "Continue Watching", cwItems.map { it.toMovie() }))
+                if (validCwItems.isNotEmpty()) {
+                    add(Row("continue_watching", "Continue Watching", validCwItems.map { it.toMovie() }))
                 }
                 if (apiRows.isNotEmpty()) {
                     addAll(apiRows)
@@ -74,22 +85,22 @@ class HomeViewModel(
                 }
             }
 
-            // [FIX] Side-effect removed from combine to ensure atomic state updates
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
             // 1. UPDATE UI STATE FIRST
-            // This ensures the LazyColumn has rows before we establish the focus state that Hero/Metadata depend on.
             _uiState.update { it.copy(
                 rows = rows,
                 continueWatchingProgress = progressMap,
-                loading = false // Ensure loading is false ONLY when we have rows
+                loading = false
             ) }
 
-            // 2. AUTOMATIC FOCUS SYNC: Established ONLY after rows are in the UI State
-            // and ONLY if we have real movies (not placeholders) to prevent metadata overlap on empty rows.
+            // 2. AUTOMATIC FOCUS SYNC (Rule 3 & 4 Fix)
+            // Established ONLY after rows are in the UI State and verified as real data.
             if (_focusState.value == null) {
                 rows.firstOrNull { !it.isPlaceholder }?.movies?.firstOrNull()?.let { movie ->
-                    _focusState.value = FocusState(movie.movieId, movie)
+                    if (movie.movieId.isNotBlank()) {
+                        _focusState.value = FocusState(movie.movieId, movie)
+                    }
                 }
             }
         }.launchIn(viewModelScope)

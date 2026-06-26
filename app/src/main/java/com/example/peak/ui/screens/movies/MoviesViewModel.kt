@@ -68,9 +68,11 @@ class MoviesViewModel(
                             ) 
                         }
                         
-                        // Set initial focus
+                        // Set initial focus (Rule 3 Fix)
                         if (_focusState.value == null && initialMovie != null) {
-                            _focusState.value = FocusState(initialMovie.movieId, initialMovie)
+                            if (initialMovie.movieId.isNotBlank()) {
+                                _focusState.value = FocusState(initialMovie.movieId, initialMovie)
+                            }
                         }
                     } else {
                         _uiState.update { it.copy(loading = false) }

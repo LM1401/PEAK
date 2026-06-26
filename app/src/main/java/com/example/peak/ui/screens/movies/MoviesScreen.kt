@@ -3,6 +3,7 @@ package com.example.peak.ui.screens.movies
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,19 @@ fun MoviesScreen(
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+
+    // SYNC: Ensure LazyColumn scrolls to the focused row on first entry or focus change
+    LaunchedEffect(focusState?.movieId) {
+        if (focusState != null && rows.isNotEmpty()) {
+            val focusedRowIndex = rows.indexOfFirst { row -> 
+                row.movies.any { it.movieId == focusState?.movieId } 
+            }
+            if (focusedRowIndex != -1) {
+                listState.animateScrollToItem(focusedRowIndex)
+            }
+        }
+    }
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
@@ -61,12 +75,14 @@ fun MoviesScreen(
         contentFocusRequester = contentFocusRequester
     ) { modifier ->
         LazyColumn(
+            state = listState,
             modifier = modifier
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
                 },
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(48.dp), 
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp)
         ) {
             items(
                 items = rows,

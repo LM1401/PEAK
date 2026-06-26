@@ -54,14 +54,14 @@ fun MovieCard(
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(
-                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)),
+                border = BorderStroke(3.dp, Color.White), // STONGER FOCUS CLARITY
                 inset = 0.dp
             )
         ),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.15f),
-                elevation = 12.dp
+                elevationColor = Color.White.copy(alpha = 0.2f),
+                elevation = 16.dp
             )
         )
     ) {
@@ -97,29 +97,19 @@ fun MovieCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 3. TITLE OVERLAY (As seen in screenshot)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
-                            startY = 400f
-                        )
-                    )
-            )
-
-            Text(
-                text = movie.name.uppercase(),
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 16.dp)
-            )
+            // 3. TECHNICAL BADGES (Rule: Local to card only)
+            if (isFocused) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TechnicalBadge(text = "4K")
+                    TechnicalBadge(text = "HDR")
+                    TechnicalBadge(text = "AD")
+                }
+            }
 
             // 4. PROGRESS BAR OVERLAY
             if (progress != null && progress > 0f) {
@@ -139,6 +129,23 @@ fun MovieCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TechnicalBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 9.sp
+        )
     }
 }
 
@@ -215,8 +222,8 @@ fun SkeletonMovieCard() {
     Surface(
         onClick = { /* Do nothing while loading */ },
         modifier = Modifier
-            .width(180.dp)
-            .height(270.dp),
+            .width(145.dp)
+            .height(215.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color(0xFF2A2A2A),

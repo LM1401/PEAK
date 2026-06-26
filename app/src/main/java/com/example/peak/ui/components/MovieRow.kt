@@ -1,6 +1,5 @@
 package com.example.peak.ui.components
 
-import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -15,8 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -92,25 +89,20 @@ fun MovieRow(
             .onFocusChanged { focusState ->
                 isRowFocused = focusState.hasFocus
             }
-            .onGloballyPositioned { coords ->
-                // Log only the first row to keep Logcat clean
-                if (row.id == "continue_watching" || row.id == "trending") {
-                    val pos = coords.positionInWindow()
-                    Log.d("PEAK_ROWS", "MovieRow[${row.title}]:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
-                }
-            }
     ) {
         Text(
             text = row.title,
             color = Color.White,
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 120.dp, bottom = 12.dp)
+            modifier = Modifier.padding(start = 120.dp)
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (row.isPlaceholder) {
             LazyRow(
                 modifier = Modifier
-                    .height(280.dp)
+                    .height(240.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -124,7 +116,7 @@ fun MovieRow(
             LazyRow(
                 state = listState,
                 modifier = Modifier
-                    .height(280.dp)
+                    .height(240.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -190,8 +182,8 @@ private fun StableMovieCardWrapper(
         movie = movie,
         isFocused = isFocused,
         modifier = Modifier
-            .width(180.dp) // Fixed width prevents layout remeasurement pass
-            .height(250.dp)
+            .width(145.dp) // Reduced width to match reference
+            .height(215.dp) // Reduced height to match reference
             .zIndex(if (isFocused) 10f else 1f) // CRITICAL: Ensure expanded card stays on top of neighbors
             .graphicsLayer {
                 scaleX = scale
@@ -201,13 +193,7 @@ private fun StableMovieCardWrapper(
                 shape = RoundedCornerShape(8.dp)
                 clip = true
             }
-            .focusRequester(focusRequester)
-            .onGloballyPositioned { coords ->
-                if (isFocused) {
-                    val pos = coords.positionInWindow()
-                    Log.d("PEAK_CARD", "MovieCard[${movie.name}]:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
-                }
-            },
+            .focusRequester(focusRequester),
         progress = progress,
         onFocus = onFocus,
         onClick = { 

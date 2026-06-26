@@ -1,27 +1,30 @@
 package com.example.peak.ui.components
 
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 
 /**
- * Compact Netflix TV 2024-style Hero Header.
- * Optimized for frame-synced metadata updates with zero stale frame retention.
+ * Cinematic Hero Section HUD.
+ * Refined for visual hierarchy: title is supporting context, not dominant.
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -32,38 +35,156 @@ fun HeroSection(
     key(movie?.movieId) {
         Box(
             modifier = modifier
-                .background(Color.Transparent)
-                .height(200.dp) // FIXED HEIGHT: Prevents layout shift during transition
-                .onGloballyPositioned { coords ->
-                    val pos = coords.positionInWindow()
-                    Log.d("PEAK_HERO", "HeroSection:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
-                },
-            contentAlignment = Alignment.BottomStart
+                .fillMaxWidth()
+                .wrapContentHeight(), // Dynamic height to allow tight spacing with rows
+            contentAlignment = Alignment.TopStart
         ) {
             AnimatedContent(
                 targetState = movie,
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = tween(220, easing = FastOutSlowInEasing) // Synced with Card expansion
+                        animationSpec = tween(300, delayMillis = 60, easing = FastOutSlowInEasing)
                     ) togetherWith fadeOut(
-                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                        animationSpec = tween(200, easing = FastOutSlowInEasing)
                     )
                 },
                 label = "HeroTransition"
             ) { currentMovie ->
                 if (currentMovie != null) {
-                    Text(
-                        text = currentMovie.name,
-                        style = MaterialTheme.typography.displayLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        // 1. TITLE (headlineLarge for dominance)
+                        Text(
+                            text = currentMovie.name,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        // 2. METADATA ROW
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = currentMovie.duration,
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                text = currentMovie.year,
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            val rating = currentMovie.rating
+                            if (rating.isNotBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = rating,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFFF5C518), RoundedCornerShape(2.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "IMDb",
+                                            color = Color.Black,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 8.sp
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = currentMovie.genres.replace(", ", " | "),
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+
+                        // 3. DESCRIPTION (Max 4 lines for depth)
+                        Text(
+                            text = currentMovie.description,
+                            color = Color.White.copy(alpha = 0.9f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.widthIn(max = 800.dp)
+                        )
+
+                        // 4. CAST
+                        if (currentMovie.cast.isNotBlank()) {
+                            Text(
+                                text = currentMovie.cast,
+                                color = Color.White.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 5. BUTTONS (Restored for Action Zone)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            HeroButton(icon = Icons.Default.PlayArrow, text = "Play")
+                            HeroButton(icon = Icons.Default.Add, text = "Watchlist")
+                            HeroButton(icon = Icons.Default.Info, text = "Details")
+                        }
+                    }
                 } else {
                     Spacer(modifier = Modifier.fillMaxSize())
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HeroBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(text = text, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun HeroButton(icon: ImageVector, text: String) {
+    Surface(
+        onClick = { /* Actions handled at screen level */ },
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.1f),
+            focusedContainerColor = Color.White,
+            contentColor = Color.White,
+            focusedContentColor = Color.Black
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(text = text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         }
     }
 }
