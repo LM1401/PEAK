@@ -23,28 +23,9 @@ fun MovieMetadata(
     movie: Movie,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 120.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
-    ) {
-        // 1. SECONDARY METADATA (Director / Genres)
-        Column {
-            Text(
-                text = movie.genres,
-                color = Color.White.copy(alpha = 0.6f),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Directed by ${movie.director}",
-                color = Color.White.copy(alpha = 0.4f),
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-    }
+    // Technical metadata ownership moved to HeroSection.
+    // This component remains as a structural placeholder for global HUD layering.
+    Spacer(modifier = modifier.height(1.dp))
 }
 
 /**

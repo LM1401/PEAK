@@ -97,21 +97,7 @@ fun MovieCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 3. TECHNICAL BADGES (Rule: Local to card only)
-            if (isFocused) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    TechnicalBadge(text = "4K")
-                    TechnicalBadge(text = "HDR")
-                    TechnicalBadge(text = "AD")
-                }
-            }
-
-            // 4. PROGRESS BAR OVERLAY
+            // 3. PROGRESS BAR OVERLAY
             if (progress != null && progress > 0f) {
                 Box(
                     modifier = Modifier
@@ -129,23 +115,6 @@ fun MovieCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TechnicalBadge(text: String) {
-    Box(
-        modifier = Modifier
-            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
-            .padding(horizontal = 4.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = text,
-            color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 9.sp
-        )
     }
 }
 

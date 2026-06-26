@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -107,11 +108,21 @@ fun HeroSection(
                                     }
                                 }
                             }
+                            
+                            HeroBadge(text = currentMovie.ageRating)
+
                             Text(
                                 text = currentMovie.genres.replace(", ", " | "),
                                 color = Color.White.copy(alpha = 0.9f),
                                 style = MaterialTheme.typography.labelLarge
                             )
+
+                            // Technical Badges (Ownership moved from MovieCard)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TechnicalBadge(text = "4K")
+                                TechnicalBadge(text = "HDR")
+                                TechnicalBadge(text = "Dolby Atmos")
+                            }
                         }
 
                         // 3. DESCRIPTION (Max 4 lines for depth)
@@ -125,15 +136,24 @@ fun HeroSection(
                             modifier = Modifier.widthIn(max = 800.dp)
                         )
 
-                        // 4. CAST
-                        if (currentMovie.cast.isNotBlank()) {
-                            Text(
-                                text = currentMovie.cast,
-                                color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        // 4. SECONDARY METADATA (Director & Cast)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (currentMovie.director.isNotBlank()) {
+                                Text(
+                                    text = "Directed by ${currentMovie.director}",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                            if (currentMovie.cast.isNotBlank()) {
+                                Text(
+                                    text = "Cast: ${currentMovie.cast}",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -161,6 +181,24 @@ private fun HeroBadge(text: String) {
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(text = text, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun TechnicalBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .background(Color.Transparent, RoundedCornerShape(2.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color.White.copy(alpha = 0.9f),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 10.sp
+        )
     }
 }
 
