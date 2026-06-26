@@ -19,7 +19,6 @@ import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.example.peak.domain.model.Movie
-import com.example.peak.ui.components.metadata.MovieMetadataSection
 
 /**
  * Shared Base Layout for PEAK Browse screens (Home, Movies, etc.)
@@ -110,16 +109,7 @@ fun HomeBaseLayout(
                 }
         )
 
-        // LAYER 5 — METADATA HUD (zIndex 5)
-        // Global Bottom HUD for focused item details.
-        MovieMetadataSection(
-            movie = focusedMovie,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(5f)
-        )
-
-        // LAYER 6 — LOADING OVERLAY (zIndex 20)
+        // LAYER 5 — LOADING OVERLAY (zIndex 20)
         if (showLoadingOverlay) {
             Box(
                 modifier = Modifier
