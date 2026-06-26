@@ -1,5 +1,6 @@
 package com.example.peak.ui.components
 
+import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -14,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -88,6 +91,13 @@ fun MovieRow(
             .padding(vertical = 12.dp)
             .onFocusChanged { focusState ->
                 isRowFocused = focusState.hasFocus
+            }
+            .onGloballyPositioned { coords ->
+                // Log only the first row to keep Logcat clean
+                if (row.id == "continue_watching" || row.id == "trending") {
+                    val pos = coords.positionInWindow()
+                    Log.d("PEAK_ROWS", "MovieRow[${row.title}]:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
+                }
             }
     ) {
         Text(
@@ -191,7 +201,13 @@ private fun StableMovieCardWrapper(
                 shape = RoundedCornerShape(8.dp)
                 clip = true
             }
-            .focusRequester(focusRequester),
+            .focusRequester(focusRequester)
+            .onGloballyPositioned { coords ->
+                if (isFocused) {
+                    val pos = coords.positionInWindow()
+                    Log.d("PEAK_CARD", "MovieCard[${movie.name}]:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
+                }
+            },
         progress = progress,
         onFocus = onFocus,
         onClick = { 

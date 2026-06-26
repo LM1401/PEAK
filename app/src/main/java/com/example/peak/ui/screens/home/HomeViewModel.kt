@@ -74,20 +74,24 @@ class HomeViewModel(
                 }
             }
 
-            // AUTOMATIC FOCUS SYNC: Ensure focused state points to the first available movie if not set
-            if (_focusState.value == null) {
-                combinedRows.firstOrNull { !it.isPlaceholder }?.movies?.firstOrNull()?.let { 
-                    _focusState.value = FocusState(it.movieId, it)
-                }
-            }
-
+            // [FIX] Side-effect removed from combine to ensure atomic state updates
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
+            // 1. UPDATE UI STATE FIRST
+            // This ensures the LazyColumn has rows before we establish the focus state that Hero/Metadata depend on.
             _uiState.update { it.copy(
                 rows = rows,
                 continueWatchingProgress = progressMap,
                 loading = false // Ensure loading is false ONLY when we have rows
             ) }
+
+            // 2. AUTOMATIC FOCUS SYNC: Established ONLY after rows are in the UI State
+            // and ONLY if we have real movies (not placeholders) to prevent metadata overlap on empty rows.
+            if (_focusState.value == null) {
+                rows.firstOrNull { !it.isPlaceholder }?.movies?.firstOrNull()?.let { movie ->
+                    _focusState.value = FocusState(movie.movieId, movie)
+                }
+            }
         }.launchIn(viewModelScope)
     }
 

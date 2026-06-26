@@ -12,8 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import androidx.tv.material3.MaterialTheme
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.zIndex
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
@@ -37,37 +37,11 @@ fun SeriesScreen(
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
 
-    HomeBaseLayout(
-        selectedTab = "Series",
-        onTabSelected = onTabSelected,
-        onSettingsClick = onSettingsClick,
-        onSearchClick = onSearchClick,
-        focusedMovie = focusState?.movie,
-        showLoadingOverlay = loading && rows.isEmpty()
-    ) { modifier ->
-        SeriesRowsLayer(
-            viewModel = viewModel,
-            onMovieClick = onMovieClick,
-            focusedMovieId = focusState?.movieId,
-            modifier = modifier
-        )
-    }
-}
-
-@Composable
-private fun SeriesRowsLayer(
-    viewModel: SeriesViewModel,
-    onMovieClick: (Movie) -> Unit,
-    focusedMovieId: String?,
-    modifier: Modifier = Modifier
-) {
-    val rows by viewModel.rows.collectAsState()
-    val loading by viewModel.loading.collectAsState()
-
     val context = LocalContext.current
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
+    val navFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
@@ -76,27 +50,23 @@ private fun SeriesRowsLayer(
         }
     }
 
-    if (loading && rows.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Loading Series...",
-                color = Color.White,
-                style = MaterialTheme.typography.headlineMedium
-            )
-        }
-    }
-
-    if (rows.isNotEmpty()) {
+    HomeBaseLayout(
+        selectedTab = "Series",
+        onTabSelected = onTabSelected,
+        onSettingsClick = onSettingsClick,
+        onSearchClick = onSearchClick,
+        focusedMovie = focusState?.movie,
+        showLoadingOverlay = loading && rows.isEmpty(),
+        navFocusRequester = navFocusRequester,
+        contentFocusRequester = contentFocusRequester
+    ) { modifier ->
         LazyColumn(
             modifier = modifier
-                .fillMaxSize()
-                .zIndex(2f)
-                .focusRequester(contentFocusRequester),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
+                .focusRequester(contentFocusRequester)
+                .focusProperties {
+                    up = navFocusRequester
+                },
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(
                 items = rows,
@@ -104,7 +74,7 @@ private fun SeriesRowsLayer(
             ) { row ->
                 MovieRow(
                     row = row,
-                    focusedMovieId = focusedMovieId,
+                    focusedMovieId = focusState?.movieId,
                     onMovieFocused = { id -> 
                         row.movies.find { it.movieId == id }?.let(viewModel::onMovieFocused)
                     },
@@ -113,6 +83,37 @@ private fun SeriesRowsLayer(
                     focusManager = focusManager
                 )
             }
+
+            if (!loading && rows.isEmpty()) {
+                item {
+                    EmptySeriesPlaceholder()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptySeriesPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(400.dp)
+            .padding(horizontal = 120.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Column {
+            Text(
+                text = "No series found.",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Try again later or check back for new additions.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
         }
     }
 }

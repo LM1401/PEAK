@@ -1,5 +1,6 @@
 package com.example.peak.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,7 +34,11 @@ fun TopNavigationBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 48.dp, vertical = 28.dp),
+            .padding(horizontal = 48.dp, vertical = 28.dp)
+            .onGloballyPositioned { coords ->
+                val pos = coords.positionInWindow()
+                Log.d("PEAK_TOPBAR", "TopNavigationBar:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Profile Avatar (Left)

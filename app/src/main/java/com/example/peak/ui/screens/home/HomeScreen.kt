@@ -3,11 +3,13 @@ package com.example.peak.ui.screens.home
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
@@ -19,6 +21,7 @@ import com.example.peak.ui.image.PeakImageLoader
 /**
  * HomeScreen.
  * Optimized for frame-perfect focus response by collecting a single FocusState.
+ * Adopts a Parallel HUD Architecture where rows are measured unconstrained.
  */
 @Composable
 fun HomeScreen(
@@ -39,6 +42,8 @@ fun HomeScreen(
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
+    val navFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
@@ -53,12 +58,20 @@ fun HomeScreen(
         onSettingsClick = onSettingsClick,
         onSearchClick = onSearchClick,
         focusedMovie = focusState?.movie,
-        showLoadingOverlay = loading && rows.isEmpty()
+        showLoadingOverlay = loading && rows.isEmpty(),
+        navFocusRequester = navFocusRequester,
+        contentFocusRequester = contentFocusRequester
     ) { modifier ->
+        // LazyColumn receives full-screen constraints and handles item visibility via viewport clipping.
+        // It is layout-agnostic and does not use spacers or hardcoded padding for positioning.
         LazyColumn(
-            modifier = modifier.focusRequester(contentFocusRequester),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            state = listState,
+            modifier = modifier
+                .focusRequester(contentFocusRequester)
+                .focusProperties {
+                    up = navFocusRequester
+                },
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(
                 items = rows,

@@ -1,5 +1,6 @@
 package com.example.peak.ui.components
 
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -9,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,7 +33,11 @@ fun HeroSection(
         Box(
             modifier = modifier
                 .background(Color.Transparent)
-                .height(200.dp), // FIXED HEIGHT: Prevents layout shift during transition
+                .height(200.dp) // FIXED HEIGHT: Prevents layout shift during transition
+                .onGloballyPositioned { coords ->
+                    val pos = coords.positionInWindow()
+                    Log.d("PEAK_HERO", "HeroSection:\nx=${pos.x}\ny=${pos.y}\nwidth=${coords.size.width}\nheight=${coords.size.height}")
+                },
             contentAlignment = Alignment.BottomStart
         ) {
             AnimatedContent(
