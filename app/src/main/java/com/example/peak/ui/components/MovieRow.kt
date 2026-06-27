@@ -102,7 +102,7 @@ fun MovieRow(
         if (row.isPlaceholder) {
             LazyRow(
                 modifier = Modifier
-                    .height(240.dp)
+                    .height(320.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -116,7 +116,7 @@ fun MovieRow(
             LazyRow(
                 state = listState,
                 modifier = Modifier
-                    .height(240.dp)
+                    .height(320.dp)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 120.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -191,7 +191,7 @@ private fun StableMovieCardWrapper(
                 // Apply a slight shadow elevation on expansion for depth
                 shadowElevation = if (isFocused) 12f else 0f
                 shape = RoundedCornerShape(8.dp)
-                clip = true
+                clip = false
             }
             .focusRequester(focusRequester),
         progress = progress,

@@ -65,7 +65,7 @@ fun HomeBaseLayout(
             movie = focusedMovie,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 120.dp, top = 80.dp)
+                .padding(start = 120.dp, top = 64.dp)
                 .zIndex(3f)
                 .focusProperties { canFocus = false }
         )

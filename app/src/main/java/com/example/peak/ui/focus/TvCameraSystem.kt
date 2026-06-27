@@ -12,12 +12,10 @@ import androidx.compose.ui.layout.positionInParent
 
 /**
  * TV Camera System State.
- * RECALIBRATED: Window-Fit Camera Model.
+ * REFACTORED: Bottom-Safe Anchor Model.
  * 
- * Enforces a bounded visual window:
- * - Hero Zone (0% - 50%): Protected from content overlap.
- * - Primary Row Zone (50% - 80%): Focused row container.
- * - Peek Zone (80% - 100%): Spillover for next row title.
+ * Guarantees focused row visibility by anchoring to a safe bottom margin, 
+ * ensuring no clipping of expanded cards while maintaining Hero isolation.
  */
 class TvCameraState(
     initialOffset: Float = 0f,
@@ -29,16 +27,17 @@ class TvCameraState(
     private val _offsetY = Animatable(initialOffset)
     val offsetY: Float get() = _offsetY.value
 
-    // Registry of row Y-positions and heights in world space
     private val rowPositions = mutableStateMapOf<String, Float>()
     private val rowHeights = mutableStateMapOf<String, Float>()
     
-    // Viewport height captured at runtime
     var viewportHeight by mutableStateOf(0f)
 
-    // Visual Window Constants
-    private val WIN_TOP_FRACTION = 0.50f
-    private val WIN_BOTTOM_FRACTION = 0.80f
+    // Layout Constraints
+    private val HERO_BOUNDARY_FRACTION = 0.50f
+    private val SAFE_BOTTOM_PADDING_FRACTION = 0.15f // 15% safe zone for peek + overscan
+    
+    // Safety buffer for card expansion (scale 1.12x + focus glow)
+    private val EXPANSION_BUFFER_PX = 48f
 
     fun onRowPositioned(rowId: String, y: Float, height: Float) {
         rowPositions[rowId] = y
@@ -46,39 +45,38 @@ class TvCameraState(
     }
 
     /**
-     * Calculates the deterministic offset required to fit the row into the visual window.
-     * Logic:
-     * 1. Attempt to align row bottom to 80% VH (guarantees next row title peek).
-     * 2. Force constraint: row top must NEVER go above 50% VH (NO Hero overlap).
+     * BOTTOM-SAFE ANCHOR FORMULA:
+     * 1. targetOffset: Positions the expanded bottom above the safe bottom margin.
+     * 2. minOffset: Ensures the expanded top never crosses the 50% Hero boundary.
      */
-    private fun calculateTargetOffset(rowId: String): Float? {
+    private fun calculateDeterministicOffset(rowId: String): Float? {
         val rowY = rowPositions[rowId] ?: return null
         val rowH = rowHeights[rowId] ?: 0f
         if (viewportHeight <= 0f) return null
 
-        val winTop = viewportHeight * WIN_TOP_FRACTION
-        val winBottom = viewportHeight * WIN_BOTTOM_FRACTION
+        // Calculate the safe visual floor (above peek zone and screen edge)
+        val safeBottomY = viewportHeight * (1f - SAFE_BOTTOM_PADDING_FRACTION)
+        
+        // Target: Align the bottom of the expanded card to the safe floor
+        val expandedBottomWorld = rowY + rowH + EXPANSION_BUFFER_PX
+        val targetOffset = safeBottomY - expandedBottomWorld
 
-        // Ideal: Align bottom to 80% boundary
-        var target = winBottom - rowY - rowH
-        
-        // Constraint: Clamp top to 50% boundary (Primary Priority)
-        val minOffset = winTop - rowY
-        if (target < minOffset) {
-            target = minOffset
-        }
-        
-        return target
+        // Constraint: Hero Safety Floor (Top must not cross 50% VH)
+        val expandedTopWorld = rowY - EXPANSION_BUFFER_PX
+        val minOffsetForHeroSafety = (viewportHeight * HERO_BOUNDARY_FRACTION) - expandedTopWorld
+
+        // Final deterministic result: Prioritize Hero safety, but anchor to bottom safe zone.
+        return kotlin.math.max(targetOffset, minOffsetForHeroSafety)
     }
 
     suspend fun scrollToRow(rowId: String) {
-        calculateTargetOffset(rowId)?.let {
+        calculateDeterministicOffset(rowId)?.let {
             _offsetY.animateTo(it, animationSpec)
         }
     }
 
     suspend fun snapToRow(rowId: String) {
-        calculateTargetOffset(rowId)?.let {
+        calculateDeterministicOffset(rowId)?.let {
             _offsetY.snapTo(it)
         }
     }
@@ -90,7 +88,7 @@ fun rememberTvCameraState(): TvCameraState {
 }
 
 /**
- * Modifier that applies the camera translation to the content world.
+ * Applies cinematic camera translation.
  */
 fun Modifier.tvCameraWorld(state: TvCameraState): Modifier = this
     .graphicsLayer {
@@ -98,11 +96,10 @@ fun Modifier.tvCameraWorld(state: TvCameraState): Modifier = this
     }
 
 /**
- * Modifier that captures the row's position and height for the camera system.
+ * Captures row bounds for the deterministic camera system.
  */
 fun Modifier.onRowPositioned(rowId: String, state: TvCameraState): Modifier = this
     .onGloballyPositioned { layoutCoordinates ->
-        // Capture Y and Height relative to the camera world container
         state.onRowPositioned(
             rowId = rowId,
             y = layoutCoordinates.positionInParent().y,

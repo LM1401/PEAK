@@ -50,8 +50,8 @@ fun HeroSection(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 32.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                            .padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
                         // 1. TITLE (headlineLarge for dominance)
@@ -120,14 +120,14 @@ fun HeroSection(
                             }
                         }
 
-                        // 3. DESCRIPTION (Max 4 lines for depth)
+                        // 3. DESCRIPTION (Max 3 lines for depth)
                         Text(
                             text = currentMovie.description,
                             color = Color.White.copy(alpha = 0.9f),
                             style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 4,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 22.sp,
+                            lineHeight = 20.sp,
                             modifier = Modifier.widthIn(max = 800.dp)
                         )
 
