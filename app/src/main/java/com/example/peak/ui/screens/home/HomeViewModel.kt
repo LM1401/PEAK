@@ -131,7 +131,7 @@ class HomeViewModel(
      */
     fun onMovieFocused(movieId: String) {
         if (_focusState.value?.movieId == movieId) return
-        
+
         // 1. Synchronous Cache Lookup (Zero Latency)
         val cachedMovie = _uiState.value.rows.flatMap { it.movies }.find { it.movieId == movieId }
         
