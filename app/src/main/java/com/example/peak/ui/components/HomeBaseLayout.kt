@@ -10,10 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
@@ -37,13 +33,6 @@ fun HomeBaseLayout(
     contentFocusRequester: FocusRequester = remember { FocusRequester() },
     rowsContent: @Composable (Modifier) -> Unit
 ) {
-    val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.dp
-    val density = LocalDensity.current
-    
-    // Tracks the bottom edge of the Top HUD (Nav + Hero) to prevent collisions.
-    var heroBottomHeight by remember { mutableStateOf(400.dp) }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -60,16 +49,10 @@ fun HomeBaseLayout(
         )
 
         // LAYER 2 — CONTENT VIEWPORT (zIndex 2)
-        // Responsive Viewport: Anchored to the bottom with enough height for one row + title hint.
-        // The top padding ensures it never overlaps the Hero information zone.
-        val actionZoneHeight = 380.dp // Derived: MovieRow (240) + Title (40) + Spacing (48) + Expansion Buffer
-        val baselinePadding = (screenHeight - actionZoneHeight).coerceAtLeast(0.dp)
-        val responsiveTopPadding = baselinePadding.coerceAtLeast(heroBottomHeight + 24.dp)
-
+        // Pure Canvas: Receives full-screen constraints and manages own spacing via scroll.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = responsiveTopPadding)
                 .clipToBounds()
                 .zIndex(2f)
         ) {
@@ -77,18 +60,12 @@ fun HomeBaseLayout(
         }
 
         // LAYER 3 — HERO HUD (zIndex 3)
-        // Deterministic positioning: Aligned Top-Left with safe margin.
+        // Pure Overlay: Deterministic positioning, layout-agnostic.
         HeroSection(
             movie = focusedMovie,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 120.dp, top = 80.dp)
-                .onGloballyPositioned { coords ->
-                    // Capture the bottom edge relative to the screen to define viewport start
-                    heroBottomHeight = with(density) {
-                        (coords.size.height).toDp() + 80.dp // Including the top padding
-                    }
-                }
                 .zIndex(3f)
                 .focusProperties { canFocus = false }
         )

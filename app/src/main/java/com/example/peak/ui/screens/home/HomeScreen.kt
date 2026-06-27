@@ -1,11 +1,9 @@
 package com.example.peak.ui.screens.home
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
@@ -15,13 +13,16 @@ import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
 import com.example.peak.ui.focus.rememberFocusMemoryManager
+import com.example.peak.ui.focus.rememberTvCameraState
+import com.example.peak.ui.focus.tvCameraWorld
+import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 
 /**
  * HomeScreen.
- * Optimized for frame-perfect focus response by collecting a single FocusState.
- * Adopts a Parallel HUD Architecture where rows are measured unconstrained.
+ * REFACTORED: Uses the deterministic TV Camera System instead of LazyColumn.
+ * Rows are placed in a world stack and translated based on focus position.
  */
 @Composable
 fun HomeScreen(
@@ -31,9 +32,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    // SINGLE COLLECTOR: Synchronizes Background, Hero, and Metadata in a single frame.
     val focusState by viewModel.focusState.collectAsState()
-    
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val continueWatchingProgress by viewModel.continueWatchingProgress.collectAsState()
@@ -43,7 +42,30 @@ fun HomeScreen(
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
-    val listState = rememberLazyListState()
+
+    // TV CAMERA SYSTEM INITIALIZATION
+    val cameraState = rememberTvCameraState()
+    var isInitialised by remember { mutableStateOf(false) }
+
+    // 1. VIEWPORT TRACKING
+    val viewportModifier = Modifier.onGloballyPositioned { coords ->
+        cameraState.viewportHeight = coords.size.height.toFloat()
+    }
+
+    // 2. FOCUS -> CAMERA SYNC
+    LaunchedEffect(focusState?.movieId, rows) {
+        val movieId = focusState?.movieId ?: return@LaunchedEffect
+        val row = rows.find { it.movies.any { m -> m.movieId == movieId } }
+        
+        row?.let {
+            if (!isInitialised) {
+                cameraState.snapToRow(it.id)
+                isInitialised = true
+            } else {
+                cameraState.scrollToRow(it.id)
+            }
+        }
+    }
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
@@ -62,37 +84,45 @@ fun HomeScreen(
         navFocusRequester = navFocusRequester,
         contentFocusRequester = contentFocusRequester
     ) { modifier ->
-        // LazyColumn receives full-screen constraints and handles item visibility via viewport clipping.
-        // It is layout-agnostic and does not use spacers or hardcoded padding for positioning.
-        LazyColumn(
-            state = listState,
+        // THE VIEWPORT
+        Box(
             modifier = modifier
+                .then(viewportModifier)
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
-                },
-            verticalArrangement = Arrangement.spacedBy(48.dp), 
-            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp)
+                }
         ) {
-            items(
-                items = rows,
-                key = { it.id }
-            ) { row ->
-                MovieRow(
-                    row = row,
-                    focusedMovieId = focusState?.movieId,
-                    onMovieFocused = { id -> viewModel.onMovieFocused(id) },
-                    onMovieSelected = viewModel::onMovieSelected,
-                    onMovieClick = onMovieClick,
-                    progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
-                    focusManager = focusManager
-                )
-            }
+            // THE WORLD (Translates based on Camera State)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .tvCameraWorld(cameraState),
+                verticalArrangement = Arrangement.spacedBy(48.dp)
+            ) {
+                // Initial spacer to ensure the first row doesn't start at the very top
+                // and follows the camera anchor logic.
+                Spacer(modifier = Modifier.height(100.dp))
 
-            if (!loading && rows.isEmpty()) {
-                item {
+                rows.forEach { row ->
+                    MovieRow(
+                        row = row,
+                        focusedMovieId = focusState?.movieId,
+                        onMovieFocused = { id -> viewModel.onMovieFocused(id) },
+                        onMovieSelected = viewModel::onMovieSelected,
+                        onMovieClick = onMovieClick,
+                        progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
+                        focusManager = focusManager,
+                        modifier = Modifier.onRowPositioned(row.id, cameraState)
+                    )
+                }
+
+                if (!loading && rows.isEmpty()) {
                     EmptyHomePlaceholder()
                 }
+
+                // Bottom spacer for overshoot/safe-area
+                Spacer(modifier = Modifier.height(200.dp))
             }
         }
     }

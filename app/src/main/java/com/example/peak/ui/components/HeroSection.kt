@@ -7,15 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -155,15 +150,6 @@ fun HeroSection(
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 5. BUTTONS (Restored for Action Zone)
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            HeroButton(icon = Icons.Default.PlayArrow, text = "Play")
-                            HeroButton(icon = Icons.Default.Add, text = "Watchlist")
-                            HeroButton(icon = Icons.Default.Info, text = "Details")
-                        }
                     }
                 } else {
                     Spacer(modifier = Modifier.fillMaxSize())
@@ -199,30 +185,5 @@ private fun TechnicalBadge(text: String) {
             fontWeight = FontWeight.ExtraBold,
             fontSize = 10.sp
         )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun HeroButton(icon: ImageVector, text: String) {
-    Surface(
-        onClick = { /* Actions handled at screen level */ },
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.1f),
-            focusedContainerColor = Color.White,
-            contentColor = Color.White,
-            focusedContentColor = Color.Black
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(text = text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-        }
     }
 }
