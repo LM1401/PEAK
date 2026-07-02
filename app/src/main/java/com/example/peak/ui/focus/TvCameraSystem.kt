@@ -12,10 +12,10 @@ import androidx.compose.ui.layout.positionInParent
 
 /**
  * TV Camera System State.
- * REFACTORED: Feasible Layout Solver.
+ * REFACTORED: Measurement-based correction system.
  * 
- * Guarantees focused row visibility by resolving constraints between 
- * the Hero Zone (Top) and the Peek Zone (Bottom).
+ * Synchronizes the layout world with the viewport by applying a translation 
+ * derived from the focused row's layout position.
  */
 class TvCameraState(
     initialOffset: Float = 0f,
@@ -32,13 +32,6 @@ class TvCameraState(
     
     var viewportHeight by mutableStateOf(0f)
 
-    // Layout Constraints (Fractions)
-    private val HERO_ZONE_FRACTION = 0.50f
-    private val PEEK_ZONE_FRACTION = 0.20f
-    
-    // Safety buffer for card expansion (scale 1.12x + focus glow)
-    private val EXPANSION_BUFFER_PX = 48f
-
     fun onRowPositioned(rowId: String, y: Float, height: Float) {
         if (rowPositions[rowId] != y || rowHeights[rowId] != height) {
             rowPositions[rowId] = y
@@ -47,50 +40,22 @@ class TvCameraState(
     }
 
     /**
-     * FEASIBLE LAYOUT SOLVER
-     * 1. Compute Visual Footprint: logical bounds + expansion scaling.
-     * 2. Determine Safe Zones: Hero Ceiling (50%) and Peek Floor (80%).
-     * 3. Resolve Constraints: Prioritize visibility and Hero isolation.
+     * MEASUREMENT-BASED CORRECTION
+     * Derives camera offset directly from layout position.
+     * 
+     * Formula: cameraOffsetY = -focusedRowY + anchorY
+     * Where anchorY is the natural layout position of the top-most row.
      */
     private fun calculateDeterministicOffset(rowId: String): Float? {
         val rowY = rowPositions[rowId] ?: return null
-        val rowH = rowHeights[rowId] ?: 0f
         if (viewportHeight <= 0f) return null
 
-        // 1. Compute visual footprint (including scale 1.12x expansion)
-        val expandedTop = rowY - EXPANSION_BUFFER_PX
-        val expandedBottom = rowY + rowH + EXPANSION_BUFFER_PX
+        // DYNAMIC ANCHOR: The natural layout position of the top-most row.
+        // This ensures that layout changes (like Spacers) directly affect the visual anchor.
+        val anchorY = rowPositions.values.minOrNull() ?: 0f
 
-        // 2. Define Zones
-        val heroCeiling = viewportHeight * HERO_ZONE_FRACTION
-        val idealFloor = viewportHeight * (1f - PEEK_ZONE_FRACTION)
-        val hardFloor = viewportHeight // Absolute screen edge
-
-        // 3. Define Offsets
-        // minOffset: Smallest translation to keep top below Hero.
-        val minOffsetForHero = heroCeiling - expandedTop
-        
-        // idealMaxOffset: Largest translation to keep bottom above Peek Zone.
-        val idealMaxOffset = idealFloor - expandedBottom
-        
-        // hardMaxOffset: Largest translation to keep bottom above screen edge (no clipping).
-        val hardMaxOffset = hardFloor - expandedBottom
-
-        // 4. Resolve Range
-        return if (minOffsetForHero <= idealMaxOffset) {
-            // Case A: Row fits within Focus Zone (between Hero and Peek Zone).
-            // Strategy: Align to the bottom of the Focus Zone to maximize cinematic Hero space.
-            idealMaxOffset
-        } else if (minOffsetForHero <= hardMaxOffset) {
-            // Case B: Row fits below Hero but requires the Peek Zone space to be visible.
-            // Strategy: Prioritize Hero isolation; use minOffset to anchor top at 50% VH.
-            minOffsetForHero
-        } else {
-            // Case C: Row is too tall to fit between Hero and screen edge.
-            // Strategy: Relax Hero constraint to prevent clipping. 
-            // We use hardMaxOffset to ensure the bottom is fully visible at the screen edge.
-            hardMaxOffset
-        }
+        // Calculate target offset to align focused row with the dynamic layout anchor.
+        return anchorY - rowY
     }
 
     suspend fun scrollToRow(rowId: String) {

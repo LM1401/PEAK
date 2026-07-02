@@ -98,11 +98,11 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .tvCameraWorld(cameraState),
-                verticalArrangement = Arrangement.spacedBy(48.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Initial spacer to ensure the first row doesn't start at the very top
-                // and follows the camera anchor logic.
-                Spacer(modifier = Modifier.height(100.dp))
+                // Initial spacer defines the visual anchor point for the camera system.
+                // 260.dp ensures rows start correctly below the HeroSection HUD.
+                Spacer(modifier = Modifier.height(260.dp))
 
                 rows.forEach { row ->
                     MovieRow(

@@ -85,10 +85,10 @@ fun MovieRow(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
             .onFocusChanged { focusState ->
                 isRowFocused = focusState.hasFocus
-            }
+            },
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = row.title,
@@ -96,8 +96,6 @@ fun MovieRow(
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(start = 120.dp)
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         if (row.isPlaceholder) {
             LazyRow(
