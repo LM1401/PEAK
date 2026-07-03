@@ -34,14 +34,27 @@ data class ContinueWatchingItem(
 
     /**
      * Maps this item back to a domain [Movie] model for reuse in existing UI components.
+     * Enriches the model with Netflix-style metadata for expanded focus states.
      */
     fun toMovie(): Movie {
+        val sub = if (season != null && episode != null) {
+            "S$season E$episode • $title"
+        } else {
+            title
+        }
+        
+        val remainingMs = durationMs - positionMs
+        val remainingMin = remainingMs / 60000
+        val infoText = if (remainingMin > 0) "${remainingMin}m left" else null
+
         return Movie(
             movieId = movieId,
             name = title,
             imageUrl = posterPath ?: "",
             backdropUrl = backdropPath ?: "",
-            description = "" // Not needed for row display
+            description = "",
+            subTitle = sub,
+            info = infoText
         )
     }
 }

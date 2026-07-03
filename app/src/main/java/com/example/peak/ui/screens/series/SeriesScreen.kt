@@ -124,7 +124,7 @@ fun SeriesScreen(
                     MovieRow(
                         row = row,
                         focusedMovieId = focusState?.movieId,
-                        onMovieFocused = { id -> 
+                        onMovieFocused = { id ->
                             row.movies.find { it.movieId == id }?.let(viewModel::onMovieFocused)
                         },
                         onMovieSelected = viewModel::onMovieSelected,

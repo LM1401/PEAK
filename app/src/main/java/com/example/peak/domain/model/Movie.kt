@@ -17,7 +17,9 @@ data class Movie(
     val cast: String = "Actor One, Actor Two, Actor Three",
     val director: String = "Director Name",
     val genres: String = "Action, Adventure, Thriller",
-    val videoUrl: String? = null
+    val videoUrl: String? = null,
+    val subTitle: String? = null, // e.g. "S3 E4 • Old Friends"
+    val info: String? = null      // e.g. "20m left"
 )
 
 data class Row(

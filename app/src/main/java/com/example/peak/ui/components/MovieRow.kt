@@ -1,8 +1,11 @@
 package com.example.peak.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Surface
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -152,7 +155,7 @@ fun MovieRow(
 
 /**
  * Performance-optimised wrapper.
- * Uses GPU scale transformations instead of width-based layout remeasurement.
+ * Dynamically expands width on focus to match Netflix-style cinematic rows.
  */
 @Composable
 private fun StableMovieCardWrapper(
@@ -164,37 +167,68 @@ private fun StableMovieCardWrapper(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
-    // GPU-ACCELERATED SCALE (Replaces width animation to prevent jitter)
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.12f else 1.0f, // Adjusted for safe TV overscan
-        animationSpec = tween(
-            durationMillis = 220, // Perfectly balanced for TV focus response
-            easing = FastOutSlowInEasing
+    var isLocalFocused by remember { mutableStateOf(false) }
+
+    // ANIMATED WIDTH: Drives the expansion and pushes neighboring cards
+    val cardWidth by animateDpAsState(
+        targetValue = if (isLocalFocused) 320.dp else 145.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
         ),
-        label = "GPUExpansion"
+        label = "card_width"
     )
 
-    MovieCard(
-        movie = movie,
-        isFocused = isFocused,
+    Column(
         modifier = Modifier
-            .width(145.dp) // Reduced width to match reference
-            .height(215.dp) // Reduced height to match reference
-            .zIndex(if (isFocused) 10f else 1f) // CRITICAL: Ensure expanded card stays on top of neighbors
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                // Apply a slight shadow elevation on expansion for depth
-                shadowElevation = if (isFocused) 12f else 0f
-                shape = RoundedCornerShape(8.dp)
-                clip = false
+            .width(cardWidth)
+            .padding(vertical = 10.dp)
+            .onFocusChanged { 
+                isLocalFocused = it.isFocused 
             }
-            .focusRequester(focusRequester),
-        progress = progress,
-        onFocus = onFocus,
-        onClick = { 
-            onMovieSelected(movie)
-            onMovieClick(movie)
+            .zIndex(if (isLocalFocused) 10f else 1f)
+    ) {
+        MovieCard(
+            movie = movie,
+            isFocused = isFocused,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp) // Maintain consistent height
+                .focusRequester(focusRequester),
+            progress = progress,
+            onFocus = onFocus,
+            onClick = {
+                onMovieSelected(movie)
+                onMovieClick(movie)
+            }
+        )
+
+        // METADATA OVERLAY (Below Card)
+        AnimatedVisibility(
+            visible = isLocalFocused,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(top = 12.dp, start = 4.dp)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = movie.subTitle ?: "S3 E4 • Old Friends",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White,
+                    maxLines = 1
+                )
+                Text(
+                    text = movie.info ?: "20m left",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray,
+                    maxLines = 1
+                )
+            }
         }
-    )
+    }
 }

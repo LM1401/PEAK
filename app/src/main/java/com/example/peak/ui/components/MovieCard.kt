@@ -1,6 +1,7 @@
 package com.example.peak.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,6 +26,9 @@ import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.image.PeakImageLoader
 
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+
 /**
  * Large, cinematic Movie Card for the Home Screen.
  * Optimized for performance: asynchronous loading with stable placeholders.
@@ -33,7 +37,7 @@ import com.example.peak.ui.image.PeakImageLoader
 @Composable
 fun MovieCard(
     movie: Movie,
-    isFocused: Boolean, // SINGLE SOURCE OF TRUTH: focusedMovieId == movie.movieId
+    isFocused: Boolean, // Selection state for metadata/image swap
     onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
@@ -42,37 +46,52 @@ fun MovieCard(
     val context = LocalContext.current
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
 
+    // LOCAL INTERACTION STATE: Zero-latency focus tracking
+    var isLocalFocused by remember { mutableStateOf(false) }
+
+    // GPU-ACCELERATED SCALE: Subtle pop-out effect
+    val scale by animateFloatAsState(
+        targetValue = if (isLocalFocused) 1.05f else 1f,
+        label = "movie_card_scale"
+    )
+
     Card(
         onClick = { onClick(movie) },
         modifier = modifier
             .onFocusChanged { state ->
+                isLocalFocused = state.isFocused
                 if (state.isFocused) {
                     onFocus(movie)
                 }
+            }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin.Center
+                clip = false
             },
-        scale = CardDefaults.scale(focusedScale = 1f), // Physical width animation handles scale
-        shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
+        scale = CardDefaults.scale(focusedScale = 1f), // Disable native scaling
+        shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp)), // Slightly rounder for Netflix look
         border = CardDefaults.border(
             focusedBorder = Border(
-                border = BorderStroke(3.dp, Color.White), // STONGER FOCUS CLARITY
+                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)),
                 inset = 0.dp
             )
         ),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.2f),
-                elevation = 16.dp
+                elevationColor = Color.Black.copy(alpha = 0.5f),
+                elevation = 20.dp
             )
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. BASE PLACEHOLDER (Always present, prevents grey tiles)
+            // 1. BASE PLACEHOLDER
             Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
                 ShimmerBox()
             }
 
-            // 2. IMMEDIATE IMAGE SWAP (Netflix-style artwork swap)
-            // UNIFIED CACHE IDENTITY: Bind request strictly to movieId and type
+            // 2. IMAGE SWAP
             val posterKey = movie.movieId
             val backdropKey = "${movie.movieId}_backdrop"
             val isUsingBackdrop = isFocused && movie.backdropUrl.isNotBlank()
@@ -82,10 +101,8 @@ fun MovieCard(
                     .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
                     .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
                     .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
-                    .crossfade(false) // IMPORTANT: No blending, instant switch
+                    .crossfade(200) // Smoother transition
                     .allowHardware(true)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
                     .build()
             }
 
@@ -97,12 +114,47 @@ fun MovieCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 3. PROGRESS BAR OVERLAY
+            // 3. GRADIENT OVERLAY (For text readability)
+            if (isFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.7f)
+                                ),
+                                startY = 300f
+                            )
+                        )
+                )
+
+                // 4. TITLE OVERLAY (Netflix Style)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = movie.name.uppercase(),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 2.sp
+                        ),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // 5. PROGRESS BAR OVERLAY (At the very bottom)
             if (progress != null && progress > 0f) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(3.dp)
                         .background(Color.Gray.copy(alpha = 0.5f))
                         .align(Alignment.BottomStart)
                 ) {
@@ -142,7 +194,7 @@ fun DetailMovieCard(
     Card(
         onClick = { onMovieClick(movie) },
         modifier = Modifier
-            .width(135.dp) 
+            .width(135.dp)
             .aspectRatio(1.8f / 3f)
             .padding(6.dp)
             .onFocusChanged { state ->

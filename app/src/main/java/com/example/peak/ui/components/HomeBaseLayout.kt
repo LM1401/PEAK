@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -53,7 +52,6 @@ fun HomeBaseLayout(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clipToBounds()
                 .zIndex(2f)
         ) {
             rowsContent(Modifier.fillMaxSize())
