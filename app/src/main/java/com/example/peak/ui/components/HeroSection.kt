@@ -32,7 +32,7 @@ fun HeroSection(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .wrapContentHeight(), // Dynamic height to allow tight spacing with rows
+                .wrapContentHeight(),
             contentAlignment = Alignment.TopStart
         ) {
             AnimatedContent(
@@ -50,7 +50,9 @@ fun HeroSection(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp),
+                            // Increased bottom padding to 48dp to create a clear visual 
+                            // buffer zone between metadata and the first MovieRow title.
+                            .padding(bottom = 48.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.Start
                     ) {

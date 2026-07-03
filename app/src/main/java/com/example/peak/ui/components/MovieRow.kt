@@ -100,11 +100,10 @@ fun MovieRow(
         if (row.isPlaceholder) {
             LazyRow(
                 modifier = Modifier
-                    .height(320.dp)
+                    .wrapContentHeight()
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(10) {
                     SkeletonMovieCard()
@@ -114,11 +113,10 @@ fun MovieRow(
             LazyRow(
                 state = listState,
                 modifier = Modifier
-                    .height(320.dp)
+                    .wrapContentHeight()
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(
                     items = row.movies,
