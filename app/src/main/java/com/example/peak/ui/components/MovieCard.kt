@@ -114,42 +114,7 @@ fun MovieCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 3. GRADIENT OVERLAY (For text readability)
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.7f)
-                                ),
-                                startY = 300f
-                            )
-                        )
-                )
-
-                // 4. TITLE OVERLAY (Netflix Style)
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = movie.name.uppercase(),
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 2.sp
-                        ),
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // 5. PROGRESS BAR OVERLAY (At the very bottom)
+            // 3. PROGRESS BAR OVERLAY (At the very bottom)
             if (progress != null && progress > 0f) {
                 Box(
                     modifier = Modifier

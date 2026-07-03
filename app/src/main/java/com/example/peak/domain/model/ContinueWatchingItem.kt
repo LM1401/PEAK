@@ -37,10 +37,11 @@ data class ContinueWatchingItem(
      * Enriches the model with Netflix-style metadata for expanded focus states.
      */
     fun toMovie(): Movie {
+        // Only generate a subtitle if it's episodic content
         val sub = if (season != null && episode != null) {
-            "S$season E$episode • $title"
+            "S$season E$episode"
         } else {
-            title
+            null
         }
         
         val remainingMs = durationMs - positionMs

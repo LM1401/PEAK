@@ -202,33 +202,5 @@ private fun StableMovieCardWrapper(
                 onMovieClick(movie)
             }
         )
-
-        // METADATA OVERLAY (Below Card)
-        AnimatedVisibility(
-            visible = isLocalFocused,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(top = 12.dp, start = 4.dp)
-                    .fillMaxWidth()
-            ) {
-                Text(
-                    text = movie.subTitle ?: "S3 E4 • Old Friends",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = Color.White,
-                    maxLines = 1
-                )
-                Text(
-                    text = movie.info ?: "20m left",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.LightGray,
-                    maxLines = 1
-                )
-            }
-        }
     }
 }
