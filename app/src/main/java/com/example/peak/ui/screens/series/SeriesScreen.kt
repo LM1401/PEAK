@@ -22,6 +22,8 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 /**
  * Series Screen. 
@@ -55,17 +57,26 @@ fun SeriesScreen(
     }
 
     // 2. FOCUS -> CAMERA SYNC
-    LaunchedEffect(focusState?.movieId, rows) {
-        val movieId = focusState?.movieId ?: return@LaunchedEffect
-        val row = rows.find { it.movies.any { m -> m.movieId == movieId } }
+    // Derived state to track the target row ID for camera anchoring
+    val focusRowId = remember(focusState?.movieId, rows) {
+        val movieId = focusState?.movieId
+        rows.find { it.movies.any { m -> m.movieId == movieId } }?.id
+    }
+
+    LaunchedEffect(focusRowId) {
+        val rowId = focusRowId ?: return@LaunchedEffect
         
-        row?.let {
-            if (!isInitialised) {
-                cameraState.snapToRow(it.id)
-                isInitialised = true
-            } else {
-                cameraState.scrollToRow(it.id)
-            }
+        // CRITICAL SYNC: Wait for the layout system to measure the target row.
+        // This ensures snapToRow has real coordinates and prevents the first-frame jump.
+        snapshotFlow { cameraState.hasPosition(rowId) }
+            .filter { it }
+            .first()
+
+        if (!isInitialised) {
+            cameraState.snapToRow(rowId)
+            isInitialised = true
+        } else {
+            cameraState.scrollToRow(rowId)
         }
     }
 
@@ -99,12 +110,17 @@ fun SeriesScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .tvCameraWorld(cameraState),
-                verticalArrangement = Arrangement.spacedBy(48.dp)
+                    .tvCameraWorld(cameraState)
             ) {
-                Spacer(modifier = Modifier.height(100.dp))
+                // 1. GLOBAL ANCHOR: Only this spacer defines the start of content.
+                Spacer(modifier = Modifier.height(220.dp))
 
-                rows.forEach { row ->
+                // 2. CONTENT RHYTHM: Inter-row spacing applied manually to avoid anchor inflation.
+                rows.forEachIndexed { index, row ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
                     MovieRow(
                         row = row,
                         focusedMovieId = focusState?.movieId,
@@ -122,6 +138,7 @@ fun SeriesScreen(
                     EmptySeriesPlaceholder()
                 }
 
+                // Bottom spacer for overshoot/safe-area
                 Spacer(modifier = Modifier.height(200.dp))
             }
         }

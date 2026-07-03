@@ -18,6 +18,8 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 /**
  * HomeScreen.
@@ -53,17 +55,26 @@ fun HomeScreen(
     }
 
     // 2. FOCUS -> CAMERA SYNC
-    LaunchedEffect(focusState?.movieId, rows) {
-        val movieId = focusState?.movieId ?: return@LaunchedEffect
-        val row = rows.find { it.movies.any { m -> m.movieId == movieId } }
+    // Derived state to track the target row ID for camera anchoring
+    val focusRowId = remember(focusState?.movieId, rows) {
+        val movieId = focusState?.movieId
+        rows.find { it.movies.any { m -> m.movieId == movieId } }?.id
+    }
+
+    LaunchedEffect(focusRowId) {
+        val rowId = focusRowId ?: return@LaunchedEffect
         
-        row?.let {
-            if (!isInitialised) {
-                cameraState.snapToRow(it.id)
-                isInitialised = true
-            } else {
-                cameraState.scrollToRow(it.id)
-            }
+        // CRITICAL SYNC: Wait for the layout system to measure the target row.
+        // This ensures snapToRow has real coordinates and prevents the first-frame jump.
+        snapshotFlow { cameraState.hasPosition(rowId) }
+            .filter { it }
+            .first()
+
+        if (!isInitialised) {
+            cameraState.snapToRow(rowId)
+            isInitialised = true
+        } else {
+            cameraState.scrollToRow(rowId)
         }
     }
 

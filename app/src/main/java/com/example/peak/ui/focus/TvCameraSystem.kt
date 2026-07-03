@@ -30,7 +30,12 @@ class TvCameraState(
     private val rowPositions = mutableStateMapOf<String, Float>()
     private val rowHeights = mutableStateMapOf<String, Float>()
     
-    var viewportHeight by mutableStateOf(0f)
+    var viewportHeight by mutableFloatStateOf(0f)
+
+    /**
+     * Checks if a specific row has been measured by the layout system.
+     */
+    fun hasPosition(rowId: String): Boolean = rowPositions.containsKey(rowId)
 
     fun onRowPositioned(rowId: String, y: Float, height: Float) {
         if (rowPositions[rowId] != y || rowHeights[rowId] != height) {
