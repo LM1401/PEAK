@@ -97,14 +97,18 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .tvCameraWorld(cameraState),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .tvCameraWorld(cameraState)
             ) {
-                // Initial spacer defines the visual anchor point for the camera system.
-                // 260.dp ensures rows start correctly below the HeroSection HUD.
-                Spacer(modifier = Modifier.height(260.dp))
+                // 1. GLOBAL ANCHOR: Only this spacer defines the start of content.
+                // Adjusted to 220.dp for tighter Hero-to-Row alignment.
+                Spacer(modifier = Modifier.height(220.dp))
 
-                rows.forEach { row ->
+                // 2. CONTENT RHYTHM: Inter-row spacing applied manually to avoid anchor inflation.
+                rows.forEachIndexed { index, row ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
                     MovieRow(
                         row = row,
                         focusedMovieId = focusState?.movieId,
