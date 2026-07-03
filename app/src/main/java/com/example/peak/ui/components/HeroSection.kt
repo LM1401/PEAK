@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 
+private val HERO_VISUAL_HEIGHT = 156.dp
+
 /**
  * Cinematic Hero Section HUD.
  * Refined for visual hierarchy: title is supporting context, not dominant.
@@ -32,7 +34,7 @@ fun HeroSection(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .wrapContentHeight(),
+                .height(HERO_VISUAL_HEIGHT), // ARCHITECTURE FIX: Fixed height viewport
             contentAlignment = Alignment.TopStart
         ) {
             AnimatedContent(
@@ -49,10 +51,7 @@ fun HeroSection(
                 if (currentMovie != null) {
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            // Increased bottom padding to 48dp to create a clear visual 
-                            // buffer zone between metadata and the first MovieRow title.
-                            .padding(bottom = 48.dp),
+                            .fillMaxSize(), // Fill the fixed-height HUD viewport
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
@@ -122,24 +121,30 @@ fun HeroSection(
                             }
                         }
 
-                        // 3. DESCRIPTION (Max 3 lines for depth)
+                        // 3. DESCRIPTION (Max 2 lines to fit fixed viewport)
                         Text(
                             text = currentMovie.description,
                             color = Color.White.copy(alpha = 0.9f),
                             style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 3,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 20.sp,
                             modifier = Modifier.widthIn(max = 800.dp)
                         )
 
                         // 4. SECONDARY METADATA (Director & Cast)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // Uses a fixed-height container to prevent layout shifting
+                        Column(
+                            modifier = Modifier.height(40.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             if (currentMovie.director.isNotBlank()) {
                                 Text(
                                     text = "Directed by ${currentMovie.director}",
                                     color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.labelLarge
+                                    style = MaterialTheme.typography.labelLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                             if (currentMovie.cast.isNotBlank()) {
