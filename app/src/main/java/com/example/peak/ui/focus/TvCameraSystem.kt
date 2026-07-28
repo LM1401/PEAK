@@ -25,8 +25,8 @@ class TvCameraState(
         stiffness = Spring.StiffnessLow
     )
 ) {
-    // SLOT_HEIGHT: 300dp (Row Content) + 24dp (Spacing)
-    private val slotHeightPx = with(density) { 324.dp.toPx() }
+    // SLOT_HEIGHT: 287dp (Row Content) + 24dp (Spacing)
+    private val slotHeightPx = with(density) { 311.dp.toPx() }
 
     private val _offsetY = Animatable(0f)
     val offsetY: Float get() = _offsetY.value

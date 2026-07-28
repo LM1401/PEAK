@@ -6,6 +6,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -81,6 +82,8 @@ fun HomeScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
+                .padding(top = 220.dp)
+                .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
@@ -95,10 +98,7 @@ fun HomeScreen(
                     .wrapContentHeight(unbounded = true, align = Alignment.Top)
                     .tvCameraWorld(cameraState)
             ) {
-                // 1. HUD CLEARANCE: Matches the HeroSection's total occupation (220dp)
-                Spacer(modifier = Modifier.height(220.dp))
-
-                // 2. CONTENT SLOTS
+                // CONTENT SLOTS
                 rows.forEachIndexed { index, row ->
                     key(row.id) {
                         // SLOT SPACING: Exact 24dp for deterministic anchor math

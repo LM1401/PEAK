@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +82,8 @@ fun SeriesScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
+                .padding(top = 220.dp)
+                .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
@@ -93,9 +96,6 @@ fun SeriesScreen(
                     .wrapContentHeight(unbounded = true, align = Alignment.Top)
                     .tvCameraWorld(cameraState)
             ) {
-                // HUD CLEARANCE
-                Spacer(modifier = Modifier.height(220.dp))
-
                 rows.forEachIndexed { index, row ->
                     key(row.id) {
                         if (index > 0) {
