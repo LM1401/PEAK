@@ -22,12 +22,10 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 
 /**
  * Movies Screen. 
- * REFACTORED: Uses the deterministic TV Camera System instead of LazyColumn.
+ * REFACTORED: Deterministic Slot Viewport.
  */
 @Composable
 fun MoviesScreen(
@@ -47,36 +45,18 @@ fun MoviesScreen(
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
 
-    // TV CAMERA SYSTEM INITIALIZATION
+    // TV CAMERA SYSTEM: Restored vertical slot responsibility
     val cameraState = rememberTvCameraState()
-    var isInitialised by remember { mutableStateOf(false) }
 
-    // 1. VIEWPORT TRACKING
-    val viewportModifier = Modifier.onGloballyPositioned { coords ->
-        cameraState.viewportHeight = coords.size.height.toFloat()
+    // SYNC FOCUS -> CAMERA SLOT
+    val focusRowIndex = remember(focusState?.rowId, rows) {
+        val rowId = focusState?.rowId
+        rows.indexOfFirst { it.id == rowId }
     }
 
-    // 2. FOCUS -> CAMERA SYNC
-    // Derived state to track the target row ID for camera anchoring
-    val focusRowId = remember(focusState?.movieId, rows) {
-        val movieId = focusState?.movieId
-        rows.find { it.movies.any { m -> m.movieId == movieId } }?.id
-    }
-
-    LaunchedEffect(focusRowId) {
-        val rowId = focusRowId ?: return@LaunchedEffect
-        
-        // CRITICAL SYNC: Wait for the layout system to measure the target row.
-        // This ensures snapToRow has real coordinates and prevents the first-frame jump.
-        snapshotFlow { cameraState.hasPosition(rowId) }
-            .filter { it }
-            .first()
-
-        if (!isInitialised) {
-            cameraState.snapToRow(rowId)
-            isInitialised = true
-        } else {
-            cameraState.scrollToRow(rowId)
+    LaunchedEffect(focusRowIndex) {
+        if (focusRowIndex != -1) {
+            cameraState.scrollToRow(focusRowIndex)
         }
     }
 
@@ -100,46 +80,49 @@ fun MoviesScreen(
         // THE VIEWPORT
         Box(
             modifier = modifier
-                .then(viewportModifier)
+                .fillMaxSize()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
                 }
         ) {
-            // THE WORLD (Translates based on Camera State)
+            // THE WORLD
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .wrapContentHeight(unbounded = true, align = Alignment.Top)
                     .tvCameraWorld(cameraState)
             ) {
-                // 1. GLOBAL ANCHOR: Only this spacer defines the start of content.
+                // HUD CLEARANCE
                 Spacer(modifier = Modifier.height(220.dp))
 
-                // 2. CONTENT RHYTHM: Inter-row spacing applied manually to avoid anchor inflation.
                 rows.forEachIndexed { index, row ->
-                    if (index > 0) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
+                    key(row.id) {
+                        if (index > 0) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
 
-                    MovieRow(
-                        row = row,
-                        focusedMovieId = focusState?.movieId,
-                        onMovieFocused = { id ->
-                            row.movies.find { it.movieId == id }?.let(viewModel::onMovieFocused)
-                        },
-                        onMovieSelected = viewModel::onMovieSelected,
-                        onMovieClick = onMovieClick,
-                        focusManager = focusManager,
-                        modifier = Modifier.onRowPositioned(row.id, cameraState)
-                    )
+                        MovieRow(
+                            row = row,
+                            focusedMovieId = focusState?.movieId,
+                            onMovieFocused = { rowId, movieId ->
+                                row.movies.find { it.movieId == movieId }?.let { movie ->
+                                    viewModel.onMovieFocused(rowId, movie)
+                                }
+                            },
+                            onMovieSelected = viewModel::onMovieSelected,
+                            onMovieClick = onMovieClick,
+                            focusManager = focusManager,
+                            modifier = Modifier.onRowPositioned(row.id, cameraState)
+                        )
+                    }
                 }
 
                 if (!loading && rows.isEmpty()) {
                     EmptyMoviesPlaceholder()
                 }
 
-                // Bottom spacer for overshoot/safe-area
-                Spacer(modifier = Modifier.height(200.dp))
+                Spacer(modifier = Modifier.height(600.dp))
             }
         }
     }

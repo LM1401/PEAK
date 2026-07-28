@@ -97,9 +97,11 @@ class HomeViewModel(
             // 2. AUTOMATIC FOCUS SYNC (Rule 3 & 4 Fix)
             // Established ONLY after rows are in the UI State and verified as real data.
             if (_focusState.value == null) {
-                rows.firstOrNull { !it.isPlaceholder }?.movies?.firstOrNull()?.let { movie ->
-                    if (movie.movieId.isNotBlank()) {
-                        _focusState.value = FocusState(movie.movieId, movie)
+                rows.firstOrNull { !it.isPlaceholder }?.let { row ->
+                    row.movies.firstOrNull()?.let { movie ->
+                        if (movie.movieId.isNotBlank()) {
+                            _focusState.value = FocusState(row.id, movie.movieId, movie)
+                        }
                     }
                 }
             }
@@ -129,20 +131,20 @@ class HomeViewModel(
      * Handles movie focus events from the UI.
      * Performs synchronous lookup to eliminate "first frame delay".
      */
-    fun onMovieFocused(movieId: String) {
-        if (_focusState.value?.movieId == movieId) return
+    fun onMovieFocused(rowId: String, movieId: String) {
+        if (_focusState.value?.movieId == movieId && _focusState.value?.rowId == rowId) return
 
         // 1. Synchronous Cache Lookup (Zero Latency)
-        val cachedMovie = _uiState.value.rows.flatMap { it.movies }.find { it.movieId == movieId }
+        val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId }
         
         if (cachedMovie != null && cachedMovie.description.isNotBlank()) {
-            _focusState.value = FocusState(movieId, cachedMovie)
+            _focusState.value = FocusState(rowId, movieId, cachedMovie)
             return
         }
 
         // 2. Immediate partial state update if ID exists but metadata is thin
         if (cachedMovie != null) {
-            _focusState.value = FocusState(movieId, cachedMovie)
+            _focusState.value = FocusState(rowId, movieId, cachedMovie)
         }
 
         // 3. Asynchronous Enrichment (Only if metadata is missing)
@@ -151,8 +153,8 @@ class HomeViewModel(
             val result = repository.getMovieById(movieId)
             result.getOrNull()?.let { movie ->
                 // Ensure we haven't navigated away during fetch
-                if (_focusState.value?.movieId == movieId) {
-                    _focusState.value = FocusState(movieId, movie)
+                if (_focusState.value?.movieId == movieId && _focusState.value?.rowId == rowId) {
+                    _focusState.value = FocusState(rowId, movieId, movie)
                 }
             }
         }

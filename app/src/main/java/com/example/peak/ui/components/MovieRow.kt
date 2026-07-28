@@ -41,7 +41,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 fun MovieRow(
     row: Row,
     focusedMovieId: String?,
-    onMovieFocused: (String) -> Unit,
+    onMovieFocused: (String, String) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
@@ -100,50 +100,33 @@ fun MovieRow(
             modifier = Modifier.padding(start = 120.dp)
         )
 
-        if (row.isPlaceholder) {
-            LazyRow(
-                modifier = Modifier
-                    .wrapContentHeight()
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(10) {
+        // SINGLE LAZYROW: Prevents structural disposal during placeholder -> content transition.
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .wrapContentHeight()
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (row.isPlaceholder) {
+                // SKELETON SLOT: Stable keys to maintain focus during loading state
+                items(10, key = { index -> "${row.id}_skeleton_slot_$index" }) {
                     SkeletonMovieCard()
                 }
-            }
-        } else {
-            LazyRow(
-                state = listState,
-                modifier = Modifier
-                    .wrapContentHeight()
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            } else {
+                // CONTENT SLOT: Stable Data ID keys to ensure focus survives recomposition and metadata updates
                 items(
                     items = row.movies,
-                    key = { it.movieId }
+                    key = { movie -> "${row.id}_${movie.movieId}" }
                 ) { movie ->
-                    val isFocused = focusedMovieId == movie.movieId
                     val focusRequester = remember(movie.movieId) { FocusRequester() }
-
-                    // Restore focus if this was the last focused item in this row
-                    LaunchedEffect(isRowFocused) {
-                        if (isRowFocused) {
-                            val lastId = focusManager?.getRememberedId(row.id)
-                            if (lastId == movie.movieId) {
-                                focusRequester.requestFocus()
-                            }
-                        }
-                    }
 
                     StableMovieCardWrapper(
                         movie = movie,
-                        isFocused = isFocused,
                         progress = progressMap?.get(movie.movieId),
                         focusRequester = focusRequester,
-                        onFocus = { m -> m?.let { onMovieFocused(it.movieId) } },
+                        onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId) } },
                         onMovieSelected = onMovieSelected,
                         onMovieClick = onMovieClick
                     )
@@ -155,21 +138,20 @@ fun MovieRow(
 
 /**
  * Performance-optimised wrapper.
- * Dynamically expands width on focus to match Netflix-style cinematic rows.
+ * Refactored: Uses local focus state for frame-perfect expansion.
  */
 @Composable
 private fun StableMovieCardWrapper(
     movie: Movie,
-    isFocused: Boolean,
     progress: Float?,
     focusRequester: FocusRequester,
     onFocus: (Movie?) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
+    // FIX: Local focus is the single source of truth for visual expansion
     var isLocalFocused by remember { mutableStateOf(false) }
 
-    // ANIMATED WIDTH: Drives the expansion and pushes neighboring cards
     val cardWidth by animateDpAsState(
         targetValue = if (isLocalFocused) 320.dp else 145.dp,
         animationSpec = spring(
@@ -184,16 +166,15 @@ private fun StableMovieCardWrapper(
             .width(cardWidth)
             .padding(vertical = 10.dp)
             .onFocusChanged { 
-                isLocalFocused = it.isFocused 
+                isLocalFocused = it.hasFocus 
             }
             .zIndex(if (isLocalFocused) 10f else 1f)
     ) {
         MovieCard(
             movie = movie,
-            isFocused = isFocused,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp) // Maintain consistent height
+                .height(200.dp)
                 .focusRequester(focusRequester),
             progress = progress,
             onFocus = onFocus,

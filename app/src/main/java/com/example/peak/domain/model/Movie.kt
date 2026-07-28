@@ -30,6 +30,7 @@ data class Row(
 )
 
 data class FocusState(
+    val rowId: String,
     val movieId: String,
     val movie: Movie?
 )

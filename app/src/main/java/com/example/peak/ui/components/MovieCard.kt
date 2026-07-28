@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 @Composable
 fun MovieCard(
     movie: Movie,
-    isFocused: Boolean, // Selection state for metadata/image swap
     onFocus: (Movie?) -> Unit,
     onClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
@@ -91,17 +90,17 @@ fun MovieCard(
                 ShimmerBox()
             }
 
-            // 2. IMAGE SWAP
+            // 2. IMAGE SWAP (Synchronised with local focus for zero-lag response)
             val posterKey = movie.movieId
             val backdropKey = "${movie.movieId}_backdrop"
-            val isUsingBackdrop = isFocused && movie.backdropUrl.isNotBlank()
+            val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
 
-            val imageRequest = remember(movie.movieId, isFocused) {
+            val imageRequest = remember(movie.movieId, isLocalFocused) {
                 ImageRequest.Builder(context)
                     .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
                     .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
                     .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
-                    .crossfade(200) // Smoother transition
+                    .crossfade(200)
                     .allowHardware(true)
                     .build()
             }
@@ -201,7 +200,7 @@ fun DetailMovieCard(
 
 /**
  * Skeleton placeholder for the Home Screen Movie Rows.
- * Focusable to ensure D-pad navigation doesn't get stuck during loading.
+ * Normalised to 220dp to match the StableMovieCardWrapper footprint.
  */
 @Composable
 fun SkeletonMovieCard() {
@@ -209,7 +208,7 @@ fun SkeletonMovieCard() {
         onClick = { /* Do nothing while loading */ },
         modifier = Modifier
             .width(145.dp)
-            .height(215.dp),
+            .height(220.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color(0xFF2A2A2A),

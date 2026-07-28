@@ -2,13 +2,14 @@ package com.example.peak.ui.screens.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.onGloballyPositioned
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
@@ -18,13 +19,12 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 
 /**
  * HomeScreen.
- * REFACTORED: Uses the deterministic TV Camera System instead of LazyColumn.
- * Rows are placed in a world stack and translated based on focus position.
+ * REFACTORED: Deterministic Slot Viewport.
+ * Uses index-based camera translation to ensure "One Active + One Peek" UX
+ * across all resolutions.
  */
 @Composable
 fun HomeScreen(
@@ -45,36 +45,18 @@ fun HomeScreen(
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
 
-    // TV CAMERA SYSTEM INITIALIZATION
+    // TV CAMERA SYSTEM: Restored vertical slot responsibility
     val cameraState = rememberTvCameraState()
-    var isInitialised by remember { mutableStateOf(false) }
 
-    // 1. VIEWPORT TRACKING
-    val viewportModifier = Modifier.onGloballyPositioned { coords ->
-        cameraState.viewportHeight = coords.size.height.toFloat()
+    // SYNC FOCUS -> CAMERA SLOT
+    val focusRowIndex = remember(focusState?.rowId, rows) {
+        val rowId = focusState?.rowId
+        rows.indexOfFirst { it.id == rowId }
     }
 
-    // 2. FOCUS -> CAMERA SYNC
-    // Derived state to track the target row ID for camera anchoring
-    val focusRowId = remember(focusState?.movieId, rows) {
-        val movieId = focusState?.movieId
-        rows.find { it.movies.any { m -> m.movieId == movieId } }?.id
-    }
-
-    LaunchedEffect(focusRowId) {
-        val rowId = focusRowId ?: return@LaunchedEffect
-        
-        // CRITICAL SYNC: Wait for the layout system to measure the target row.
-        // This ensures snapToRow has real coordinates and prevents the first-frame jump.
-        snapshotFlow { cameraState.hasPosition(rowId) }
-            .filter { it }
-            .first()
-
-        if (!isInitialised) {
-            cameraState.snapToRow(rowId)
-            isInitialised = true
-        } else {
-            cameraState.scrollToRow(rowId)
+    LaunchedEffect(focusRowIndex) {
+        if (focusRowIndex != -1) {
+            cameraState.scrollToRow(focusRowIndex)
         }
     }
 
@@ -98,46 +80,51 @@ fun HomeScreen(
         // THE VIEWPORT
         Box(
             modifier = modifier
-                .then(viewportModifier)
+                .fillMaxSize()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = navFocusRequester
                 }
         ) {
-            // THE WORLD (Translates based on Camera State)
+            // THE WORLD: Stacks rows vertically and translates by Slot Index.
+            // wrapContentHeight(unbounded = true) is CRITICAL for focus: it allows the 
+            // focus system to see rows that are layout-positioned below the viewport.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .wrapContentHeight(unbounded = true, align = Alignment.Top)
                     .tvCameraWorld(cameraState)
             ) {
-                // 1. GLOBAL ANCHOR: Only this spacer defines the start of content.
-                // Adjusted to 220.dp for tighter Hero-to-Row alignment.
+                // 1. HUD CLEARANCE: Matches the HeroSection's total occupation (220dp)
                 Spacer(modifier = Modifier.height(220.dp))
 
-                // 2. CONTENT RHYTHM: Inter-row spacing applied manually to avoid anchor inflation.
+                // 2. CONTENT SLOTS
                 rows.forEachIndexed { index, row ->
-                    if (index > 0) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
+                    key(row.id) {
+                        // SLOT SPACING: Exact 24dp for deterministic anchor math
+                        if (index > 0) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
 
-                    MovieRow(
-                        row = row,
-                        focusedMovieId = focusState?.movieId,
-                        onMovieFocused = { id -> viewModel.onMovieFocused(id) },
-                        onMovieSelected = viewModel::onMovieSelected,
-                        onMovieClick = onMovieClick,
-                        progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
-                        focusManager = focusManager,
-                        modifier = Modifier.onRowPositioned(row.id, cameraState)
-                    )
+                        MovieRow(
+                            row = row,
+                            focusedMovieId = focusState?.movieId,
+                            onMovieFocused = { rowId, movieId -> viewModel.onMovieFocused(rowId, movieId) },
+                            onMovieSelected = viewModel::onMovieSelected,
+                            onMovieClick = onMovieClick,
+                            progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
+                            focusManager = focusManager,
+                            modifier = Modifier.onRowPositioned(row.id, cameraState)
+                        )
+                    }
                 }
 
                 if (!loading && rows.isEmpty()) {
                     EmptyHomePlaceholder()
                 }
 
-                // Bottom spacer for overshoot/safe-area
-                Spacer(modifier = Modifier.height(200.dp))
+                // Overshoot spacer to allow last row to be "Active Slot"
+                Spacer(modifier = Modifier.height(600.dp))
             }
         }
     }

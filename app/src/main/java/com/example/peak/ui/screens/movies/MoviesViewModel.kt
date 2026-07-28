@@ -70,8 +70,9 @@ class MoviesViewModel(
                         
                         // Set initial focus (Rule 3 Fix)
                         if (_focusState.value == null && initialMovie != null) {
-                            if (initialMovie.movieId.isNotBlank()) {
-                                _focusState.value = FocusState(initialMovie.movieId, initialMovie)
+                            val initialRow = movieRows.firstOrNull()
+                            if (initialMovie.movieId.isNotBlank() && initialRow != null) {
+                                _focusState.value = FocusState(initialRow.id, initialMovie.movieId, initialMovie)
                             }
                         }
                     } else {
@@ -88,19 +89,19 @@ class MoviesViewModel(
     /**
      * Synchronous focus handler to eliminate propagation latency.
      */
-    fun onMovieFocused(movie: Movie) {
-        if (_focusState.value?.movieId == movie.movieId) return
+    fun onMovieFocused(rowId: String, movie: Movie) {
+        if (_focusState.value?.movieId == movie.movieId && _focusState.value?.rowId == rowId) return
         
         // 1. Immediate state update from memory
-        _focusState.value = FocusState(movie.movieId, movie)
+        _focusState.value = FocusState(rowId, movie.movieId, movie)
         
         // 2. Background enrichment of metadata if necessary
         if (movie.description.isBlank()) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
                 repository.getMovieById(movie.movieId).onSuccess { fullMovie ->
-                    if (_focusState.value?.movieId == movie.movieId) {
-                        _focusState.value = FocusState(movie.movieId, fullMovie)
+                    if (_focusState.value?.movieId == movie.movieId && _focusState.value?.rowId == rowId) {
+                        _focusState.value = FocusState(rowId, movie.movieId, fullMovie)
                     }
                 }
             }
