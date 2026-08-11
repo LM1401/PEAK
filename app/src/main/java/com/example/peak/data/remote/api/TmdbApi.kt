@@ -18,4 +18,7 @@ interface TmdbApi {
 
     @GET("movie/{movie_id}")
     suspend fun getMovieDetails(@Path("movie_id") movieId: String): TmdbMovie
+
+    @GET("tv/{tv_id}")
+    suspend fun getTvDetails(@Path("tv_id") tvId: String): TmdbMovie
 }

@@ -3,6 +3,7 @@ package com.example.peak.data.repository
 import android.util.Log
 import com.example.peak.data.continuewatching.ContinueWatchingStorage
 import com.example.peak.domain.model.ContinueWatchingItem
+import com.example.peak.domain.model.MediaType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +43,7 @@ class ContinueWatchingRepository(
         title: String,
         posterPath: String?,
         backdropPath: String?,
-        mediaType: String,
+        mediaType: MediaType,
         positionMs: Long,
         durationMs: Long,
         tmdbId: String? = null,
@@ -69,9 +70,9 @@ class ContinueWatchingRepository(
         }
     }
 
-    suspend fun updatePosition(movieId: String, positionMs: Long, durationMs: Long) {
+    suspend fun updatePosition(movieId: String, mediaType: MediaType, positionMs: Long, durationMs: Long) {
         try {
-            val existingItem = storage.getItem(movieId) ?: return
+            val existingItem = storage.getItem(movieId, mediaType) ?: return
             val updatedItem = existingItem.copy(
                 positionMs = positionMs,
                 durationMs = if (durationMs > 0) durationMs else existingItem.durationMs,
@@ -83,13 +84,13 @@ class ContinueWatchingRepository(
         }
     }
 
-    suspend fun getResumePosition(movieId: String): Long {
-        return storage.getItem(movieId)?.positionMs ?: 0L
+    suspend fun getResumePosition(movieId: String, mediaType: MediaType): Long {
+        return storage.getItem(movieId, mediaType)?.positionMs ?: 0L
     }
 
-    suspend fun clearProgress(movieId: String) {
+    suspend fun clearProgress(movieId: String, mediaType: MediaType) {
         try {
-            _continueWatchingItems.value = storage.deleteItem(movieId)
+            _continueWatchingItems.value = storage.deleteItem(movieId, mediaType)
         } catch (e: Exception) {
             _continueWatchingItems.value = _continueWatchingItems.value
         }
@@ -101,7 +102,7 @@ class ContinueWatchingRepository(
             var currentItems = items
             items.forEach {
                 if (it.isEffectivelyCompleted()) {
-                    currentItems = storage.deleteItem(it.movieId)
+                    currentItems = storage.deleteItem(it.movieId, it.mediaType)
                 }
             }
             _continueWatchingItems.value = currentItems

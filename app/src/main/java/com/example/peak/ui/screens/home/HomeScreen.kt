@@ -112,7 +112,7 @@ fun HomeScreen(
                         MovieRow(
                             row = row,
                             focusedMovieId = focusState?.movieId,
-                            onMovieFocused = { rowId, movieId -> viewModel.onMovieFocused(rowId, movieId) },
+                            onMovieFocused = { rowId, movieId, mediaType -> viewModel.onMovieFocused(rowId, movieId, mediaType) },
                             onMovieSelected = viewModel::onMovieSelected,
                             onMovieClick = onMovieClick,
                             progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,

@@ -25,6 +25,7 @@ import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import coil.request.ImageRequest
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.ui.focus.FocusMemoryManager
@@ -41,7 +42,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 fun MovieRow(
     row: Row,
     focusedMovieId: String?,
-    onMovieFocused: (String, String) -> Unit,
+    onMovieFocused: (String, String, MediaType) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
@@ -126,17 +127,18 @@ fun MovieRow(
                 // CONTENT SLOT: Stable Data ID keys to ensure focus survives recomposition and metadata updates
                 items(
                     items = row.movies,
-                    key = { movie -> "${row.id}_${movie.movieId}" }
+                    key = { movie -> "${row.id}_${movie.mediaType.name}_${movie.movieId}" }
                 ) { movie ->
-                    val focusRequester = remember(movie.movieId) { 
-                        focusRequesters.getOrPut(movie.movieId) { FocusRequester() } 
+                    val focusKey = "${movie.mediaType.name}_${movie.movieId}"
+                    val focusRequester = remember(focusKey) { 
+                        focusRequesters.getOrPut(focusKey) { FocusRequester() } 
                     }
 
                     StableMovieCardWrapper(
                         movie = movie,
-                        progress = progressMap?.get(movie.movieId),
+                        progress = progressMap?.get("${movie.mediaType.name}_${movie.movieId}"),
                         focusRequester = focusRequester,
-                        onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId) } },
+                        onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId, it.mediaType) } },
                         onMovieSelected = onMovieSelected,
                         onMovieClick = onMovieClick
                     )

@@ -1,6 +1,7 @@
 package com.example.peak.data.search
 
 import android.util.Log
+import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.search.SearchItem
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -43,9 +44,16 @@ class SearchRepository(private val client: OkHttpClient) {
                 val results = mutableListOf<SearchItem>()
                 for (i in 0 until jsonArray.length()) {
                     val item = jsonArray.optJSONObject(i) ?: continue
-                    val type = item.optString("media_type", "movie")
+                    val mediaTypeStr = item.optString("media_type")
                     
-                    val title = if (type == "movie") {
+                    // Filter: only allow movie and tv. Ignore person/etc.
+                    val mediaType = when (mediaTypeStr) {
+                        "movie" -> MediaType.MOVIE
+                        "tv" -> MediaType.TV
+                        else -> continue // Skip anything else
+                    }
+                    
+                    val title = if (mediaType == MediaType.MOVIE) {
                         item.optString("title")
                     } else {
                         item.optString("name")
@@ -53,7 +61,7 @@ class SearchRepository(private val client: OkHttpClient) {
 
                     if (title.isNullOrBlank()) continue
 
-                    val date = if (type == "movie") {
+                    val date = if (mediaType == MediaType.MOVIE) {
                         item.optString("release_date")
                     } else {
                         item.optString("first_air_date")
@@ -79,7 +87,7 @@ class SearchRepository(private val client: OkHttpClient) {
                             id = item.optString("id", i.toString()),
                             title = title,
                             year = year,
-                            type = type,
+                            type = mediaType,
                             posterUrl = posterUrl,
                             backdropUrl = backdropUrl,
                             overview = overview,

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.domain.model.FocusState
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
@@ -72,7 +73,7 @@ class MoviesViewModel(
                         if (_focusState.value == null && initialMovie != null) {
                             val initialRow = movieRows.firstOrNull()
                             if (initialMovie.movieId.isNotBlank() && initialRow != null) {
-                                _focusState.value = FocusState(initialRow.id, initialMovie.movieId, initialMovie)
+                                _focusState.value = FocusState(initialRow.id, initialMovie.movieId, initialMovie.mediaType, initialMovie)
                             }
                         }
                     } else {
@@ -90,18 +91,18 @@ class MoviesViewModel(
      * Synchronous focus handler to eliminate propagation latency.
      */
     fun onMovieFocused(rowId: String, movie: Movie) {
-        if (_focusState.value?.movieId == movie.movieId && _focusState.value?.rowId == rowId) return
+        if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) return
         
         // 1. Immediate state update from memory
-        _focusState.value = FocusState(rowId, movie.movieId, movie)
+        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, movie)
         
         // 2. Background enrichment of metadata if necessary
         if (movie.description.isBlank()) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
-                repository.getMovieById(movie.movieId).onSuccess { fullMovie ->
-                    if (_focusState.value?.movieId == movie.movieId && _focusState.value?.rowId == rowId) {
-                        _focusState.value = FocusState(rowId, movie.movieId, fullMovie)
+                repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->
+                    if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) {
+                        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, fullMovie)
                     }
                 }
             }

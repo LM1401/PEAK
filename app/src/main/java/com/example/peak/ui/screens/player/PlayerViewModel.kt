@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.data.repository.ContinueWatchingRepository
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,7 +21,8 @@ class PlayerViewModel(
     private val movieRepository: MovieRepository
 ) : ViewModel() {
 
-    private val _movieId = MutableStateFlow<String?>(null)
+    private val _mediaId = MutableStateFlow<String?>(null)
+    private val _mediaType = MutableStateFlow<MediaType?>(null)
 
     private val _movie = MutableStateFlow<Movie?>(null)
     val movie: StateFlow<Movie?> = _movie.asStateFlow()
@@ -30,14 +32,13 @@ class PlayerViewModel(
 
     // ISSUE 2 — MAKE RESUME POSITION FULLY REACTIVE
     @OptIn(ExperimentalCoroutinesApi::class)
-    val resumePosition: StateFlow<Long> = _movieId
-        .filterNotNull()
-        .flatMapLatest { id ->
-            repository.continueWatchingItems.map { items ->
-                items.find { it.movieId == id }?.positionMs ?: 0L
-            }
+    val resumePosition: StateFlow<Long> = combine(_mediaId.filterNotNull(), _mediaType.filterNotNull()) { id, type ->
+        Pair(id, type)
+    }.flatMapLatest { (id, type) ->
+        repository.continueWatchingItems.map { items ->
+            items.find { it.movieId == id && it.mediaType == type }?.positionMs ?: 0L
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
@@ -51,17 +52,17 @@ class PlayerViewModel(
     private val periodicSaveIntervalMs = 5000L
 
     /**
-     * Initializes the playback session for a specific movie.
-     * Derived states (resumePosition) update automatically via flatMapLatest.
+     * Initializes the playback session for a specific media.
      */
-    fun loadMovie(movieId: String) {
-        if (movieId.isBlank() || _movieId.value == movieId) return
-        _movieId.value = movieId
+    fun loadMedia(id: String, type: MediaType) {
+        if (id.isBlank() || (_mediaId.value == id && _mediaType.value == type)) return
+        _mediaId.value = id
+        _mediaType.value = type
         _isLoading.value = true
         
         viewModelScope.launch {
-            // Load full Movie object from repository (Option A)
-            movieRepository.getMovieById(movieId)
+            // Load full Media object from repository
+            movieRepository.getMediaById(id, type)
                 .onSuccess { movieDetails ->
                     _movie.value = movieDetails
                     _videoUrl.value = movieDetails.videoUrl
@@ -78,7 +79,8 @@ class PlayerViewModel(
      * Updates the playback progress in the repository.
      */
     fun updatePlaybackPosition(positionMs: Long, durationMs: Long) {
-        val movieId = _movieId.value ?: return
+        val id = _mediaId.value ?: return
+        val type = _mediaType.value ?: return
         if (durationMs <= 0) return
 
         val currentTime = System.currentTimeMillis()
@@ -86,7 +88,7 @@ class PlayerViewModel(
         val isSignificantSeek = kotlin.math.abs(positionMs - lastSavedPosition) > periodicSaveIntervalMs
 
         if (isIntervalPassed || isSignificantSeek) {
-            saveProgressInternal(movieId, positionMs, durationMs)
+            saveProgressInternal(id, type, positionMs, durationMs)
         }
     }
 
@@ -94,7 +96,8 @@ class PlayerViewModel(
      * Final sync method called when playback is stopped.
      */
     fun onPlaybackStopped(positionMs: Long, durationMs: Long) {
-        val movieId = _movieId.value ?: return
+        val id = _mediaId.value ?: return
+        val type = _mediaType.value ?: return
         if (durationMs <= 0) return
 
         // Apply completion rule (95%)
@@ -106,19 +109,19 @@ class PlayerViewModel(
 
         if (positionMs == lastSavedPosition) return
 
-        saveProgressInternal(movieId, positionMs, durationMs)
+        saveProgressInternal(id, type, positionMs, durationMs)
     }
 
-    private fun saveProgressInternal(movieId: String, positionMs: Long, durationMs: Long) {
+    private fun saveProgressInternal(id: String, type: MediaType, positionMs: Long, durationMs: Long) {
         lastSavedPosition = positionMs
         lastSaveTimestamp = System.currentTimeMillis()
 
         viewModelScope.launch {
             val items = repository.continueWatchingItems.value
-            val exists = items.any { it.movieId == movieId }
+            val exists = items.any { it.movieId == id && it.mediaType == type }
             
             if (exists) {
-                repository.updatePosition(movieId, positionMs, durationMs)
+                repository.updatePosition(id, type, positionMs, durationMs)
             } else {
                 val movieData = _movie.value
                 if (movieData != null) {
@@ -127,7 +130,7 @@ class PlayerViewModel(
                         title = movieData.name,
                         posterPath = movieData.imageUrl,
                         backdropPath = movieData.backdropUrl,
-                        mediaType = "movie",
+                        mediaType = type,
                         positionMs = positionMs,
                         durationMs = durationMs
                     )
@@ -137,21 +140,23 @@ class PlayerViewModel(
     }
 
     fun markPlaybackCompleted() {
-        val movieId = _movieId.value ?: return
+        val id = _mediaId.value ?: return
+        val type = _mediaType.value ?: return
         viewModelScope.launch {
             val currentDuration = _duration.value
             if (currentDuration > 0) {
-                repository.updatePosition(movieId, currentDuration, currentDuration)
+                repository.updatePosition(id, type, currentDuration, currentDuration)
             } else {
-                repository.clearProgress(movieId)
+                repository.clearProgress(id, type)
             }
         }
     }
 
     fun clearProgress() {
-        val movieId = _movieId.value ?: return
+        val id = _mediaId.value ?: return
+        val type = _mediaType.value ?: return
         viewModelScope.launch {
-            repository.clearProgress(movieId)
+            repository.clearProgress(id, type)
         }
     }
 }

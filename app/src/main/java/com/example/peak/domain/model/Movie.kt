@@ -1,11 +1,20 @@
 package com.example.peak.domain.model
 
 /**
- * Domain model for a Movie. 
+ * Identity types for media in the PEAK ecosystem.
+ */
+enum class MediaType {
+    MOVIE,
+    TV
+}
+
+/**
+ * Domain model for a Movie or TV Show. 
  * This is what the UI will use to display data.
  */
 data class Movie(
     val movieId: String,
+    val mediaType: MediaType = MediaType.MOVIE,
     val name: String, 
     val imageUrl: String,
     val backdropUrl: String,
@@ -32,5 +41,6 @@ data class Row(
 data class FocusState(
     val rowId: String,
     val movieId: String,
+    val mediaType: MediaType = MediaType.MOVIE,
     val movie: Movie?
 )

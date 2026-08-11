@@ -2,6 +2,7 @@ package com.example.peak.ui.screens.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,8 @@ class DetailViewModel(
     private val _totalDuration = MutableStateFlow<Long>(0L)
     val totalDuration: StateFlow<Long> = _totalDuration.asStateFlow()
 
-    private var currentMovieId: String? = null
+    private var currentMediaId: String? = null
+    private var currentMediaType: MediaType? = null
 
     init {
         observeContinueWatching()
@@ -41,40 +43,54 @@ class DetailViewModel(
 
     private fun observeContinueWatching() {
         continueWatchingRepository.continueWatchingItems.onEach { items ->
-            val id = currentMovieId ?: return@onEach
-            val item = items.find { it.movieId == id }
+            val id = currentMediaId ?: return@onEach
+            val type = currentMediaType ?: return@onEach
+            val item = items.find { it.movieId == id && it.mediaType == type }
             _resumePosition.value = item?.positionMs ?: 0L
             _totalDuration.value = item?.durationMs ?: 0L
         }.launchIn(viewModelScope)
     }
 
-    fun loadMovie(movieId: String) {
-        if (movieId.isBlank() || currentMovieId == movieId) return
+    fun loadMedia(id: String, type: MediaType) {
+        if (id.isBlank() || (currentMediaId == id && currentMediaType == type)) return
         
-        this.currentMovieId = movieId
+        this.currentMediaId = id
+        this.currentMediaType = type
         _isLoading.value = true
         _error.value = null
 
         viewModelScope.launch {
             // 1. Initial check for resume position
-            val item = continueWatchingRepository.continueWatchingItems.value.find { it.movieId == movieId }
+            val item = continueWatchingRepository.continueWatchingItems.value.find { 
+                it.movieId == id && it.mediaType == type 
+            }
             _resumePosition.value = item?.positionMs ?: 0L
             _totalDuration.value = item?.durationMs ?: 0L
 
-            // 2. Fetch full movie details from repository (Option A)
-            movieRepository.getMovieById(movieId)
-                .onSuccess { movieDetails ->
-                    _movie.value = movieDetails
+            // 2. Fetch full media details from repository
+            movieRepository.getMediaById(id, type)
+                .onSuccess { mediaDetails ->
+                    _movie.value = mediaDetails
                     _isLoading.value = false
                     
-                    // Fetch "similar" movies (using trending as fallback for now)
-                    movieRepository.getTrendingMovies().onSuccess { trending ->
-                        _similarMovies.value = trending.filter { it.movieId != movieId }.shuffled().take(12)
+                    // Fetch "similar" content
+                    if (type == MediaType.MOVIE) {
+                        movieRepository.getTrendingMovies().onSuccess { trending ->
+                            _similarMovies.value = trending.filter { 
+                                it.movieId != id || it.mediaType != type 
+                            }.shuffled().take(12)
+                        }
+                    } else {
+                        movieRepository.getTrendingSeries().onSuccess { trending ->
+                            _similarMovies.value = trending.filter { 
+                                it.movieId != id || it.mediaType != type 
+                            }.shuffled().take(12)
+                        }
                     }
                 }
                 .onFailure {
                     _isLoading.value = false
-                    _error.value = "Failed to load movie details"
+                    _error.value = "Failed to load media details"
                 }
         }
     }

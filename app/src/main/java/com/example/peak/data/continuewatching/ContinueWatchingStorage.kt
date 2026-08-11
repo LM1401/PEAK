@@ -3,6 +3,7 @@ package com.example.peak.data.continuewatching
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.ContinueWatchingItem
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -38,7 +39,7 @@ class ContinueWatchingStorage(context: Context) {
     suspend fun saveItem(item: ContinueWatchingItem): List<ContinueWatchingItem> = withContext(Dispatchers.IO) {
         try {
             val items = getAllItems().toMutableList()
-            items.removeAll { it.movieId == item.movieId }
+            items.removeAll { it.movieId == item.movieId && it.mediaType == item.mediaType }
             
             // Completion check (95%)
             if (!item.isEffectivelyCompleted() && !item.completed) {
@@ -53,10 +54,10 @@ class ContinueWatchingStorage(context: Context) {
         }
     }
 
-    suspend fun deleteItem(movieId: String): List<ContinueWatchingItem> = withContext(Dispatchers.IO) {
+    suspend fun deleteItem(movieId: String, mediaType: MediaType): List<ContinueWatchingItem> = withContext(Dispatchers.IO) {
         try {
             val items = getAllItems().toMutableList()
-            if (items.removeAll { it.movieId == movieId }) {
+            if (items.removeAll { it.movieId == movieId && it.mediaType == mediaType }) {
                 prefs.edit().putString(KEY_ITEMS, gson.toJson(items)).apply()
                 return@withContext items
             }
@@ -71,7 +72,7 @@ class ContinueWatchingStorage(context: Context) {
         emptyList()
     }
 
-    suspend fun getItem(movieId: String): ContinueWatchingItem? = withContext(Dispatchers.IO) {
-        getAllItems().find { it.movieId == movieId }
+    suspend fun getItem(movieId: String, mediaType: MediaType): ContinueWatchingItem? = withContext(Dispatchers.IO) {
+        getAllItems().find { it.movieId == movieId && it.mediaType == mediaType }
     }
 }

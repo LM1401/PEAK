@@ -10,7 +10,7 @@ data class ContinueWatchingItem(
     val title: String,
     val posterPath: String?,
     val backdropPath: String?,
-    val mediaType: String, // "movie" or "tv"
+    val mediaType: MediaType, // MOVIE or TV
     val season: Int? = null,
     val episode: Int? = null,
     val durationMs: Long,
@@ -50,6 +50,7 @@ data class ContinueWatchingItem(
 
         return Movie(
             movieId = movieId,
+            mediaType = mediaType,
             name = title,
             imageUrl = posterPath ?: "",
             backdropUrl = backdropPath ?: "",

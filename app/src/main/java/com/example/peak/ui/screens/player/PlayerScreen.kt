@@ -22,6 +22,7 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import com.example.peak.data.repository.ContinueWatchingRepository
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.domain.model.MediaType
 import com.example.peak.player.CachedMediaSourceFactory
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -30,7 +31,8 @@ import kotlinx.coroutines.flow.filterNotNull
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
-    movieId: String,
+    mediaId: String,
+    mediaType: MediaType,
     onPlaybackFinished: () -> Unit,
     continueWatchingRepository: ContinueWatchingRepository,
     movieRepository: MovieRepository
@@ -57,8 +59,8 @@ fun PlayerScreen(
     }
 
     // ISSUE 4 — STABILISE INITIALISATION (ONE TRIGGER PER MOVIEID)
-    LaunchedEffect(movieId) {
-        viewModel.loadMovie(movieId)
+    LaunchedEffect(mediaId, mediaType) {
+        viewModel.loadMedia(mediaId, mediaType)
         
         // Wait for videoUrl reactively inside the coroutine without .first()
         viewModel.videoUrl.filterNotNull().collect { url ->

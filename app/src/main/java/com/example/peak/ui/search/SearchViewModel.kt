@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.data.search.SearchRepository
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -63,7 +64,7 @@ class SearchViewModel(
      */
     fun onItemFocused(item: SearchItem) {
         viewModelScope.launch {
-            movieRepository.getMovieById(item.id)
+            movieRepository.getMediaById(item.id, item.type)
         }
     }
 
@@ -134,7 +135,7 @@ class SearchViewModel(
                 score += 500.0
             }
 
-            if (item.type == "movie") {
+            if (item.type == MediaType.MOVIE) {
                 score += 100.0
             }
 

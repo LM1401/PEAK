@@ -1,5 +1,6 @@
 package com.example.peak.data.remote.dto
 
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.google.gson.annotations.SerializedName
 
@@ -23,10 +24,11 @@ data class TmdbMovie(
 /**
  * Extension function to map Remote DTO to Domain Model.
  */
-fun TmdbMovie.toMovie(): Movie {
+fun TmdbMovie.toMovie(mediaType: MediaType = MediaType.MOVIE): Movie {
     val displayName = title ?: name ?: "Unknown Title"
     return Movie(
         movieId = id.toString(),
+        mediaType = mediaType,
         name = displayName,
         imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
             ?: "https://via.placeholder.com/1280x720?text=$displayName",

@@ -91,11 +91,12 @@ fun MovieCard(
             }
 
             // 2. IMAGE SWAP (Synchronised with local focus for zero-lag response)
-            val posterKey = movie.movieId
-            val backdropKey = "${movie.movieId}_backdrop"
+            val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
+            val posterKey = cacheKey
+            val backdropKey = "${cacheKey}_backdrop"
             val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
 
-            val imageRequest = remember(movie.movieId, isLocalFocused) {
+            val imageRequest = remember(movie.movieId, movie.mediaType, isLocalFocused) {
                 ImageRequest.Builder(context)
                     .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
                     .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
@@ -145,11 +146,12 @@ fun DetailMovieCard(
     onMovieClick: (Movie) -> Unit
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(movie.movieId) {
+    val imageRequest = remember(movie.movieId, movie.mediaType) {
+        val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
         ImageRequest.Builder(context)
             .data(movie.imageUrl)
-            .memoryCacheKey(movie.movieId)
-            .diskCacheKey(movie.movieId)
+            .memoryCacheKey(cacheKey)
+            .diskCacheKey(cacheKey)
             .crossfade(false)
             .allowHardware(true)
             .build()

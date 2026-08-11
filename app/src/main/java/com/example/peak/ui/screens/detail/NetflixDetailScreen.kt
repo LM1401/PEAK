@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
@@ -43,7 +44,8 @@ import com.example.peak.data.repository.ContinueWatchingRepository
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun NetflixDetailScreen(
-    movieId: String,
+    mediaId: String,
+    mediaType: MediaType,
     movieRepository: MovieRepository,
     continueWatchingRepository: ContinueWatchingRepository,
     onPlayClick: (Movie) -> Unit,
@@ -60,8 +62,8 @@ fun NetflixDetailScreen(
     val resumePosition by viewModel.resumePosition.collectAsState()
     val totalDuration by viewModel.totalDuration.collectAsState()
 
-    LaunchedEffect(movieId) {
-        viewModel.loadMovie(movieId)
+    LaunchedEffect(mediaId, mediaType) {
+        viewModel.loadMedia(mediaId, mediaType)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -128,11 +130,12 @@ fun NetflixDetailContent(
     ) {
         // 1. BACKDROP (Fixed behind everything)
         AsyncImage(
-            model = remember(displayMovie.movieId) {
+            model = remember(displayMovie.movieId, displayMovie.mediaType) {
+                val cacheKey = "${displayMovie.mediaType.name}_${displayMovie.movieId}-bg"
                 ImageRequest.Builder(context)
                     .data(displayMovie.backdropUrl)
-                    .memoryCacheKey("${displayMovie.movieId}-bg")
-                    .diskCacheKey("${displayMovie.movieId}-bg")
+                    .memoryCacheKey(cacheKey)
+                    .diskCacheKey(cacheKey)
                     .crossfade(false)
                     .allowHardware(true)
                     .build()
@@ -303,13 +306,13 @@ fun NetflixDetailContent(
                         contentPadding = PaddingValues(end = 80.dp, bottom = 120.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(similarMovies, key = { it.movieId }) { simMovie ->
+                        items(similarMovies, key = { "${it.mediaType.name}_${it.movieId}" }) { simMovie ->
                             DetailMovieCard(
                                 movie = simMovie,
                                 onMovieFocused = { movie ->
                                     if (movie == null) {
                                         // Handle focus loss if needed
-                                    } else if (focusedMovie?.movieId != movie.movieId) {
+                                    } else if (focusedMovie?.movieId != movie.movieId || focusedMovie?.mediaType != movie.mediaType) {
                                         focusedMovie = movie
                                     }
                                 },

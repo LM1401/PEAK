@@ -108,8 +108,8 @@ fun MoviesScreen(
                         MovieRow(
                             row = row,
                             focusedMovieId = focusState?.movieId,
-                            onMovieFocused = { rowId, movieId ->
-                                row.movies.find { it.movieId == movieId }?.let { movie ->
+                            onMovieFocused = { rowId, movieId, mediaType ->
+                                row.movies.find { it.movieId == movieId && it.mediaType == mediaType }?.let { movie ->
                                     viewModel.onMovieFocused(rowId, movie)
                                 }
                             },

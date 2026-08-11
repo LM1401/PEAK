@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.peak.domain.model.FocusState
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
@@ -71,7 +72,7 @@ class HomeViewModel(
                 !item.movieId.startsWith("test_")
             }
 
-            val progressMap = validCwItems.associateBy({ it.movieId }, { it.progress })
+            val progressMap = validCwItems.associateBy({ "${it.mediaType.name}_${it.movieId}" }, { it.progress })
             
             val combinedRows = buildList {
                 if (validCwItems.isNotEmpty()) {
@@ -100,7 +101,7 @@ class HomeViewModel(
                 rows.firstOrNull { !it.isPlaceholder }?.let { row ->
                     row.movies.firstOrNull()?.let { movie ->
                         if (movie.movieId.isNotBlank()) {
-                            _focusState.value = FocusState(row.id, movie.movieId, movie)
+                            _focusState.value = FocusState(row.id, movie.movieId, movie.mediaType, movie)
                         }
                     }
                 }
@@ -131,30 +132,30 @@ class HomeViewModel(
      * Handles movie focus events from the UI.
      * Performs synchronous lookup to eliminate "first frame delay".
      */
-    fun onMovieFocused(rowId: String, movieId: String) {
-        if (_focusState.value?.movieId == movieId && _focusState.value?.rowId == rowId) return
+    fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
+        if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) return
 
         // 1. Synchronous Cache Lookup (Zero Latency)
-        val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId }
+        val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
         
         if (cachedMovie != null && cachedMovie.description.isNotBlank()) {
-            _focusState.value = FocusState(rowId, movieId, cachedMovie)
+            _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
             return
         }
 
         // 2. Immediate partial state update if ID exists but metadata is thin
         if (cachedMovie != null) {
-            _focusState.value = FocusState(rowId, movieId, cachedMovie)
+            _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
         }
 
         // 3. Asynchronous Enrichment (Only if metadata is missing)
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            val result = repository.getMovieById(movieId)
+            val result = repository.getMediaById(movieId, mediaType)
             result.getOrNull()?.let { movie ->
                 // Ensure we haven't navigated away during fetch
-                if (_focusState.value?.movieId == movieId && _focusState.value?.rowId == rowId) {
-                    _focusState.value = FocusState(rowId, movieId, movie)
+                if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
+                    _focusState.value = FocusState(rowId, movieId, mediaType, movie)
                 }
             }
         }

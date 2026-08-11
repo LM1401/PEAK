@@ -23,29 +23,30 @@ object ImageWarmingManager {
         movies: List<Movie>
     ) {
         movies.forEach { movie ->
-            if (warmedIds.contains(movie.movieId)) return@forEach
-            warmedIds.add(movie.movieId)
+            val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
+            if (warmedIds.contains(cacheKey)) return@forEach
+            warmedIds.add(cacheKey)
 
-            // 1. WARM POSTER (Key: movieId)
+            // 1. WARM POSTER (Key: mediaType_movieId)
             if (movie.imageUrl.isNotBlank()) {
                 imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(movie.imageUrl)
-                        .memoryCacheKey(movie.movieId)
-                        .diskCacheKey(movie.movieId)
+                        .memoryCacheKey(cacheKey)
+                        .diskCacheKey(cacheKey)
                         .allowHardware(true)
                         .crossfade(false)
                         .build()
                 )
             }
 
-            // 2. WARM BACKDROP (Key: movieId + "_backdrop")
+            // 2. WARM BACKDROP (Key: mediaType_movieId + "_backdrop")
             if (movie.backdropUrl.isNotBlank()) {
                 imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(movie.backdropUrl)
-                        .memoryCacheKey(movie.movieId + "_backdrop")
-                        .diskCacheKey(movie.movieId + "_backdrop")
+                        .memoryCacheKey(cacheKey + "_backdrop")
+                        .diskCacheKey(cacheKey + "_backdrop")
                         .allowHardware(true)
                         .crossfade(false)
                         .build()

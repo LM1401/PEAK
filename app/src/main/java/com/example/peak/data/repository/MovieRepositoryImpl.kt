@@ -1,11 +1,12 @@
 package com.example.peak.data.repository
 
-import android.util.Log
 import com.example.peak.data.network.SafeApiCall
 import com.example.peak.data.remote.api.TmdbApi
 import com.example.peak.data.remote.dto.toMovie
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
+import android.util.Log
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -21,8 +22,7 @@ class MovieRepositoryImpl(
 
     private val mutex = Mutex()
     
-    // FIX 5: Use ConcurrentHashMap to allow safe reads without locking mutex
-    // Individual movie cache is long-lived to support instant detail loading (no TTL)
+    // Composite cache key: "TYPE_ID" (e.g. "MOVIE_123" or "TV_123")
     private val movieDetailsCache = ConcurrentHashMap<String, Movie>()
     
     private var trendingMoviesCache: List<Movie>? = null
@@ -34,6 +34,8 @@ class MovieRepositoryImpl(
     companion object {
         private const val CACHE_TTL_MS = 2 * 60 * 1000L // 2 Minutes for lists
     }
+
+    private fun getCacheKey(id: String, type: MediaType): String = "${type.name}_$id"
 
     override suspend fun getTrendingMovies(): Result<List<Movie>> {
         // FAST PATH: Read-only check outside mutex
@@ -56,10 +58,10 @@ class MovieRepositoryImpl(
             return@withLock when {
                 result.data != null -> {
                     Log.d("MovieRepo", "NETWORK data used (Movies)")
-                    val movies = result.data.results.map { it.toMovie() }
+                    val movies = result.data.results.map { it.toMovie(MediaType.MOVIE) }
                     trendingMoviesCache = movies
                     trendingMoviesTimestamp = System.currentTimeMillis()
-                    movies.forEach { movieDetailsCache[it.movieId] = it }
+                    movies.forEach { movieDetailsCache[getCacheKey(it.movieId, it.mediaType)] = it }
                     Result.success(movies)
                 }
                 trendingMoviesCache != null -> {
@@ -92,10 +94,10 @@ class MovieRepositoryImpl(
             return@withLock when {
                 result.data != null -> {
                     Log.d("MovieRepo", "NETWORK data used (Series)")
-                    val series = result.data.results.map { it.toMovie() }
+                    val series = result.data.results.map { it.toMovie(MediaType.TV) }
                     trendingSeriesCache = series
                     trendingSeriesTimestamp = System.currentTimeMillis()
-                    series.forEach { movieDetailsCache[it.movieId] = it }
+                    series.forEach { movieDetailsCache[getCacheKey(it.movieId, it.mediaType)] = it }
                     Result.success(series)
                 }
                 trendingSeriesCache != null -> {
@@ -110,32 +112,34 @@ class MovieRepositoryImpl(
         }
     }
 
-    override suspend fun getMovieById(movieId: String): Result<Movie> {
+    override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
+        val cacheKey = getCacheKey(id, type)
+        
         // FIX 1: CONSISTENT CACHE HIT - Always return immediately if exists
-        movieDetailsCache[movieId]?.let {
+        movieDetailsCache[cacheKey]?.let {
             return Result.success(it)
         }
 
         return mutex.withLock {
             // Re-check after lock
-            movieDetailsCache[movieId]?.let {
+            movieDetailsCache[cacheKey]?.let {
                 return@withLock Result.success(it)
             }
 
             val result = SafeApiCall.execute("MovieRepository") {
-                api.getMovieDetails(movieId)
+                if (type == MediaType.MOVIE) api.getMovieDetails(id) else api.getTvDetails(id)
             }
 
             return@withLock when {
                 result.data != null -> {
-                    Log.d("MovieRepo", "NETWORK data used (ID: $movieId)")
-                    val movie = result.data.toMovie()
-                    movieDetailsCache[movieId] = movie
+                    Log.d("MovieRepo", "NETWORK data used ($type ID: $id)")
+                    val movie = result.data.toMovie(type)
+                    movieDetailsCache[cacheKey] = movie
                     Result.success(movie)
                 }
                 else -> {
-                    Log.d("MovieRepo", "ERROR/EMPTY fallback (ID: $movieId)")
-                    Result.failure(result.error ?: Exception("Movie not found or network error"))
+                    Log.d("MovieRepo", "ERROR/EMPTY fallback ($type ID: $id)")
+                    Result.failure(result.error ?: Exception("Media not found or network error"))
                 }
             }
         }

@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.tv.material3.*
+import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.screens.detail.NetflixDetailScreen
 import com.example.peak.ui.screens.home.HomeScreen
 import com.example.peak.ui.screens.player.PlayerScreen
@@ -89,7 +90,7 @@ fun PEAKApp() {
                 viewModel = homeViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    navController.navigate("movie_detail/${movie.movieId}")
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
                 onSearchClick = { navController.navigate("search") }
@@ -104,7 +105,7 @@ fun PEAKApp() {
                 viewModel = moviesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    navController.navigate("movie_detail/${movie.movieId}")
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
                 onSearchClick = { navController.navigate("search") }
@@ -119,7 +120,7 @@ fun PEAKApp() {
                 viewModel = seriesViewModel,
                 onTabSelected = onTabSelected,
                 onMovieClick = { movie ->
-                    navController.navigate("movie_detail/${movie.movieId}")
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onSettingsClick = { navController.navigate("settings") },
                 onSearchClick = { navController.navigate("search") }
@@ -135,35 +136,47 @@ fun PEAKApp() {
         }
 
         composable(
-            route = "movie_detail/{movieId}",
-            arguments = listOf(navArgument("movieId") { type = NavType.StringType })
+            route = "detail/{mediaId}/{mediaType}",
+            arguments = listOf(
+                navArgument("mediaId") { type = NavType.StringType },
+                navArgument("mediaType") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
-            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
+            val mediaId = backStackEntry.arguments?.getString("mediaId") ?: ""
+            val mediaTypeStr = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+            val mediaType = try { MediaType.valueOf(mediaTypeStr) } catch (e: Exception) { MediaType.MOVIE }
+            
             NetflixDetailScreen(
-                movieId = movieId,
+                mediaId = mediaId,
+                mediaType = mediaType,
                 movieRepository = movieRepository,
                 continueWatchingRepository = continueWatchingRepository,
                 onPlayClick = { movie ->
-                    navController.navigate("player/${movie.movieId}")
+                    navController.navigate("player/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onMovieClick = { movie ->
                     // Replace current detail instead of stacking
-                    navController.navigate("movie_detail/${movie.movieId}") {
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}") {
                         popUpTo("home") { inclusive = false }
                     }
                 }
             )
         }
 
-        // 5. Proper Player Route (Refactored to Option A)
         composable(
-            route = "player/{movieId}",
-            arguments = listOf(navArgument("movieId") { type = NavType.StringType })
+            route = "player/{mediaId}/{mediaType}",
+            arguments = listOf(
+                navArgument("mediaId") { type = NavType.StringType },
+                navArgument("mediaType") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
-            val movieId = backStackEntry.arguments?.getString("movieId") ?: ""
+            val mediaId = backStackEntry.arguments?.getString("mediaId") ?: ""
+            val mediaTypeStr = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+            val mediaType = try { MediaType.valueOf(mediaTypeStr) } catch (e: Exception) { MediaType.MOVIE }
             
             PlayerScreen(
-                movieId = movieId,
+                mediaId = mediaId,
+                mediaType = mediaType,
                 onPlaybackFinished = { navController.popBackStack() },
                 continueWatchingRepository = continueWatchingRepository,
                 movieRepository = movieRepository
@@ -179,7 +192,7 @@ fun PEAKApp() {
             com.example.peak.ui.search.SearchScreen(
                 viewModel = searchViewModel,
                 onItemClick = { item ->
-                    navController.navigate("movie_detail/${item.id}")
+                    navController.navigate("detail/${item.id}/${item.type.name}")
                 }
             )
         }
