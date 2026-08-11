@@ -51,6 +51,7 @@ fun MovieRow(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
 
     // PREDICTIVE SCROLL PRE-DECODING (WARMING)
     LaunchedEffect(row.movies) {
@@ -89,6 +90,13 @@ fun MovieRow(
         modifier = modifier
             .fillMaxWidth()
             .onFocusChanged { focusState ->
+                if (focusState.hasFocus && !isRowFocused) {
+                    // ENTRY RESTORATION: When row gains focus from outside, restore last known position
+                    val lastId = focusManager?.getRememberedId(row.id)
+                    if (lastId != null) {
+                        focusRequesters[lastId]?.requestFocus()
+                    }
+                }
                 isRowFocused = focusState.hasFocus
             },
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -120,7 +128,9 @@ fun MovieRow(
                     items = row.movies,
                     key = { movie -> "${row.id}_${movie.movieId}" }
                 ) { movie ->
-                    val focusRequester = remember(movie.movieId) { FocusRequester() }
+                    val focusRequester = remember(movie.movieId) { 
+                        focusRequesters.getOrPut(movie.movieId) { FocusRequester() } 
+                    }
 
                     StableMovieCardWrapper(
                         movie = movie,

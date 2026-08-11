@@ -44,6 +44,9 @@ fun MoviesScreen(
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        contentFocusRequester.requestFocus()
+    }
     val navFocusRequester = remember { FocusRequester() }
 
     // TV CAMERA SYSTEM: Restored vertical slot responsibility
