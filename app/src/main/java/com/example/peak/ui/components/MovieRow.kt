@@ -92,7 +92,8 @@ fun MovieRow(
                 if (row.movies.isNotEmpty()) {
                     val endIndex = (index + 10).coerceAtMost(row.movies.size)
                     val moviesToWarm = row.movies.subList(index, endIndex)
-                    ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
+                    // ROW SCROLL: Warm posters only, speculative
+                    ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
                 }
             }
     }
@@ -108,12 +109,13 @@ fun MovieRow(
             focusManager?.saveFocus(row.id, it.movieId)
             
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
-            ImageWarmingManager.warm(context, imageLoader, listOf(it))
+            // For focused items, we warm the BACKDROP as well.
+            ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = true)
 
-            // Predictive pre-decoding for neighbors
+            // Predictive pre-decoding for neighbors - Posters only
             val nextMovie = row.movies.getOrNull(index + 1)
             val prevMovie = row.movies.getOrNull(index - 1)
-            ImageWarmingManager.warm(context, imageLoader, listOfNotNull(nextMovie, prevMovie))
+            ImageWarmingManager.warm(context, imageLoader, listOfNotNull(nextMovie, prevMovie), warmBackdrops = false)
         }
     }
 

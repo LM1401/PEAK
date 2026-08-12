@@ -16,7 +16,14 @@ object PeakImageLoader {
     @Synchronized
     fun getInstance(context: Context): ImageLoader {
         if (instance == null) {
+            val okHttpClient = okhttp3.OkHttpClient.Builder()
+                .dispatcher(okhttp3.Dispatcher().apply {
+                    maxRequestsPerHost = 15
+                })
+                .build()
+
             instance = ImageLoader.Builder(context.applicationContext)
+                .okHttpClient(okHttpClient)
                 .memoryCache {
                     MemoryCache.Builder(context.applicationContext)
                         .maxSizePercent(0.25)
@@ -25,7 +32,8 @@ object PeakImageLoader {
                 .diskCache {
                     DiskCache.Builder()
                         .directory(context.applicationContext.cacheDir.resolve("image_cache"))
-                        .maxSizePercent(0.02)
+                        .maxSizePercent(0.05)
+                        .minimumMaxSizeBytes(256 * 1024 * 1024L) // 256MB
                         .build()
                 }
                 // TV Optimizations

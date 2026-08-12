@@ -96,7 +96,7 @@ fun MovieCard(
             val backdropKey = "${cacheKey}_backdrop"
             val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
 
-            val imageRequest = remember(movie.movieId, movie.mediaType, isLocalFocused) {
+            val imageRequest = remember<ImageRequest>(movie.movieId, movie.mediaType, isLocalFocused) {
                 ImageRequest.Builder(context)
                     .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
                     .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)

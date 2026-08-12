@@ -106,7 +106,8 @@ fun HomeScreen(
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
             val moviesToWarm = rows.take(3).flatMap { it.movies }
-            ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
+            // STARTUP: Warm posters only, low priority
+            ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
         }
     }
 

@@ -11,8 +11,9 @@ import com.example.peak.domain.model.Movie
  */
 object ImageWarmingManager {
 
-    // Simple session cache to avoid duplicate warming requests
-    private val warmedIds = mutableSetOf<String>()
+    // Separate sets to track what has been warmed
+    private val warmedPosters = mutableSetOf<String>()
+    private val warmedBackdrops = mutableSetOf<String>()
 
     /**
      * Enqueues image requests to warm the memory cache using unified identity keys.
@@ -20,15 +21,20 @@ object ImageWarmingManager {
     fun warm(
         context: Context,
         imageLoader: ImageLoader,
-        movies: List<Movie>
+        movies: List<Movie>,
+        warmBackdrops: Boolean = false
     ) {
         movies.forEach { movie ->
             val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
-            if (warmedIds.contains(cacheKey)) return@forEach
-            warmedIds.add(cacheKey)
+            
+            val needsPoster = !warmedPosters.contains(cacheKey)
+            val needsBackdrop = warmBackdrops && !warmedBackdrops.contains(cacheKey)
+
+            if (!needsPoster && !needsBackdrop) return@forEach
 
             // 1. WARM POSTER (Key: mediaType_movieId)
-            if (movie.imageUrl.isNotBlank()) {
+            if (needsPoster && movie.imageUrl.isNotBlank()) {
+                warmedPosters.add(cacheKey)
                 imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(movie.imageUrl)
@@ -41,7 +47,8 @@ object ImageWarmingManager {
             }
 
             // 2. WARM BACKDROP (Key: mediaType_movieId + "_backdrop")
-            if (movie.backdropUrl.isNotBlank()) {
+            if (needsBackdrop && movie.backdropUrl.isNotBlank()) {
+                warmedBackdrops.add(cacheKey)
                 imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(movie.backdropUrl)

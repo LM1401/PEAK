@@ -20,7 +20,8 @@ class MovieRepositoryImpl(
     private val api: TmdbApi
 ) : MovieRepository {
 
-    private val mutex = Mutex()
+    private val listMutex = Mutex()
+    private val detailMutex = Mutex()
     
     // Composite cache key: "TYPE_ID" (e.g. "MOVIE_123" or "TV_123")
     private val movieDetailsCache = ConcurrentHashMap<String, Movie>()
@@ -44,7 +45,7 @@ class MovieRepositoryImpl(
             return Result.success(cached)
         }
 
-        return mutex.withLock {
+        return listMutex.withLock {
             // Re-check after acquiring lock to prevent duplicate concurrent fetches
             if (trendingMoviesCache != null && !isExpired(trendingMoviesTimestamp)) {
                 return@withLock Result.success(trendingMoviesCache!!)
@@ -82,7 +83,7 @@ class MovieRepositoryImpl(
             return Result.success(cached)
         }
 
-        return mutex.withLock {
+        return listMutex.withLock {
             if (trendingSeriesCache != null && !isExpired(trendingSeriesTimestamp)) {
                 return@withLock Result.success(trendingSeriesCache!!)
             }
@@ -120,7 +121,7 @@ class MovieRepositoryImpl(
             return Result.success(it)
         }
 
-        return mutex.withLock {
+        return detailMutex.withLock {
             // Re-check after lock
             movieDetailsCache[cacheKey]?.let {
                 return@withLock Result.success(it)
