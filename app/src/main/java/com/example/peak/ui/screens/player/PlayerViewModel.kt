@@ -7,130 +7,141 @@ import com.example.peak.data.repository.ContinueWatchingRepository
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for managing playback state and persisting progress.
- * Acts as the bridge between the Player UI and the Continue Watching system.
- * Final Stability Pass: Reactive derived state for resume position.
  */
 class PlayerViewModel(
     private val repository: ContinueWatchingRepository,
     private val movieRepository: MovieRepository
 ) : ViewModel() {
 
-    private val _mediaId = MutableStateFlow<String?>(null)
-    private val _mediaType = MutableStateFlow<MediaType?>(null)
+    // Authoritative Playback Session State
+    data class PlaybackSession(
+        val mediaId: String,
+        val mediaType: MediaType,
+        val videoUrl: String,
+        val resumePosition: Long,
+        val token: Int
+    )
 
-    private val _movie = MutableStateFlow<Movie?>(null)
-    val movie: StateFlow<Movie?> = _movie.asStateFlow()
-
-    private val _videoUrl = MutableStateFlow<String?>(null)
-    val videoUrl: StateFlow<String?> = _videoUrl.asStateFlow()
-
-    // ISSUE 2 — MAKE RESUME POSITION FULLY REACTIVE
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val resumePosition: StateFlow<Long> = combine(_mediaId.filterNotNull(), _mediaType.filterNotNull()) { id, type ->
-        Pair(id, type)
-    }.flatMapLatest { (id, type) ->
-        repository.continueWatchingItems.map { items ->
-            items.find { it.movieId == id && it.mediaType == type }?.positionMs ?: 0L
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
-
-    private val _duration = MutableStateFlow(0L)
-    val duration: StateFlow<Long> = _duration.asStateFlow()
+    private val _playbackSession = MutableStateFlow<PlaybackSession?>(null)
+    val playbackSession: StateFlow<PlaybackSession?> = _playbackSession.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Lifecycle safety: tracking last save state to prevent duplicate writes
+    // SESSION MANAGEMENT
+    private var currentSessionToken = 0
+
+    // SAVE POLICY STATE
     private var lastSavedPosition: Long = -1L
     private var lastSaveTimestamp: Long = 0L
     private val periodicSaveIntervalMs = 5000L
 
     /**
-     * Initializes the playback session for a specific media.
+     * Initializes a deterministic playback session.
      */
     fun loadMedia(id: String, type: MediaType) {
-        if (id.isBlank() || (_mediaId.value == id && _mediaType.value == type)) return
-        _mediaId.value = id
-        _mediaType.value = type
-        _isLoading.value = true
+        if (id.isBlank() || (_playbackSession.value?.mediaId == id && _playbackSession.value?.mediaType == type)) return
         
+        // Reset state and increment session token
+        currentSessionToken++
+        _playbackSession.value = null
+        _isLoading.value = true
+        lastSavedPosition = -1L
+        lastSaveTimestamp = 0L
+
         viewModelScope.launch {
-            // Load full Media object from repository
-            movieRepository.getMediaById(id, type)
-                .onSuccess { movieDetails ->
-                    _movie.value = movieDetails
-                    _videoUrl.value = movieDetails.videoUrl
+            val tokenAtStart = currentSessionToken
+            
+            // 1. Fetch metadata (includes videoUrl)
+            val movieResult = movieRepository.getMediaById(id, type)
+            // 2. Resolve resume position for this exact identity
+            val resumePos = repository.getResumePosition(id, type)
+
+            if (tokenAtStart != currentSessionToken) return@launch // Stale load
+
+            movieResult.onSuccess { movieDetails ->
+                val url = movieDetails.videoUrl
+                if (url != null) {
+                    _playbackSession.value = PlaybackSession(id, type, url, resumePos, tokenAtStart)
                     _isLoading.value = false
-                }
-                .onFailure {
+                } else {
                     _isLoading.value = false
-                    _videoUrl.value = null
+                    // Handle missing URL if needed
                 }
+            }.onFailure {
+                _isLoading.value = false
+            }
         }
     }
 
     /**
-     * Updates the playback progress in the repository.
+     * Periodic progress save logic.
      */
     fun updatePlaybackPosition(positionMs: Long, durationMs: Long) {
-        val id = _mediaId.value ?: return
-        val type = _mediaType.value ?: return
-        if (durationMs <= 0) return
+        val session = _playbackSession.value ?: return
+        if (durationMs <= 0 || positionMs < 0) return
 
         val currentTime = System.currentTimeMillis()
         val isIntervalPassed = currentTime - lastSaveTimestamp >= periodicSaveIntervalMs
         val isSignificantSeek = kotlin.math.abs(positionMs - lastSavedPosition) > periodicSaveIntervalMs
 
         if (isIntervalPassed || isSignificantSeek) {
-            saveProgressInternal(id, type, positionMs, durationMs)
+            saveProgressInternal(session, positionMs, durationMs)
         }
     }
 
     /**
-     * Final sync method called when playback is stopped.
+     * Authoritative final save decision.
      */
     fun onPlaybackStopped(positionMs: Long, durationMs: Long) {
-        val id = _mediaId.value ?: return
-        val type = _mediaType.value ?: return
+        val session = _playbackSession.value ?: return
         if (durationMs <= 0) return
 
-        // Apply completion rule (95%)
+        // 95% Completion check
         val completionRatio = positionMs.toDouble() / durationMs.toDouble()
         if (completionRatio >= 0.95) {
-            markPlaybackCompleted()
+            markPlaybackCompleted(session)
             return
         }
 
         if (positionMs == lastSavedPosition) return
-
-        saveProgressInternal(id, type, positionMs, durationMs)
+        saveProgressInternal(session, positionMs, durationMs)
     }
 
-    private fun saveProgressInternal(id: String, type: MediaType, positionMs: Long, durationMs: Long) {
+    private fun saveProgressInternal(session: PlaybackSession, positionMs: Long, durationMs: Long) {
+        if (session.token != currentSessionToken) return
+        
         lastSavedPosition = positionMs
         lastSaveTimestamp = System.currentTimeMillis()
 
         viewModelScope.launch {
+            // Re-verify session validity inside coroutine
+            if (session.token != currentSessionToken) return@launch
+
             val items = repository.continueWatchingItems.value
-            val exists = items.any { it.movieId == id && it.mediaType == type }
-            
+            val exists = items.any { it.movieId == session.mediaId && it.mediaType == session.mediaType }
+
             if (exists) {
-                repository.updatePosition(id, type, positionMs, durationMs)
+                repository.updatePosition(
+                    movieId = session.mediaId,
+                    mediaType = session.mediaType,
+                    positionMs = positionMs,
+                    durationMs = durationMs
+                )
             } else {
-                val movieData = _movie.value
-                if (movieData != null) {
+                // Fetch full data from movie flow to ensure we have images
+                movieRepository.getMediaById(session.mediaId, session.mediaType).onSuccess { movie ->
                     repository.saveProgress(
-                        movieId = movieData.movieId,
-                        title = movieData.name,
-                        posterPath = movieData.imageUrl,
-                        backdropPath = movieData.backdropUrl,
-                        mediaType = type,
+                        movieId = movie.movieId,
+                        title = movie.name,
+                        posterPath = movie.imageUrl,
+                        backdropPath = movie.backdropUrl,
+                        mediaType = session.mediaType,
                         positionMs = positionMs,
                         durationMs = durationMs
                     )
@@ -139,24 +150,13 @@ class PlayerViewModel(
         }
     }
 
-    fun markPlaybackCompleted() {
-        val id = _mediaId.value ?: return
-        val type = _mediaType.value ?: return
+    fun markPlaybackCompleted(session: PlaybackSession) {
+        if (session.token != currentSessionToken) return
+        // Invalidate current session for future saves
+        currentSessionToken++
+        
         viewModelScope.launch {
-            val currentDuration = _duration.value
-            if (currentDuration > 0) {
-                repository.updatePosition(id, type, currentDuration, currentDuration)
-            } else {
-                repository.clearProgress(id, type)
-            }
-        }
-    }
-
-    fun clearProgress() {
-        val id = _mediaId.value ?: return
-        val type = _mediaType.value ?: return
-        viewModelScope.launch {
-            repository.clearProgress(id, type)
+            repository.clearProgress(session.mediaId, session.mediaType)
         }
     }
 }

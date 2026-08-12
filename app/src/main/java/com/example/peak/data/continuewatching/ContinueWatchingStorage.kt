@@ -12,7 +12,6 @@ import kotlinx.coroutines.withContext
 
 /**
  * Robust local storage for Continue Watching items.
- * Ensures write operations return the full updated list for reactivity.
  */
 class ContinueWatchingStorage(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -27,12 +26,22 @@ class ContinueWatchingStorage(context: Context) {
     fun getAllItems(): List<ContinueWatchingItem> {
         return try {
             val json = prefs.getString(KEY_ITEMS, "[]") ?: "[]"
-            val items: List<ContinueWatchingItem> = gson.fromJson(json, itemType) ?: emptyList()
-            Log.d("CW_DEBUG", "Storage getAllItems -> size=${items.size}")
-            items
+            gson.fromJson(json, itemType) ?: emptyList()
         } catch (e: Exception) {
-            Log.e("CW_DEBUG", "Storage getAllItems failed", e)
+            Log.e("CW_STORAGE", "getAllItems failed", e)
             emptyList()
+        }
+    }
+
+    /**
+     * Persists the entire list at once.
+     * Use this after in-memory list mutation in the repository.
+     */
+    suspend fun saveAllItems(items: List<ContinueWatchingItem>) = withContext(Dispatchers.IO) {
+        try {
+            prefs.edit().putString(KEY_ITEMS, gson.toJson(items)).apply()
+        } catch (e: Exception) {
+            Log.e("CW_STORAGE", "saveAllItems failed", e)
         }
     }
 
@@ -41,13 +50,12 @@ class ContinueWatchingStorage(context: Context) {
             val items = getAllItems().toMutableList()
             items.removeAll { it.movieId == item.movieId && it.mediaType == item.mediaType }
             
-            // Completion check (95%)
             if (!item.isEffectivelyCompleted() && !item.completed) {
                 items.add(0, item)
             }
             
             val limitedItems = items.take(20)
-            prefs.edit().putString(KEY_ITEMS, gson.toJson(limitedItems)).apply()
+            saveAllItems(limitedItems)
             return@withContext limitedItems
         } catch (e: Exception) {
             getAllItems()
@@ -58,7 +66,7 @@ class ContinueWatchingStorage(context: Context) {
         try {
             val items = getAllItems().toMutableList()
             if (items.removeAll { it.movieId == movieId && it.mediaType == mediaType }) {
-                prefs.edit().putString(KEY_ITEMS, gson.toJson(items)).apply()
+                saveAllItems(items)
                 return@withContext items
             }
             getAllItems()
@@ -67,11 +75,6 @@ class ContinueWatchingStorage(context: Context) {
         }
     }
     
-    suspend fun clearAll(): List<ContinueWatchingItem> = withContext(Dispatchers.IO) {
-        prefs.edit().remove(KEY_ITEMS).apply()
-        emptyList()
-    }
-
     suspend fun getItem(movieId: String, mediaType: MediaType): ContinueWatchingItem? = withContext(Dispatchers.IO) {
         getAllItems().find { it.movieId == movieId && it.mediaType == mediaType }
     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -24,9 +25,9 @@ import com.example.peak.data.repository.ContinueWatchingRepository
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.model.MediaType
 import com.example.peak.player.CachedMediaSourceFactory
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -40,17 +41,13 @@ fun PlayerScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Obtain ViewModel via stable factory
     val viewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
         factory = PlayerViewModelFactory(continueWatchingRepository, movieRepository)
     )
 
-    // ISSUE 1 — REACTIVE STATE (NO BLOCKING .first())
-    val videoUrl by viewModel.videoUrl.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val resumePosition by viewModel.resumePosition.collectAsState()
     
-    // STABLE EXOPLAYER INSTANCE with Disk Caching
+    // STABLE EXOPLAYER INSTANCE
     val exoPlayer = remember {
         val mediaSourceFactory = CachedMediaSourceFactory.getInstance(context)
         ExoPlayer.Builder(context)
@@ -58,25 +55,37 @@ fun PlayerScreen(
             .build()
     }
 
-    // ISSUE 4 — STABILISE INITIALISATION (ONE TRIGGER PER MOVIEID)
+    // DETERMINISTIC INITIALIZATION
     LaunchedEffect(mediaId, mediaType) {
         viewModel.loadMedia(mediaId, mediaType)
         
-        // Wait for videoUrl reactively inside the coroutine without .first()
-        viewModel.videoUrl.filterNotNull().collect { url ->
-            val mediaItem = MediaItem.fromUri(url)
-            exoPlayer.setMediaItem(mediaItem)
-            
-            // Apply reactive resume position
-            if (resumePosition > 0) {
-                exoPlayer.seekTo(resumePosition)
+        // One-shot synchronization for playback session
+        val session = viewModel.playbackSession.filterNotNull().first()
+        
+        val mediaItem = MediaItem.fromUri(session.videoUrl)
+        exoPlayer.setMediaItem(mediaItem)
+        
+        if (session.resumePosition > 0) {
+            exoPlayer.seekTo(session.resumePosition)
+        }
+        
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
+    }
+
+    // EVENT LISTENERS: Natural completion
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    viewModel.onPlaybackStopped(exoPlayer.duration, exoPlayer.duration)
+                    onPlaybackFinished()
+                }
             }
-            
-            exoPlayer.prepare()
-            exoPlayer.playWhenReady = true
-            
-            // Stop initialization collector to prevent double-init on URL change
-            cancel()
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
         }
     }
 
@@ -94,10 +103,9 @@ fun PlayerScreen(
         }
     }
 
-    // ISSUE 3 — SINGLE EXIT STRATEGY (ON_PAUSE ONLY)
+    // LIFECYCLE: FINAL SAVE & CLEANUP
     DisposableEffect(lifecycleOwner, exoPlayer) {
         val observer = LifecycleEventObserver { _, event ->
-            // Save on pause/stop (navigation back or app backgrounded)
             if (event == Lifecycle.Event.ON_PAUSE) {
                 val currentPos = exoPlayer.currentPosition
                 val duration = exoPlayer.duration
@@ -116,13 +124,9 @@ fun PlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        if (isLoading && videoUrl == null) {
+        if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Loading Video...", color = Color.White)
-            }
-        } else if (!isLoading && videoUrl == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Video not available", color = Color.Red)
+                Text("Loading Content...", color = Color.White)
             }
         } else {
             AndroidView(
