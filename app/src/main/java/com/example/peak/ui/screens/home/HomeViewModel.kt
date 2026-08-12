@@ -1,6 +1,5 @@
 package com.example.peak.ui.screens.home
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,8 +8,6 @@ import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
-import com.example.peak.ui.image.ImageWarmingManager
-import com.example.peak.ui.image.PeakImageLoader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -18,8 +15,6 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Home screen.
- * Consolidates multiple data sources into a single reactive UI state pipeline.
- * Synchronous focus model for frame-perfect UI response.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
@@ -30,14 +25,9 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    /**
-     * SINGLE SOURCE OF TRUTH: The currently focused movie state.
-     * Updated synchronously whenever possible to eliminate Flow propagation lag.
-     */
     private val _focusState = MutableStateFlow<FocusState?>(null)
     val focusState: StateFlow<FocusState?> = _focusState.asStateFlow()
 
-    // Granular flows derived from UI state to ensure absolute synchronization
     val rows = _uiState.map { it.rows }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -47,7 +37,6 @@ class HomeViewModel(
     val continueWatchingProgress = _uiState.map { it.continueWatchingProgress }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    // Internal state for API-sourced rows
     private val _apiRows = MutableStateFlow<List<Row>>(emptyList())
     private var focusDebounceJob: Job? = null
 
@@ -61,8 +50,6 @@ class HomeViewModel(
             continueWatchingRepository.continueWatchingItems,
             _apiRows
         ) { cwItems, apiRows ->
-            // PHASE 2 — REMOVE TEST/INVALID CONTENT (Rule 1 & 2)
-            // Filter invalid items: must have ID, title, poster, and meaningful progress (not finished).
             val validCwItems = cwItems.filter { item ->
                 item.movieId.isNotBlank() &&
                 item.title.isNotBlank() &&
@@ -88,15 +75,12 @@ class HomeViewModel(
 
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
-            // 1. UPDATE UI STATE FIRST
             _uiState.update { it.copy(
                 rows = rows,
                 continueWatchingProgress = progressMap,
                 loading = false
             ) }
 
-            // 2. AUTOMATIC FOCUS SYNC (Rule 3 & 4 Fix)
-            // Established ONLY after rows are in the UI State and verified as real data.
             if (_focusState.value == null) {
                 rows.firstOrNull { !it.isPlaceholder }?.let { row ->
                     row.movies.firstOrNull()?.let { movie ->
@@ -128,32 +112,24 @@ class HomeViewModel(
         }
     }
 
-    /**
-     * Handles movie focus events from the UI.
-     * Performs synchronous lookup to eliminate "first frame delay".
-     */
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) return
 
-        // 1. Synchronous Cache Lookup (Zero Latency)
+        // 1. Immediate update from existing row data (fast path)
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
         
-        if (cachedMovie != null && cachedMovie.description.isNotBlank()) {
-            _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
-            return
-        }
-
-        // 2. Immediate partial state update if ID exists but metadata is thin
         if (cachedMovie != null) {
             _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
+            
+            // If already enriched, we're done
+            if (cachedMovie.isEnriched) return
         }
 
-        // 3. Asynchronous Enrichment (Only if metadata is missing)
+        // 2. Asynchronous Enrichment (Only if metadata is missing or not enriched)
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
             val result = repository.getMediaById(movieId, mediaType)
             result.getOrNull()?.let { movie ->
-                // Ensure we haven't navigated away during fetch
                 if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
                     _focusState.value = FocusState(rowId, movieId, mediaType, movie)
                 }
@@ -162,7 +138,7 @@ class HomeViewModel(
     }
 
     fun onMovieSelected(movie: Movie) {
-        // Handle selection/navigation logic here
+        // Selection logic
     }
 }
 

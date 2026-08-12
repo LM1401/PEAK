@@ -4,10 +4,10 @@ import com.example.peak.data.remote.dto.TmdbMovie
 import com.example.peak.data.remote.dto.TmdbResponse
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /**
  * Retrofit interface for TMDB API.
- * Notice it uses the DTO [TmdbResponse] for the network response.
  */
 interface TmdbApi {
     @GET("trending/movie/week")
@@ -17,8 +17,14 @@ interface TmdbApi {
     suspend fun getTrendingTv(): TmdbResponse
 
     @GET("movie/{movie_id}")
-    suspend fun getMovieDetails(@Path("movie_id") movieId: String): TmdbMovie
+    suspend fun getMovieDetails(
+        @Path("movie_id") movieId: String,
+        @Query("append_to_response") append: String = "credits,release_dates"
+    ): TmdbMovie
 
     @GET("tv/{tv_id}")
-    suspend fun getTvDetails(@Path("tv_id") tvId: String): TmdbMovie
+    suspend fun getTvDetails(
+        @Path("tv_id") tvId: String,
+        @Query("append_to_response") append: String = "credits,content_ratings"
+    ): TmdbMovie
 }

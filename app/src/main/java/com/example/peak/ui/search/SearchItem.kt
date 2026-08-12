@@ -23,6 +23,7 @@ fun SearchItem.toMovie(): com.example.peak.domain.model.Movie {
         backdropUrl = backdropUrl ?: "https://via.placeholder.com/1280x720?text=$title",
         description = overview ?: "Experience the latest trending story. Now streaming on PEAK.",
         rating = String.format("%.1f", rating),
-        year = year ?: "2024"
+        year = year ?: "",
+        isEnriched = false
     )
 }

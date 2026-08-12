@@ -19,16 +19,17 @@ data class Movie(
     val imageUrl: String,
     val backdropUrl: String,
     val description: String = "",
-    val ageRating: String = "PG-13",
-    val rating: String = "8.5",
-    val year: String = "2024",
-    val duration: String = "2h 15m",
-    val cast: String = "Actor One, Actor Two, Actor Three",
-    val director: String = "Director Name",
-    val genres: String = "Action, Adventure, Thriller",
+    val ageRating: String = "",
+    val rating: String = "",
+    val year: String = "",
+    val duration: String = "",
+    val cast: String = "",
+    val director: String = "",
+    val genres: String = "",
     val videoUrl: String? = null,
     val subTitle: String? = null, // e.g. "S3 E4 • Old Friends"
-    val info: String? = null      // e.g. "20m left"
+    val info: String? = null,     // e.g. "20m left"
+    val isEnriched: Boolean = false
 )
 
 data class Row(
