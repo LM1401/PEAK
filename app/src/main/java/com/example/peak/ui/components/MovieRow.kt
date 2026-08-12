@@ -33,6 +33,8 @@ import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 /**
  * Reusable Movie Row component for TV browsing screens.
@@ -47,12 +49,40 @@ fun MovieRow(
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
     progressMap: Map<String, Float>? = null,
-    focusManager: FocusMemoryManager? = null
+    focusManager: FocusMemoryManager? = null,
+    restorationMovieId: String? = null,
+    restorationMediaType: MediaType? = null,
+    onRestorationComplete: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
-    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val focusRequesters = remember { mutableStateMapOf<String, FocusRequester>() }
+
+    // PRECISION RESTORATION: Explicitly targets the card FocusRequester after materialization
+    LaunchedEffect(restorationMovieId, restorationMediaType) {
+        if (restorationMovieId != null && restorationMediaType != null) {
+            val index = row.movies.indexOfFirst { 
+                it.movieId == restorationMovieId && it.mediaType == restorationMediaType 
+            }
+            if (index != -1) {
+                // 1. Force materialization
+                listState.scrollToItem(index)
+                
+                // 2. Wait for composition to stabilize
+                val focusKey = "${restorationMediaType.name}_$restorationMovieId"
+                snapshotFlow { focusRequesters.containsKey(focusKey) }
+                    .filter { it }
+                    .first()
+                
+                // 3. Precision Focus
+                focusRequesters[focusKey]?.requestFocus()
+                
+                // 4. Signal completion to clear restoration state
+                onRestorationComplete()
+            }
+        }
+    }
 
     // PREDICTIVE SCROLL PRE-DECODING (WARMING)
     LaunchedEffect(row.movies) {
