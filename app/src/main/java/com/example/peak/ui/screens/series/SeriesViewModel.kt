@@ -96,7 +96,7 @@ class SeriesViewModel(
         _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, movie)
         
         // 2. Background enrichment of metadata if necessary
-        if (movie.description.isBlank()) {
+        if (!movie.isEnriched) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
                 repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->

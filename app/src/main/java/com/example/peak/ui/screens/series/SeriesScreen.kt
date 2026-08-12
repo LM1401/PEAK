@@ -14,6 +14,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
@@ -44,13 +49,46 @@ fun SeriesScreen(
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        contentFocusRequester.requestFocus()
-    }
     val navFocusRequester = remember { FocusRequester() }
 
     // TV CAMERA SYSTEM: Restored vertical slot responsibility
     val cameraState = rememberTvCameraState()
+
+    // FOCUS RESTORATION LOGIC
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isInitialFocusRequested by rememberSaveable { mutableStateOf(false) }
+    var restorationTarget by remember { mutableStateOf<FocusState?>(null) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (isInitialFocusRequested) {
+                    // Return from Detail
+                    if (focusState != null) {
+                        restorationTarget = focusState
+                    }
+                } else {
+                    // Initial entry
+                    contentFocusRequester.requestFocus()
+                    isInitialFocusRequested = true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // SYNC RESTORATION -> CAMERA SNAP
+    LaunchedEffect(restorationTarget, rows) {
+        restorationTarget?.let { target ->
+            val index = rows.indexOfFirst { it.id == target.rowId }
+            if (index != -1) {
+                cameraState.snapToRow(index)
+            }
+        }
+    }
 
     // SYNC FOCUS -> CAMERA SLOT
     val focusRowIndex = remember(focusState?.rowId, rows) {
@@ -59,7 +97,8 @@ fun SeriesScreen(
     }
 
     LaunchedEffect(focusRowIndex) {
-        if (focusRowIndex != -1) {
+        // Only scroll if NOT currently restoring
+        if (focusRowIndex != -1 && restorationTarget == null) {
             cameraState.scrollToRow(focusRowIndex)
         }
     }
@@ -116,6 +155,9 @@ fun SeriesScreen(
                             onMovieSelected = viewModel::onMovieSelected,
                             onMovieClick = onMovieClick,
                             focusManager = focusManager,
+                            restorationMovieId = if (restorationTarget?.rowId == row.id) restorationTarget?.movieId else null,
+                            restorationMediaType = if (restorationTarget?.rowId == row.id) restorationTarget?.mediaType else null,
+                            onRestorationComplete = { restorationTarget = null },
                             modifier = Modifier.onRowPositioned(row.id, cameraState)
                         )
                     }
