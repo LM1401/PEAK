@@ -26,19 +26,17 @@ import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 
+import com.example.peak.ui.components.sidebar.SidebarItemType
+
 /**
  * HomeScreen.
  * REFACTORED: Deterministic Slot Viewport.
- * Uses index-based camera translation to ensure "One Active + One Peek" UX
- * across all resolutions.
  */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onTabSelected: (String) -> Unit,
-    onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSidebarItemSelected: (SidebarItemType) -> Unit,
+    onMovieClick: (Movie) -> Unit
 ) {
     val focusState by viewModel.focusState.collectAsState()
     val rows by viewModel.rows.collectAsState()
@@ -62,12 +60,10 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (isInitialFocusRequested) {
-                    // Explicit restoration case: We've already been here, and we're coming back
                     if (focusState != null) {
                         restorationTarget = focusState
                     }
                 } else {
-                    // Fresh entry case: First time hitting the screen
                     contentFocusRequester.requestFocus()
                     isInitialFocusRequested = true
                 }
@@ -96,19 +92,14 @@ fun HomeScreen(
     }
 
     LaunchedEffect(focusRowIndex) {
-        // Only scroll if NOT currently restoring (restoration uses snapToRow)
         if (focusRowIndex != -1 && restorationTarget == null) {
             cameraState.scrollToRow(focusRowIndex)
         }
     }
 
-    // REMOVED: screen-level warming sweep
-
     HomeBaseLayout(
-        selectedTab = "Home",
-        onTabSelected = onTabSelected,
-        onSettingsClick = onSettingsClick,
-        onSearchClick = onSearchClick,
+        selectedSidebarItem = SidebarItemType.HOME,
+        onSidebarItemSelected = onSidebarItemSelected,
         focusedMovie = focusState?.movie,
         showLoadingOverlay = loading && rows.isEmpty(),
         navFocusRequester = navFocusRequester,
@@ -122,12 +113,9 @@ fun HomeScreen(
                 .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
-                    up = navFocusRequester
+                    left = navFocusRequester
                 }
         ) {
-            // THE WORLD: Stacks rows vertically and translates by Slot Index.
-            // wrapContentHeight(unbounded = true) is CRITICAL for focus: it allows the 
-            // focus system to see rows that are layout-positioned below the viewport.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -137,7 +125,6 @@ fun HomeScreen(
                 // CONTENT SLOTS
                 rows.forEachIndexed { index, row ->
                     key(row.id) {
-                        // SLOT SPACING: Exact 24dp for deterministic anchor math
                         if (index > 0) {
                             Spacer(modifier = Modifier.height(24.dp))
                         }
@@ -164,7 +151,6 @@ fun HomeScreen(
                     EmptyHomePlaceholder()
                 }
 
-                // Overshoot spacer to allow last row to be "Active Slot"
                 Spacer(modifier = Modifier.height(600.dp))
             }
         }

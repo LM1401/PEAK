@@ -20,6 +20,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.tv.material3.*
 import com.example.peak.domain.model.MediaType
+import com.example.peak.ui.components.sidebar.SidebarItemType
 import com.example.peak.ui.screens.detail.NetflixDetailScreen
 import com.example.peak.ui.screens.home.HomeScreen
 import com.example.peak.ui.screens.player.PlayerScreen
@@ -61,20 +62,30 @@ fun PEAKApp() {
         com.example.peak.data.repository.ContinueWatchingRepository(continueWatchingStorage)
     }
 
-    val onTabSelected: (String) -> Unit = { tab ->
-        when (tab) {
-            "Home" -> navController.navigate("home") {
+    val onSidebarItemSelected: (SidebarItemType) -> Unit = { item ->
+        when (item) {
+            SidebarItemType.HOME -> navController.navigate("home") {
                 popUpTo("home") { inclusive = true }
                 launchSingleTop = true
             }
-            "Series" -> navController.navigate("series") {
+            SidebarItemType.MOVIES -> navController.navigate("movies") {
                 launchSingleTop = true
             }
-            "My Watchlist" -> {} // Handle later
-            "Films" -> navController.navigate("movies") {
+            SidebarItemType.TV -> navController.navigate("series") {
                 launchSingleTop = true
             }
-            else -> {}
+            SidebarItemType.SEARCH -> navController.navigate("search") {
+                launchSingleTop = true
+            }
+            SidebarItemType.SETTINGS -> navController.navigate("settings") {
+                launchSingleTop = true
+            }
+            SidebarItemType.MY_LIST -> {
+                // navController.navigate("mylist")
+            }
+            SidebarItemType.PROFILE -> {
+                // navController.navigate("profile")
+            }
         }
     }
 
@@ -88,12 +99,10 @@ fun PEAKApp() {
             )
             HomeScreen(
                 viewModel = homeViewModel,
-                onTabSelected = onTabSelected,
+                onSidebarItemSelected = onSidebarItemSelected,
                 onMovieClick = { movie ->
                     navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
-                },
-                onSettingsClick = { navController.navigate("settings") },
-                onSearchClick = { navController.navigate("search") }
+                }
             )
         }
 
@@ -103,12 +112,10 @@ fun PEAKApp() {
             )
             com.example.peak.ui.screens.movies.MoviesScreen(
                 viewModel = moviesViewModel,
-                onTabSelected = onTabSelected,
+                onSidebarItemSelected = onSidebarItemSelected,
                 onMovieClick = { movie ->
                     navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
-                },
-                onSettingsClick = { navController.navigate("settings") },
-                onSearchClick = { navController.navigate("search") }
+                }
             )
         }
 
@@ -118,12 +125,10 @@ fun PEAKApp() {
             )
             com.example.peak.ui.screens.series.SeriesScreen(
                 viewModel = seriesViewModel,
-                onTabSelected = onTabSelected,
+                onSidebarItemSelected = onSidebarItemSelected,
                 onMovieClick = { movie ->
                     navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
-                },
-                onSettingsClick = { navController.navigate("settings") },
-                onSearchClick = { navController.navigate("search") }
+                }
             )
         }
 

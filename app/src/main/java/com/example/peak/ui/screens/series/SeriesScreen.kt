@@ -29,6 +29,8 @@ import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 
+import com.example.peak.ui.components.sidebar.SidebarItemType
+
 /**
  * Series Screen. 
  * REFACTORED: Deterministic Slot Viewport.
@@ -36,10 +38,8 @@ import com.example.peak.ui.image.PeakImageLoader
 @Composable
 fun SeriesScreen(
     viewModel: SeriesViewModel,
-    onTabSelected: (String) -> Unit,
-    onMovieClick: (Movie) -> Unit,
-    onSettingsClick: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSidebarItemSelected: (SidebarItemType) -> Unit,
+    onMovieClick: (Movie) -> Unit
 ) {
     val focusState by viewModel.focusState.collectAsState()
     val rows by viewModel.rows.collectAsState()
@@ -105,10 +105,8 @@ fun SeriesScreen(
     // REMOVED: screen-level warming sweep
 
     HomeBaseLayout(
-        selectedTab = "Series",
-        onTabSelected = onTabSelected,
-        onSettingsClick = onSettingsClick,
-        onSearchClick = onSearchClick,
+        selectedSidebarItem = SidebarItemType.TV,
+        onSidebarItemSelected = onSidebarItemSelected,
         focusedMovie = focusState?.movie,
         showLoadingOverlay = loading && rows.isEmpty(),
         navFocusRequester = navFocusRequester,
@@ -122,7 +120,7 @@ fun SeriesScreen(
                 .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
-                    up = navFocusRequester
+                    left = navFocusRequester
                 }
         ) {
             // THE WORLD

@@ -14,18 +14,17 @@ import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.example.peak.domain.model.Movie
+import com.example.peak.ui.components.sidebar.Sidebar
+import com.example.peak.ui.components.sidebar.SidebarItemType
 
 /**
  * Shared Base Layout for PEAK Browse screens (Home, Movies, etc.)
- * Rebuilt as a clean Parallel HUD shell using Box-based layering.
- * Follows a deterministic overlay model where content and HUDs are independently managed.
+ * Updated for the Stage 1 Redesign: Sidebar Navigation and Navy Palette.
  */
 @Composable
 fun HomeBaseLayout(
-    selectedTab: String,
-    onTabSelected: (String) -> Unit,
-    onSettingsClick: () -> Unit,
-    onSearchClick: () -> Unit,
+    selectedSidebarItem: SidebarItemType,
+    onSidebarItemSelected: (SidebarItemType) -> Unit,
     focusedMovie: Movie?,
     showLoadingOverlay: Boolean = false,
     navFocusRequester: FocusRequester = remember { FocusRequester() },
@@ -35,7 +34,7 @@ fun HomeBaseLayout(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF040B16)) // Deep Navy Base
     ) {
         // LAYER 1 — BACKGROUND (zIndex 0-1)
         CinematicBackground(
@@ -48,7 +47,6 @@ fun HomeBaseLayout(
         )
 
         // LAYER 2 — CONTENT VIEWPORT (zIndex 2)
-        // Pure Canvas: Receives full-screen constraints and manages own spacing via scroll.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,29 +56,27 @@ fun HomeBaseLayout(
         }
 
         // LAYER 3 — HERO HUD (zIndex 3)
-        // Pure Overlay: Deterministic positioning, layout-agnostic.
         HeroSection(
             movie = focusedMovie,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 120.dp, top = 64.dp)
+                .padding(start = 140.dp, top = 80.dp) // Adjusted padding for sidebar
                 .zIndex(3f)
                 .focusProperties { canFocus = false }
         )
 
-        // LAYER 4 — NAVIGATION HUD (zIndex 4)
-        // Top-most interactive layer for global navigation.
-        TopNavigationBar(
-            selectedTab = selectedTab,
-            onTabSelected = onTabSelected,
-            onSettingsClick = onSettingsClick,
-            onSearchClick = onSearchClick,
+        // LAYER 4 — SIDEBAR NAVIGATION HUD (zIndex 4)
+        // Overlay Sidebar: Does not push content, transparent/gradient background.
+        Sidebar(
+            selectedItem = selectedSidebarItem,
+            onItemSelected = onSidebarItemSelected,
+            onMoveRight = { contentFocusRequester.requestFocus() },
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(Alignment.CenterStart)
                 .zIndex(4f)
                 .focusRequester(navFocusRequester)
                 .focusProperties {
-                    down = contentFocusRequester
+                    right = contentFocusRequester
                 }
         )
 
@@ -90,7 +86,7 @@ fun HomeBaseLayout(
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(20f)
-                    .background(Color.Black),
+                    .background(Color(0xFF040B16)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

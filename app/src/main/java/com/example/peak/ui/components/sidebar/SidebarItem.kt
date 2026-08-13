@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 
@@ -21,14 +23,15 @@ fun SidebarItem(
 ) {
     Surface(
         onClick = onClick,
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (isSelected) Color.White.copy(alpha = 0.05f) else Color.Transparent,
-            contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+            contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
             focusedContentColor = Color.White,
-            focusedContainerColor = Color.White.copy(alpha = 0.15f)
+            focusedContainerColor = Color.White.copy(alpha = 0.2f)
         ),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
+        shape = ClickableSurfaceDefaults.shape(RectangleShape)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -37,13 +40,13 @@ fun SidebarItem(
             Icon(
                 imageVector = itemType.icon,
                 contentDescription = itemType.label,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             )
             
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = fadeIn(animationSpec = tween(150, delayMillis = 100)) + 
-                        slideInHorizontally(animationSpec = tween(150, delayMillis = 100)) { -10 },
+                enter = fadeIn(animationSpec = tween(200, delayMillis = 100)) + 
+                        expandHorizontally(animationSpec = tween(200, delayMillis = 100)),
                 exit = fadeOut(animationSpec = tween(100))
             ) {
                 Row {
@@ -52,7 +55,8 @@ fun SidebarItem(
                         text = itemType.label,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             }
