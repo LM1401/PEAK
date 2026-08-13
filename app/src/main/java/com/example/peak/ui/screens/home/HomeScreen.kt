@@ -46,7 +46,6 @@ fun HomeScreen(
     val continueWatchingProgress by viewModel.continueWatchingProgress.collectAsState()
 
     val context = LocalContext.current
-    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
@@ -103,13 +102,7 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(rows) {
-        if (rows.isNotEmpty()) {
-            val moviesToWarm = rows.take(3).flatMap { it.movies }
-            // STARTUP: Warm posters only, low priority
-            ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
-        }
-    }
+    // REMOVED: screen-level warming sweep
 
     HomeBaseLayout(
         selectedTab = "Home",
@@ -152,6 +145,8 @@ fun HomeScreen(
                         MovieRow(
                             row = row,
                             focusedMovieId = focusState?.movieId,
+                            isFocused = focusState?.rowId == row.id,
+                            isNearViewport = if (focusRowIndex == -1) index <= 1 else kotlin.math.abs(index - focusRowIndex) <= 1,
                             onMovieFocused = { rowId, movieId, mediaType -> viewModel.onMovieFocused(rowId, movieId, mediaType) },
                             onMovieSelected = viewModel::onMovieSelected,
                             onMovieClick = onMovieClick,

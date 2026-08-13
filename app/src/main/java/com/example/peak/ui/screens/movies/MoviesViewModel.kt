@@ -9,13 +9,14 @@ import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.domain.repository.MovieListType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Movies screen.
- * Refactored for extreme recomposition isolation and synchronous focus response.
+ * Optimized: Progressive loading of movie categories.
  */
 class MoviesViewModel(
     private val repository: MovieRepository,
@@ -24,15 +25,17 @@ class MoviesViewModel(
     private val _uiState = MutableStateFlow(MoviesUiState())
     val uiState: StateFlow<MoviesUiState> = _uiState.asStateFlow()
 
-    val rows = _uiState.map { it.rows }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Tracks categories that have arrived
+    private val _apiRowsMap = MutableStateFlow<Map<String, Row>>(emptyMap())
 
-    val selectedMovie = _uiState.map { it.selectedMovie }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val rows = _apiRowsMap.map { map ->
+        val priorityOrder = listOf(
+            "movies_trending", "movies_popular", "movies_now_playing", 
+            "movies_top_rated", "movies_action", "movies_comedy", "movies_scifi"
+        )
+        priorityOrder.mapNotNull { map[it] }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /**
-     * SINGLE SOURCE OF TRUTH: The currently focused movie state.
-     */
     private val _focusState = MutableStateFlow<FocusState?>(null)
     val focusState: StateFlow<FocusState?> = _focusState.asStateFlow()
 
@@ -43,60 +46,52 @@ class MoviesViewModel(
 
     init {
         fetchMovies()
+        
+        // SYNC INITIAL FOCUS: When first rows arrive
+        rows.filter { it.isNotEmpty() }.take(1).onEach { movieRows ->
+            val initialRow = movieRows.firstOrNull()
+            val initialMovie = initialRow?.movies?.firstOrNull()
+            if (_focusState.value == null && initialMovie != null) {
+                _focusState.value = FocusState(initialRow.id, initialMovie.movieId, initialMovie.mediaType, initialMovie)
+            }
+            _uiState.update { it.copy(loading = false) }
+        }.launchIn(viewModelScope)
     }
 
     fun fetchMovies() {
+        _uiState.update { it.copy(loading = true) }
+        
+        // 1. PRIMARY: Trending & Popular (Immediate)
         viewModelScope.launch {
-            _uiState.update { it.copy(loading = true) }
-            repository.getTrendingMovies()
-                .onSuccess { movies ->
-                    if (movies.isNotEmpty()) {
-                        val movieRows = listOf(
-                            Row("movies_trending", "Trending Movies", movies.shuffled().take(10)),
-                            Row("movies_new", "New Movie Releases", movies.shuffled().take(10)),
-                            Row("movies_action", "Action & Adventure", movies.shuffled().take(10)),
-                            Row("movies_comedy", "Comedy Hits", movies.shuffled().take(10)),
-                            Row("movies_scifi", "Sci-Fi & Fantasy", movies.shuffled().take(10)),
-                            Row("movies_award", "Award-Winning Films", movies.shuffled().take(10))
-                        )
+            repository.getTrendingMovies().onSuccess { updateRow("movies_trending", "Trending Movies", it) }
+            repository.getMovies(MovieListType.POPULAR).onSuccess { updateRow("movies_popular", "Popular Movies", it) }
+        }
 
-                        val initialMovie = movies.firstOrNull()
-                        _uiState.update { 
-                            it.copy(
-                                rows = movieRows, 
-                                loading = false, 
-                                selectedMovie = initialMovie
-                            ) 
-                        }
-                        
-                        // Set initial focus (Rule 3 Fix)
-                        if (_focusState.value == null && initialMovie != null) {
-                            val initialRow = movieRows.firstOrNull()
-                            if (initialMovie.movieId.isNotBlank() && initialRow != null) {
-                                _focusState.value = FocusState(initialRow.id, initialMovie.movieId, initialMovie.mediaType, initialMovie)
-                            }
-                        }
-                    } else {
-                        _uiState.update { it.copy(loading = false) }
-                    }
-                }
-                .onFailure { exception ->
-                    Log.e("PEAK_API", "Failed to fetch movies", exception)
-                    _uiState.update { it.copy(loading = false) }
-                }
+        // 2. SECONDARY: Status Categories
+        viewModelScope.launch {
+            repository.getMovies(MovieListType.NOW_PLAYING).onSuccess { updateRow("movies_now_playing", "Now Playing", it) }
+            repository.getMovies(MovieListType.TOP_RATED).onSuccess { updateRow("movies_top_rated", "Top Rated", it) }
+        }
+
+        // 3. TERTIARY: Genres
+        viewModelScope.launch {
+            repository.getMovies(MovieListType.GENRE, 28).onSuccess { updateRow("movies_action", "Action", it) }
+            repository.getMovies(MovieListType.GENRE, 35).onSuccess { updateRow("movies_comedy", "Comedy", it) }
+            repository.getMovies(MovieListType.GENRE, 878).onSuccess { updateRow("movies_scifi", "Sci-Fi & Fantasy", it) }
         }
     }
 
-    /**
-     * Synchronous focus handler to eliminate propagation latency.
-     */
+    private fun updateRow(id: String, title: String, movies: List<Movie>) {
+        if (movies.isEmpty()) return
+        _apiRowsMap.update { current ->
+            current + (id to Row(id, title, movies.take(20)))
+        }
+    }
+
     fun onMovieFocused(rowId: String, movie: Movie) {
         if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) return
-        
-        // 1. Immediate state update from memory
         _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, movie)
         
-        // 2. Background enrichment of metadata if necessary
         if (!movie.isEnriched) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {

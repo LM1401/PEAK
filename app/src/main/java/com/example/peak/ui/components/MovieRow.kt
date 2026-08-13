@@ -52,7 +52,9 @@ fun MovieRow(
     focusManager: FocusMemoryManager? = null,
     restorationMovieId: String? = null,
     restorationMediaType: MediaType? = null,
-    onRestorationComplete: () -> Unit = {}
+    onRestorationComplete: () -> Unit = {},
+    isFocused: Boolean = false,
+    isNearViewport: Boolean = true
 ) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -85,23 +87,30 @@ fun MovieRow(
     }
 
     // PREDICTIVE SCROLL PRE-DECODING (WARMING)
-    LaunchedEffect(row.movies) {
-        snapshotFlow { listState.firstVisibleItemIndex }
+    // Optimized: Keyed by row.id to prevent restarts on progressive data arrivals.
+    // Window reduced to 5 for lighter speculative workload.
+    LaunchedEffect(isNearViewport, row.id) {
+        if (!isNearViewport) return@LaunchedEffect
+        
+        snapshotFlow { Pair(listState.firstVisibleItemIndex, row.movies) }
             .distinctUntilChanged()
-            .collectLatest { index ->
-                if (row.movies.isNotEmpty()) {
-                    val endIndex = (index + 10).coerceAtMost(row.movies.size)
-                    val moviesToWarm = row.movies.subList(index, endIndex)
+            .collectLatest { (index, movies) ->
+                if (movies.isNotEmpty()) {
+                    val windowSize = 5 
+                    val endIndex = (index + windowSize).coerceAtMost(movies.size)
+                    val moviesToWarm = movies.subList(index, endIndex)
                     // ROW SCROLL: Warm posters only, speculative
                     ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
                 }
             }
     }
 
-    var isRowFocused by remember { mutableStateOf(false) }
+    var isRowFocusedInternal by remember { mutableStateOf(false) }
 
     // Persist focus and trigger DIRECT WARMING on focus change
-    LaunchedEffect(focusedMovieId) {
+    LaunchedEffect(isFocused, focusedMovieId) {
+        if (!isFocused) return@LaunchedEffect
+        
         val index = row.movies.indexOfFirst { it.movieId == focusedMovieId }
         val focused = row.movies.getOrNull(index)
 
@@ -123,14 +132,14 @@ fun MovieRow(
         modifier = modifier
             .fillMaxWidth()
             .onFocusChanged { focusState ->
-                if (focusState.hasFocus && !isRowFocused) {
+                if (focusState.hasFocus && !isRowFocusedInternal) {
                     // ENTRY RESTORATION: When row gains focus from outside, restore last known position
                     val lastId = focusManager?.getRememberedId(row.id)
                     if (lastId != null) {
                         focusRequesters[lastId]?.requestFocus()
                     }
                 }
-                isRowFocused = focusState.hasFocus
+                isRowFocusedInternal = focusState.hasFocus
             },
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

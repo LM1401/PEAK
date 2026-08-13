@@ -7,7 +7,8 @@ import com.example.peak.data.remote.dto.toEnrichedMovie
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
-import android.util.Log
+import com.example.peak.domain.repository.MovieListType
+import com.example.peak.domain.repository.TvListType
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -19,87 +20,113 @@ class MovieRepositoryImpl(
     private val api: TmdbApi
 ) : MovieRepository {
 
-    private val listMutex = Mutex()
     private val detailMutex = Mutex()
+    private val listMutexMap = ConcurrentHashMap<String, Mutex>()
     
     private val movieDetailsCache = ConcurrentHashMap<String, Movie>()
     
-    private var trendingMoviesCache: List<Movie>? = null
-    private var trendingSeriesCache: List<Movie>? = null
-
-    private var trendingMoviesTimestamp = 0L
-    private var trendingSeriesTimestamp = 0L
+    // Category Caching
+    private val categoryCache = ConcurrentHashMap<String, List<Movie>>()
+    private val categoryTimestamps = ConcurrentHashMap<String, Long>()
     
     companion object {
-        private const val CACHE_TTL_MS = 2 * 60 * 1000L 
+        private const val CACHE_TTL_MS = 2 * 60 * 1000L // 2 Minutes
     }
 
     private fun getCacheKey(id: String, type: MediaType): String = "${type.name}_$id"
 
+    private fun getListMutex(key: String): Mutex {
+        return listMutexMap.getOrPut(key) { Mutex() }
+    }
+
+    private fun isExpired(timestamp: Long): Boolean {
+        return System.currentTimeMillis() - timestamp > CACHE_TTL_MS
+    }
+
+    private fun updateDetailsCache(movies: List<Movie>) {
+        movies.forEach { movie ->
+            val key = getCacheKey(movie.movieId, movie.mediaType)
+            if (movieDetailsCache[key]?.isEnriched != true) {
+                movieDetailsCache[key] = movie
+            }
+        }
+    }
+
     override suspend fun getTrendingMovies(): Result<List<Movie>> {
-        val cached = trendingMoviesCache
-        if (cached != null && !isExpired(trendingMoviesTimestamp)) {
-            return Result.success(cached)
+        return getMovies(MovieListType.TRENDING)
+    }
+
+    override suspend fun getTrendingSeries(): Result<List<Movie>> {
+        return getSeries(TvListType.TRENDING)
+    }
+
+    override suspend fun getMovies(type: MovieListType, genreId: Int?): Result<List<Movie>> {
+        val key = if (type == MovieListType.GENRE) "MOVIE_GENRE_$genreId" else "MOVIE_${type.name}"
+        
+        categoryCache[key]?.let { cached ->
+            if (!isExpired(categoryTimestamps[key] ?: 0L)) return Result.success(cached)
         }
 
-        return listMutex.withLock {
-            if (trendingMoviesCache != null && !isExpired(trendingMoviesTimestamp)) {
-                return@withLock Result.success(trendingMoviesCache!!)
+        return getListMutex(key).withLock {
+            categoryCache[key]?.let { cached ->
+                if (!isExpired(categoryTimestamps[key] ?: 0L)) return@withLock Result.success(cached)
             }
 
             val result = SafeApiCall.execute("MovieRepository") {
-                api.getTrending()
+                when (type) {
+                    MovieListType.TRENDING -> api.getTrending()
+                    MovieListType.POPULAR -> api.getPopularMovies()
+                    MovieListType.NOW_PLAYING -> api.getNowPlayingMovies()
+                    MovieListType.TOP_RATED -> api.getTopRatedMovies()
+                    MovieListType.GENRE -> api.discoverMovies(genreId.toString())
+                }
             }
 
             return@withLock when {
                 result.data != null -> {
                     val movies = result.data.results.map { it.toMovie(MediaType.MOVIE) }
-                    trendingMoviesCache = movies
-                    trendingMoviesTimestamp = System.currentTimeMillis()
-                    // Update cache but don't overwrite enriched data with summary data
-                    movies.forEach { movie ->
-                        val key = getCacheKey(movie.movieId, movie.mediaType)
-                        if (movieDetailsCache[key]?.isEnriched != true) {
-                            movieDetailsCache[key] = movie
-                        }
-                    }
+                    categoryCache[key] = movies
+                    categoryTimestamps[key] = System.currentTimeMillis()
+                    updateDetailsCache(movies)
                     Result.success(movies)
                 }
-                trendingMoviesCache != null -> Result.success(trendingMoviesCache!!)
+                categoryCache[key] != null -> Result.success(categoryCache[key]!!)
                 else -> Result.success(emptyList())
             }
         }
     }
 
-    override suspend fun getTrendingSeries(): Result<List<Movie>> {
-        val cached = trendingSeriesCache
-        if (cached != null && !isExpired(trendingSeriesTimestamp)) {
-            return Result.success(cached)
+    override suspend fun getSeries(type: TvListType, genreId: Int?): Result<List<Movie>> {
+        val key = if (type == TvListType.GENRE) "TV_GENRE_$genreId" else "TV_${type.name}"
+        
+        categoryCache[key]?.let { cached ->
+            if (!isExpired(categoryTimestamps[key] ?: 0L)) return Result.success(cached)
         }
 
-        return listMutex.withLock {
-            if (trendingSeriesCache != null && !isExpired(trendingSeriesTimestamp)) {
-                return@withLock Result.success(trendingSeriesCache!!)
+        return getListMutex(key).withLock {
+            categoryCache[key]?.let { cached ->
+                if (!isExpired(categoryTimestamps[key] ?: 0L)) return@withLock Result.success(cached)
             }
 
             val result = SafeApiCall.execute("MovieRepository") {
-                api.getTrendingTv()
+                when (type) {
+                    TvListType.TRENDING -> api.getTrendingTv()
+                    TvListType.POPULAR -> api.getPopularSeries()
+                    TvListType.TOP_RATED -> api.getTopRatedSeries()
+                    TvListType.ON_THE_AIR -> api.getOnTheAirSeries()
+                    TvListType.GENRE -> api.discoverSeries(genreId.toString())
+                }
             }
 
             return@withLock when {
                 result.data != null -> {
                     val series = result.data.results.map { it.toMovie(MediaType.TV) }
-                    trendingSeriesCache = series
-                    trendingSeriesTimestamp = System.currentTimeMillis()
-                    series.forEach { movie ->
-                        val key = getCacheKey(movie.movieId, movie.mediaType)
-                        if (movieDetailsCache[key]?.isEnriched != true) {
-                            movieDetailsCache[key] = movie
-                        }
-                    }
+                    categoryCache[key] = series
+                    categoryTimestamps[key] = System.currentTimeMillis()
+                    updateDetailsCache(series)
                     Result.success(series)
                 }
-                trendingSeriesCache != null -> Result.success(trendingSeriesCache!!)
+                categoryCache[key] != null -> Result.success(categoryCache[key]!!)
                 else -> Result.success(emptyList())
             }
         }
@@ -108,13 +135,11 @@ class MovieRepositoryImpl(
     override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
         val cacheKey = getCacheKey(id, type)
         
-        // Return if it's already enriched
         movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }?.let {
             return Result.success(it)
         }
 
         return detailMutex.withLock {
-            // Re-check after lock
             movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }?.let {
                 return@withLock Result.success(it)
             }
@@ -130,15 +155,10 @@ class MovieRepositoryImpl(
                     Result.success(movie)
                 }
                 else -> {
-                    // Fallback to thin cached data if available
                     movieDetailsCache[cacheKey]?.let { Result.success(it) } 
                         ?: Result.failure(result.error ?: Exception("Media not found"))
                 }
             }
         }
-    }
-
-    private fun isExpired(timestamp: Long): Boolean {
-        return System.currentTimeMillis() - timestamp > CACHE_TTL_MS
     }
 }

@@ -8,6 +8,8 @@ import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.domain.repository.MovieListType
+import com.example.peak.domain.repository.TvListType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -15,6 +17,7 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the Home screen.
+ * Optimized: Progressive content loading to ensure immediate UI responsiveness.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
@@ -37,7 +40,8 @@ class HomeViewModel(
     val continueWatchingProgress = _uiState.map { it.continueWatchingProgress }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    private val _apiRows = MutableStateFlow<List<Row>>(emptyList())
+    // Tracks categories that have arrived
+    private val _apiRowsMap = MutableStateFlow<Map<String, Row>>(emptyMap())
     private var focusDebounceJob: Job? = null
 
     init {
@@ -48,8 +52,8 @@ class HomeViewModel(
     private fun setupStatePipeline() {
         combine(
             continueWatchingRepository.continueWatchingItems,
-            _apiRows
-        ) { cwItems, apiRows ->
+            _apiRowsMap
+        ) { cwItems, apiRowsMap ->
             val validCwItems = cwItems.filter { item ->
                 item.movieId.isNotBlank() &&
                 item.title.isNotBlank() &&
@@ -61,15 +65,16 @@ class HomeViewModel(
 
             val progressMap = validCwItems.associateBy({ "${it.mediaType.name}_${it.movieId}" }, { it.progress })
             
+            // Deterministic Row Ordering
             val combinedRows = buildList {
                 if (validCwItems.isNotEmpty()) {
                     add(Row("continue_watching", "Continue Watching", validCwItems.map { it.toMovie() }))
                 }
-                if (apiRows.isNotEmpty()) {
-                    addAll(apiRows)
-                } else {
-                    add(Row("trending", "Trending", emptyList(), isPlaceholder = true))
-                    add(Row("popular", "Popular", emptyList(), isPlaceholder = true))
+                
+                // Add API rows in priority order if they exist
+                val priorityOrder = listOf("trending", "popular_movies", "popular_series", "top_rated_movies")
+                priorityOrder.forEach { id ->
+                    apiRowsMap[id]?.let { add(it) }
                 }
             }
 
@@ -81,6 +86,7 @@ class HomeViewModel(
                 loading = false
             ) }
 
+            // Establish initial focus ONLY if not set and we have real rows
             if (_focusState.value == null) {
                 rows.firstOrNull { !it.isPlaceholder }?.let { row ->
                     row.movies.firstOrNull()?.let { movie ->
@@ -94,42 +100,51 @@ class HomeViewModel(
     }
 
     fun fetchMovies() {
+        _uiState.update { it.copy(loading = true) }
+
+        // PROGRESSIVE LOADING: Launch independent tasks so UI updates as data arrives
+        
+        // 1. PRIMARY: Trending (Immediate)
         viewModelScope.launch {
-            _uiState.update { it.copy(loading = true) }
-            val result = repository.getTrendingMovies()
-            val movies = result.getOrDefault(emptyList())
-            
-            if (movies.isNotEmpty()) {
-                val movieRows = listOf(
-                    Row("trending", "Trending This Week", movies.shuffled().take(10)),
-                    Row("top_picks", "Top Picks for You", movies.shuffled().take(10)),
-                    Row("action", "Action & Adventure", movies.shuffled().take(10))
-                )
-                _apiRows.value = movieRows
-            } else {
-                _uiState.update { it.copy(loading = false) }
+            repository.getTrendingMovies().onSuccess { movies ->
+                updateRow("trending", "Trending Now", movies)
             }
+        }
+
+        // 2. SECONDARY: Popular/Top Rated (Background)
+        viewModelScope.launch {
+            repository.getMovies(MovieListType.POPULAR).onSuccess { movies ->
+                updateRow("popular_movies", "Popular Movies", movies)
+            }
+            repository.getSeries(TvListType.POPULAR).onSuccess { series ->
+                updateRow("popular_series", "Popular Series", series)
+            }
+            repository.getMovies(MovieListType.TOP_RATED).onSuccess { movies ->
+                updateRow("top_rated_movies", "Top Rated Movies", movies)
+            }
+        }
+    }
+
+    private fun updateRow(id: String, title: String, movies: List<Movie>) {
+        if (movies.isEmpty()) return
+        _apiRowsMap.update { current ->
+            current + (id to Row(id, title, movies.take(20)))
         }
     }
 
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) return
 
-        // 1. Immediate update from existing row data (fast path)
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
         
         if (cachedMovie != null) {
             _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
-            
-            // If already enriched, we're done
             if (cachedMovie.isEnriched) return
         }
 
-        // 2. Asynchronous Enrichment (Only if metadata is missing or not enriched)
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
-            val result = repository.getMediaById(movieId, mediaType)
-            result.getOrNull()?.let { movie ->
+            repository.getMediaById(movieId, mediaType).onSuccess { movie ->
                 if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
                     _focusState.value = FocusState(rowId, movieId, mediaType, movie)
                 }

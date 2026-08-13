@@ -27,4 +27,34 @@ interface TmdbApi {
         @Path("tv_id") tvId: String,
         @Query("append_to_response") append: String = "credits,content_ratings"
     ): TmdbMovie
+
+    // MOVIE CATEGORIES
+    @GET("movie/popular")
+    suspend fun getPopularMovies(): TmdbResponse
+
+    @GET("movie/top_rated")
+    suspend fun getTopRatedMovies(): TmdbResponse
+
+    @GET("movie/now_playing")
+    suspend fun getNowPlayingMovies(): TmdbResponse
+
+    @GET("discover/movie")
+    suspend fun discoverMovies(
+        @Query("with_genres") genreId: String
+    ): TmdbResponse
+
+    // TV CATEGORIES
+    @GET("tv/popular")
+    suspend fun getPopularSeries(): TmdbResponse
+
+    @GET("tv/top_rated")
+    suspend fun getTopRatedSeries(): TmdbResponse
+
+    @GET("tv/on_the_air")
+    suspend fun getOnTheAirSeries(): TmdbResponse
+
+    @GET("discover/tv")
+    suspend fun discoverSeries(
+        @Query("with_genres") genreId: String
+    ): TmdbResponse
 }

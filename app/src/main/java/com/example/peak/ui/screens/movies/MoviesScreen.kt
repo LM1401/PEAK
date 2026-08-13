@@ -46,7 +46,6 @@ fun MoviesScreen(
     val loading by viewModel.loading.collectAsState()
 
     val context = LocalContext.current
-    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val focusManager = rememberFocusMemoryManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
@@ -103,12 +102,7 @@ fun MoviesScreen(
         }
     }
 
-    LaunchedEffect(rows) {
-        if (rows.isNotEmpty()) {
-            val moviesToWarm = rows.take(3).flatMap { it.movies }
-            ImageWarmingManager.warm(context, imageLoader, moviesToWarm)
-        }
-    }
+    // REMOVED: screen-level warming sweep
 
     HomeBaseLayout(
         selectedTab = "Films",
@@ -147,6 +141,8 @@ fun MoviesScreen(
                         MovieRow(
                             row = row,
                             focusedMovieId = focusState?.movieId,
+                            isFocused = focusState?.rowId == row.id,
+                            isNearViewport = if (focusRowIndex == -1) index <= 1 else kotlin.math.abs(index - focusRowIndex) <= 1,
                             onMovieFocused = { rowId, movieId, mediaType ->
                                 row.movies.find { it.movieId == movieId && it.mediaType == mediaType }?.let { movie ->
                                     viewModel.onMovieFocused(rowId, movie)
