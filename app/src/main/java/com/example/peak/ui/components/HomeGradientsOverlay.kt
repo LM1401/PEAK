@@ -16,36 +16,41 @@ import androidx.compose.ui.graphics.Color
 fun HomeGradientsOverlay(
     modifier: Modifier = Modifier
 ) {
+    val navyDark = Color(0xFF040B16)
+    val navyMedium = Color(0xFF061124)
+    val navyLight = Color(0xFF0A1C36)
+
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Left Readability Fade (Hero text)
+        // 1. Left Sidebar & Hero Content Readability Fade
+        // Blends the sidebar into the hero while keeping text readable.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.45f),
-                        0.4f to Color.Black.copy(alpha = 0.20f),
+                        0.0f to navyDark.copy(alpha = 0.95f),
+                        0.2f to navyDark.copy(alpha = 0.85f),
+                        0.4f to navyDark.copy(alpha = 0.50f),
                         0.7f to Color.Transparent
                     )
                 )
         )
 
-        // 2. Full-Screen Depth Blend (Middle transition)
+        // 2. Vertical Blend (Hero to Rows)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.25f),
-                        0.3f to Color.Black.copy(alpha = 0.10f),
-                        0.5f to Color.Transparent,
-                        0.8f to Color.Black.copy(alpha = 0.35f),
-                        1.0f to Color.Black.copy(alpha = 0.65f)
+                        0.0f to navyDark.copy(alpha = 0.30f),
+                        0.4f to Color.Transparent,
+                        0.6f to navyMedium.copy(alpha = 0.40f),
+                        1.0f to navyDark.copy(alpha = 0.90f)
                     )
                 )
         )
 
-        // 3. Subtle Vignette
+        // 3. Ambient Blue Vignette (Bottom-Right lighting)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -53,9 +58,10 @@ fun HomeGradientsOverlay(
                     Brush.radialGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.15f)
+                            navyLight.copy(alpha = 0.15f)
                         ),
-                        radius = 1200f
+                        center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                        radius = 1500f
                     )
                 )
         )

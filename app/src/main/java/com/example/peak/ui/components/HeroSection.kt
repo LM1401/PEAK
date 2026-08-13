@@ -3,7 +3,6 @@ package com.example.peak.ui.components
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,14 +16,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.graphics.vector.ImageVector
 
-private val HERO_VISUAL_HEIGHT = 156.dp
+private val HERO_CONTENT_WIDTH = 640.dp
 
 /**
  * Cinematic Hero Section HUD.
- * Refined for visual hierarchy: title is supporting context, not dominant.
+ * Redesigned to match the Premium Streaming Concept.
  */
-@OptIn(ExperimentalAnimationApi::class)
+@OptIn(ExperimentalAnimationApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 fun HeroSection(
     movie: Movie?,
@@ -34,132 +37,166 @@ fun HeroSection(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .height(HERO_VISUAL_HEIGHT), // ARCHITECTURE FIX: Fixed height viewport
+                .wrapContentHeight(),
             contentAlignment = Alignment.TopStart
         ) {
             AnimatedContent(
                 targetState = movie,
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = tween(300, delayMillis = 60, easing = FastOutSlowInEasing)
+                        animationSpec = tween(500, easing = FastOutSlowInEasing)
                     ) togetherWith fadeOut(
-                        animationSpec = tween(200, easing = FastOutSlowInEasing)
+                        animationSpec = tween(300, easing = FastOutSlowInEasing)
                     )
                 },
                 label = "HeroTransition"
             ) { currentMovie ->
                 if (currentMovie != null) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize(), // Fill the fixed-height HUD viewport
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.width(HERO_CONTENT_WIDTH),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
-                        // 1. TITLE (headlineLarge for dominance)
-                        Text(
-                            text = currentMovie.name,
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        // 2. METADATA ROW
+                        // 1. PEAK ORIGINAL BADGE
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow, // Placeholder for mountain icon
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "PEAK ORIGINAL",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+
+                        // 2. TITLE (Cinematic typography)
+                        Text(
+                            text = currentMovie.name.uppercase(),
+                            style = MaterialTheme.typography.displayMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 56.sp
+                        )
+
+                        // 3. METADATA ROW
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = currentMovie.duration,
-                                color = Color.White.copy(alpha = 0.9f),
+                                text = currentMovie.year,
+                                color = Color.White.copy(alpha = 0.7f),
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Text(
-                                text = currentMovie.year,
-                                color = Color.White.copy(alpha = 0.9f),
+                                text = "•",
+                                color = Color.White.copy(alpha = 0.4f)
+                            )
+                            Text(
+                                text = currentMovie.genres.split(",").firstOrNull() ?: "",
+                                color = Color.White.copy(alpha = 0.7f),
                                 style = MaterialTheme.typography.labelLarge
                             )
-                            val rating = currentMovie.rating
-                            if (rating.isNotBlank()) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "•",
+                                color = Color.White.copy(alpha = 0.4f)
+                            )
+                            Text(
+                                text = currentMovie.duration,
+                                color = Color.White.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TechnicalBadge(text = "HD")
+                                TechnicalBadge(text = "4K")
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow, // Placeholder for Dolby
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = rating,
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        style = MaterialTheme.typography.labelLarge,
+                                        text = "Dolby Atmos",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .background(Color(0xFFF5C518), RoundedCornerShape(2.dp))
-                                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            text = "IMDb",
-                                            color = Color.Black,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 8.sp
-                                        )
-                                    }
                                 }
-                            }
-                            
-                            HeroBadge(text = currentMovie.ageRating)
-
-                            Text(
-                                text = currentMovie.genres.replace(", ", " | "),
-                                color = Color.White.copy(alpha = 0.9f),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-
-                            // Technical Badges (Ownership moved from MovieCard)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TechnicalBadge(text = "4K")
-                                TechnicalBadge(text = "HDR")
-                                TechnicalBadge(text = "Dolby Atmos")
                             }
                         }
 
-                        // 3. DESCRIPTION (Max 2 lines to fit fixed viewport)
+                        // 4. DESCRIPTION
                         Text(
                             text = currentMovie.description,
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = Color.White.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 2,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 20.sp,
-                            modifier = Modifier.widthIn(max = 800.dp)
+                            lineHeight = 24.sp,
+                            modifier = Modifier.fillMaxWidth(0.9f)
                         )
 
-                        // 4. SECONDARY METADATA (Director & Cast)
-                        // Uses a fixed-height container to prevent layout shifting
-                        Column(
-                            modifier = Modifier.height(40.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 5. ACTION BUTTONS
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (currentMovie.director.isNotBlank()) {
-                                Text(
-                                    text = "Directed by ${currentMovie.director}",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            Button(
+                                onClick = { /* Handle Play */ },
+                                colors = ButtonDefaults.colors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black,
+                                    focusedContainerColor = Color.White,
+                                    focusedContentColor = Color.Black
+                                ),
+                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp)),
+                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Play", fontWeight = FontWeight.Bold)
+                                }
                             }
-                            if (currentMovie.cast.isNotBlank()) {
-                                Text(
-                                    text = "Cast: ${currentMovie.cast}",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+
+                            Button(
+                                onClick = { /* Handle My List */ },
+                                colors = ButtonDefaults.colors(
+                                    containerColor = Color.White.copy(alpha = 0.1f),
+                                    contentColor = Color.White,
+                                    focusedContainerColor = Color.White.copy(alpha = 0.25f),
+                                    focusedContentColor = Color.White
+                                ),
+                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp)),
+                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("My List", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                 } else {
-                    Spacer(modifier = Modifier.fillMaxSize())
+                    Spacer(modifier = Modifier.fillMaxWidth().height(200.dp))
                 }
             }
         }
@@ -167,29 +204,17 @@ fun HeroSection(
 }
 
 @Composable
-private fun HeroBadge(text: String) {
-    Box(
-        modifier = Modifier
-            .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
-        Text(text = text, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
 private fun TechnicalBadge(text: String) {
     Box(
         modifier = Modifier
-            .background(Color.Transparent, RoundedCornerShape(2.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
-            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
             text = text,
-            color = Color.White.copy(alpha = 0.9f),
+            color = Color.White.copy(alpha = 0.7f),
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Black,
             fontSize = 10.sp
         )
     }

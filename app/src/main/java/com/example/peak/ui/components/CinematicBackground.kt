@@ -41,9 +41,9 @@ fun CinematicBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF02060C)) // Deep Navy Base
     ) {
-        // 2. HARD REPLACEMENT RENDERING (Removes crossfade persistence)
+        // 2. HARD REPLACEMENT RENDERING
         key(movieId) {
             if (backdropUrl != null) {
                 AsyncImage(
@@ -52,7 +52,7 @@ fun CinematicBackground(
                             .data(backdropUrl)
                             .memoryCacheKey("${movieId}_backdrop")
                             .diskCacheKey("${movieId}_backdrop")
-                            .crossfade(false) // IMPORTANT: No blending with previous state
+                            .crossfade(false)
                             .allowHardware(true)
                             .build()
                     },
@@ -71,7 +71,7 @@ fun CinematicBackground(
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color(0xFF1A1A1A), Color.Black)
+                                colors = listOf(Color(0xFF0B1729), Color(0xFF02060C))
                             )
                         )
                 )
