@@ -12,8 +12,8 @@ import androidx.compose.ui.unit.dp
  */
 object HomeConstants {
     val HOME_ROW_SLOT_HEIGHT = 320.dp
-    val HOME_ROW_SPACING = 8.dp
+    val HOME_ROW_SPACING = 18.dp
     val HOME_VIEWPORT_PEEK = 80.dp
     val HOME_VIEWPORT_HEIGHT = 400.dp // Slot (320) + Peek (80)
-    val HOME_HERO_BOTTOM_ANCHOR = 220.dp
+    val HOME_HERO_BOTTOM_ANCHOR = 205.dp
 }
