@@ -31,6 +31,7 @@ import com.example.peak.domain.model.Row
 import com.example.peak.ui.focus.FocusMemoryManager
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
+import com.example.peak.ui.screens.home.HomeConstants
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -64,22 +65,22 @@ fun MovieRow(
     // PRECISION RESTORATION: Explicitly targets the card FocusRequester after materialization
     LaunchedEffect(restorationMovieId, restorationMediaType) {
         if (restorationMovieId != null && restorationMediaType != null) {
-            val index = row.movies.indexOfFirst { 
-                it.movieId == restorationMovieId && it.mediaType == restorationMediaType 
+            val index = row.movies.indexOfFirst {
+                it.movieId == restorationMovieId && it.mediaType == restorationMediaType
             }
             if (index != -1) {
                 // 1. Force materialization
                 listState.scrollToItem(index)
-                
+
                 // 2. Wait for composition to stabilize
                 val focusKey = "${restorationMediaType.name}_$restorationMovieId"
                 snapshotFlow { focusRequesters.containsKey(focusKey) }
                     .filter { it }
                     .first()
-                
+
                 // 3. Precision Focus
                 focusRequesters[focusKey]?.requestFocus()
-                
+
                 // 4. Signal completion to clear restoration state
                 onRestorationComplete()
             }
@@ -91,12 +92,12 @@ fun MovieRow(
     // Window reduced to 5 for lighter speculative workload.
     LaunchedEffect(isNearViewport, row.id) {
         if (!isNearViewport) return@LaunchedEffect
-        
+
         snapshotFlow { Pair(listState.firstVisibleItemIndex, row.movies) }
             .distinctUntilChanged()
             .collectLatest { (index, movies) ->
                 if (movies.isNotEmpty()) {
-                    val windowSize = 5 
+                    val windowSize = 5
                     val endIndex = (index + windowSize).coerceAtMost(movies.size)
                     val moviesToWarm = movies.subList(index, endIndex)
                     // ROW SCROLL: Warm posters only, speculative
@@ -110,13 +111,13 @@ fun MovieRow(
     // Persist focus and trigger DIRECT WARMING on focus change
     LaunchedEffect(isFocused, focusedMovieId) {
         if (!isFocused) return@LaunchedEffect
-        
+
         val index = row.movies.indexOfFirst { it.movieId == focusedMovieId }
         val focused = row.movies.getOrNull(index)
 
         focused?.let {
             focusManager?.saveFocus(row.id, it.movieId)
-            
+
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
             // For focused items, we warm the BACKDROP as well.
             ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = true)
@@ -131,6 +132,8 @@ fun MovieRow(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .height(HomeConstants.HOME_ROW_SLOT_HEIGHT - HomeConstants.HOME_ROW_SPACING)
+            .padding(top = 10.dp)
             .onFocusChanged { focusState ->
                 if (focusState.hasFocus && !isRowFocusedInternal) {
                     // ENTRY RESTORATION: When row gains focus from outside, restore last known position
@@ -171,8 +174,8 @@ fun MovieRow(
                     key = { movie -> "${row.id}_${movie.mediaType.name}_${movie.movieId}" }
                 ) { movie ->
                     val focusKey = "${movie.mediaType.name}_${movie.movieId}"
-                    val focusRequester = remember(focusKey) { 
-                        focusRequesters.getOrPut(focusKey) { FocusRequester() } 
+                    val focusRequester = remember(focusKey) {
+                        focusRequesters.getOrPut(focusKey) { FocusRequester() }
                     }
 
                     StableMovieCardWrapper(
@@ -218,8 +221,8 @@ private fun StableMovieCardWrapper(
         modifier = Modifier
             .width(cardWidth)
             .padding(vertical = 10.dp)
-            .onFocusChanged { 
-                isLocalFocused = it.hasFocus 
+            .onFocusChanged {
+                isLocalFocused = it.hasFocus
             }
             .zIndex(if (isLocalFocused) 10f else 1f)
     ) {
