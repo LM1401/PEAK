@@ -17,9 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.ui.graphics.vector.ImageVector
 
 private val HERO_CONTENT_WIDTH = 640.dp
 
@@ -63,7 +61,7 @@ fun HeroSection(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.PlayArrow, // Placeholder for mountain icon
+                                imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
@@ -124,7 +122,7 @@ fun HeroSection(
                                 TechnicalBadge(text = "4K")
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.Default.PlayArrow, // Placeholder for Dolby
+                                        imageVector = Icons.Default.PlayArrow,
                                         contentDescription = null,
                                         tint = Color.White.copy(alpha = 0.7f),
                                         modifier = Modifier.size(12.dp)
@@ -150,32 +148,6 @@ fun HeroSection(
                             lineHeight = 22.sp,
                             modifier = Modifier.fillMaxWidth(0.9f)
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 5. ACTION BUTTONS
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(
-                                onClick = { /* Handle My List */ },
-                                colors = ButtonDefaults.colors(
-                                    containerColor = Color.White.copy(alpha = 0.1f),
-                                    contentColor = Color.White,
-                                    focusedContainerColor = Color.White.copy(alpha = 0.25f),
-                                    focusedContentColor = Color.White
-                                ),
-                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp)),
-                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("My List", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
                     }
                 } else {
                     Spacer(modifier = Modifier.fillMaxWidth().height(200.dp))
