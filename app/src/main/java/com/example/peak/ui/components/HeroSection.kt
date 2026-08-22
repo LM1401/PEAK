@@ -54,7 +54,7 @@ fun HeroSection(
                 if (currentMovie != null) {
                     Column(
                         modifier = Modifier.width(HERO_CONTENT_WIDTH),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
                         // 1. PEAK ORIGINAL BADGE
@@ -80,12 +80,12 @@ fun HeroSection(
                         // 2. TITLE (Cinematic typography)
                         Text(
                             text = currentMovie.name.uppercase(),
-                            style = MaterialTheme.typography.displayMedium,
+                            style = MaterialTheme.typography.displaySmall,
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 56.sp
+                            lineHeight = 40.sp
                         )
 
                         // 3. METADATA ROW
@@ -144,14 +144,14 @@ fun HeroSection(
                         Text(
                             text = currentMovie.description,
                             color = Color.White.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 3,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 24.sp,
+                            lineHeight = 20.sp,
                             modifier = Modifier.fillMaxWidth(0.9f)
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         // 5. ACTION BUTTONS
                         Row(

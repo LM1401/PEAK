@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.example.peak.ui.screens.home.HomeConstants
 
 /**
  * TV Camera System State.
@@ -25,8 +26,8 @@ class TvCameraState(
         stiffness = Spring.StiffnessLow
     )
 ) {
-    // SLOT_HEIGHT: 287dp (Row Content) + 24dp (Spacing)
-    private val slotHeightPx = with(density) { 311.dp.toPx() }
+    // Authoritative Slot Height from HomeConstants
+    private val slotHeightPx = with(density) { HomeConstants.HOME_ROW_SLOT_HEIGHT.toPx() }
 
     private val _offsetY = Animatable(0f)
     val offsetY: Float get() = _offsetY.value

@@ -11,7 +11,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.example.peak.ui.screens.home.HomeConstants
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -108,8 +110,9 @@ fun HomeScreen(
         // THE VIEWPORT
         Box(
             modifier = modifier
-                .fillMaxSize()
-                .padding(top = 220.dp)
+                .padding(top = HomeConstants.HOME_HERO_BOTTOM_ANCHOR)
+                .width(LocalConfiguration.current.screenWidthDp.dp)
+                .height(HomeConstants.HOME_VIEWPORT_HEIGHT)
                 .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
@@ -126,7 +129,7 @@ fun HomeScreen(
                 rows.forEachIndexed { index, row ->
                     key(row.id) {
                         if (index > 0) {
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(HomeConstants.HOME_ROW_SPACING))
                         }
 
                         MovieRow(
