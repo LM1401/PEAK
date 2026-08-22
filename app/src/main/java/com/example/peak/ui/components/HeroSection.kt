@@ -54,7 +54,7 @@ fun HeroSection(
                 if (currentMovie != null) {
                     Column(
                         modifier = Modifier.width(HERO_CONTENT_WIDTH),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
                         // 1. PEAK ORIGINAL BADGE
@@ -80,12 +80,12 @@ fun HeroSection(
                         // 2. TITLE (Cinematic typography)
                         Text(
                             text = currentMovie.name.uppercase(),
-                            style = MaterialTheme.typography.displaySmall,
+                            style = MaterialTheme.typography.displayMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Black,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 40.sp
+                            lineHeight = 52.sp
                         )
 
                         // 3. METADATA ROW
@@ -147,35 +147,17 @@ fun HeroSection(
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 20.sp,
+                            lineHeight = 22.sp,
                             modifier = Modifier.fillMaxWidth(0.9f)
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         // 5. ACTION BUTTONS
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(
-                                onClick = { /* Handle Play */ },
-                                colors = ButtonDefaults.colors(
-                                    containerColor = Color.White,
-                                    contentColor = Color.Black,
-                                    focusedContainerColor = Color.White,
-                                    focusedContentColor = Color.Black
-                                ),
-                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp)),
-                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Play", fontWeight = FontWeight.Bold)
-                                }
-                            }
-
                             Button(
                                 onClick = { /* Handle My List */ },
                                 colors = ButtonDefaults.colors(

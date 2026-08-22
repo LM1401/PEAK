@@ -156,7 +156,7 @@ fun MovieRow(
             modifier = Modifier
                 .wrapContentHeight()
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
+            contentPadding = PaddingValues(horizontal = 120.dp, vertical = 30.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (row.isPlaceholder) {
