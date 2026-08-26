@@ -43,6 +43,7 @@ class HomeViewModel(
     // Tracks categories that have arrived
     private val _apiRowsMap = MutableStateFlow<Map<String, Row>>(emptyMap())
     private var focusDebounceJob: Job? = null
+    private var hasUserInteracted = false
 
     init {
         setupStatePipeline()
@@ -86,14 +87,19 @@ class HomeViewModel(
                 loading = false
             ) }
 
-            // Establish initial focus ONLY if not set and we have real rows
-            if (_focusState.value == null) {
-                rows.firstOrNull { !it.isPlaceholder }?.let { row ->
-                    row.movies.firstOrNull()?.let { movie ->
-                        if (movie.movieId.isNotBlank()) {
-                            _focusState.value = FocusState(row.id, movie.movieId, movie.mediaType, movie)
-                        }
-                    }
+            // Establish or update initial focus based on row priority
+            val firstRealRow = rows.firstOrNull { !it.isPlaceholder }
+            val firstMovie = firstRealRow?.movies?.firstOrNull { it.movieId.isNotBlank() }
+
+            if (firstMovie != null) {
+                val potentialFocus = FocusState(firstRealRow.id, firstMovie.movieId, firstMovie.mediaType, firstMovie)
+                
+                if (_focusState.value == null) {
+                    // Initial establishment
+                    _focusState.value = potentialFocus
+                } else if (!hasUserInteracted && (_focusState.value?.rowId != potentialFocus.rowId || _focusState.value?.movieId != potentialFocus.movieId)) {
+                    // Follow Row 0 if it changes (e.g. Continue Watching arrives) before user interaction
+                    _focusState.value = potentialFocus
                 }
             }
         }.launchIn(viewModelScope)
@@ -102,23 +108,27 @@ class HomeViewModel(
     fun fetchMovies() {
         _uiState.update { it.copy(loading = true) }
 
-        // PROGRESSIVE LOADING: Launch independent tasks so UI updates as data arrives
+        // PROGRESSIVE LOADING: Launch independent tasks to maximize parallel network work
         
-        // 1. PRIMARY: Trending (Immediate)
+        // 1. PRIMARY: Trending
         viewModelScope.launch {
             repository.getTrendingMovies().onSuccess { movies ->
                 updateRow("trending", "Trending Now", movies)
             }
         }
 
-        // 2. SECONDARY: Popular/Top Rated (Background)
+        // 2. SECONDARY: Popular/Top Rated (Independent Background Requests)
         viewModelScope.launch {
             repository.getMovies(MovieListType.POPULAR).onSuccess { movies ->
                 updateRow("popular_movies", "Popular Movies", movies)
             }
+        }
+        viewModelScope.launch {
             repository.getSeries(TvListType.POPULAR).onSuccess { series ->
                 updateRow("popular_series", "Popular Series", series)
             }
+        }
+        viewModelScope.launch {
             repository.getMovies(MovieListType.TOP_RATED).onSuccess { movies ->
                 updateRow("top_rated_movies", "Top Rated Movies", movies)
             }
@@ -133,7 +143,13 @@ class HomeViewModel(
     }
 
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
-        if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) return
+        val currentFocus = _focusState.value
+        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId) return
+
+        // Mark as interacted if we are changing focus from an established state
+        if (currentFocus != null) {
+            hasUserInteracted = true
+        }
 
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
         

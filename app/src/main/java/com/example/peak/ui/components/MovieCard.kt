@@ -15,13 +15,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
-import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.image.PeakImageLoader
@@ -96,7 +92,13 @@ fun MovieCard(
             val backdropKey = "${cacheKey}_backdrop"
             val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
 
-            val imageRequest = remember<ImageRequest>(movie.movieId, movie.mediaType, isLocalFocused) {
+            val imageRequest = remember<ImageRequest>(
+                movie.movieId,
+                movie.mediaType,
+                movie.imageUrl,
+                movie.backdropUrl,
+                isLocalFocused
+            ) {
                 ImageRequest.Builder(context)
                     .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
                     .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)

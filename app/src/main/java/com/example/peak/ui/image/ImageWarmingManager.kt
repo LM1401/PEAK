@@ -4,6 +4,7 @@ import android.content.Context
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manager responsible for pre-decoding images into memory.
@@ -11,9 +12,12 @@ import com.example.peak.domain.model.Movie
  */
 object ImageWarmingManager {
 
-    // Separate sets to track what has been warmed
-    private val warmedPosters = mutableSetOf<String>()
-    private val warmedBackdrops = mutableSetOf<String>()
+    // Separate sets to track what has been warmed.
+    // Thread-safe and bounded to prevent memory leaks during long sessions.
+    private val warmedPosters = ConcurrentHashMap.newKeySet<String>()
+    private val warmedBackdrops = ConcurrentHashMap.newKeySet<String>()
+
+    private const val MAX_WARM_CACHE_SIZE = 500
 
     /**
      * Enqueues image requests to warm the memory cache using unified identity keys.
@@ -24,6 +28,10 @@ object ImageWarmingManager {
         movies: List<Movie>,
         warmBackdrops: Boolean = false
     ) {
+        // Simple eviction: clear if cache grows too large to avoid memory pressure
+        if (warmedPosters.size > MAX_WARM_CACHE_SIZE) warmedPosters.clear()
+        if (warmedBackdrops.size > MAX_WARM_CACHE_SIZE) warmedBackdrops.clear()
+
         movies.forEach { movie ->
             val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
             

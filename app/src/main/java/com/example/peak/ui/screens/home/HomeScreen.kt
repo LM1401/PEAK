@@ -25,8 +25,6 @@ import com.example.peak.ui.focus.rememberFocusMemoryManager
 import com.example.peak.ui.focus.rememberTvCameraState
 import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
-import com.example.peak.ui.image.ImageWarmingManager
-import com.example.peak.ui.image.PeakImageLoader
 
 import com.example.peak.ui.components.sidebar.SidebarItemType
 
@@ -57,6 +55,7 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var isInitialFocusRequested by rememberSaveable { mutableStateOf(false) }
     var restorationTarget by remember { mutableStateOf<FocusState?>(null) }
+    var startupFocusTarget by remember { mutableStateOf<FocusState?>(null) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -91,6 +90,17 @@ fun HomeScreen(
     val focusRowIndex = remember(focusState?.rowId, rows) {
         val rowId = focusState?.rowId
         rows.indexOfFirst { it.id == rowId }
+    }
+
+    // AUTO-FOLLOW FOCUS: If the user hasn't manually moved focus, follow the ViewModel's state.
+    // This ensures focus moves to 'Continue Watching' if it arrives after 'Trending' during startup.
+    var hasUserMovedFocus by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(focusState) {
+        if (!hasUserMovedFocus && focusState != null) {
+            // DO NOT set restorationTarget here; it triggers snapToRow which breaks bottom-row peek.
+            // Instead, use a dedicated startup target for UI focus, allowing scrollToRow to handle the camera.
+            startupFocusTarget = focusState
+        }
     }
 
     LaunchedEffect(focusRowIndex) {
@@ -137,14 +147,28 @@ fun HomeScreen(
                             focusedMovieId = focusState?.movieId,
                             isFocused = focusState?.rowId == row.id,
                             isNearViewport = if (focusRowIndex == -1) index <= 1 else kotlin.math.abs(index - focusRowIndex) <= 1,
-                            onMovieFocused = { rowId, movieId, mediaType -> viewModel.onMovieFocused(rowId, movieId, mediaType) },
+                            onMovieFocused = { rowId, movieId, mediaType -> 
+                                // Track manual movement to stop auto-following focus
+                                if (focusState != null && (focusState?.rowId != rowId || focusState?.movieId != movieId)) {
+                                    hasUserMovedFocus = true
+                                    startupFocusTarget = null // Ensure no pending auto-focus
+                                }
+                                viewModel.onMovieFocused(rowId, movieId, mediaType) 
+                            },
                             onMovieSelected = viewModel::onMovieSelected,
                             onMovieClick = onMovieClick,
                             progressMap = if (row.id == "continue_watching") continueWatchingProgress else null,
                             focusManager = focusManager,
-                            restorationMovieId = if (restorationTarget?.rowId == row.id) restorationTarget?.movieId else null,
-                            restorationMediaType = if (restorationTarget?.rowId == row.id) restorationTarget?.mediaType else null,
-                            onRestorationComplete = { restorationTarget = null },
+                            restorationMovieId = (restorationTarget ?: startupFocusTarget)?.let { 
+                                if (it.rowId == row.id) it.movieId else null 
+                            },
+                            restorationMediaType = (restorationTarget ?: startupFocusTarget)?.let { 
+                                if (it.rowId == row.id) it.mediaType else null 
+                            },
+                            onRestorationComplete = { 
+                                restorationTarget = null 
+                                startupFocusTarget = null
+                            },
                             modifier = Modifier.onRowPositioned(row.id, cameraState)
                         )
                     }
