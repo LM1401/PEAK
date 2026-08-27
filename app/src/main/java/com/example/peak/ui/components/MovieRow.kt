@@ -141,7 +141,7 @@ fun MovieRow(
                 }
                 isRowFocusedInternal = focusState.hasFocus
             },
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = row.title,
@@ -156,7 +156,12 @@ fun MovieRow(
             modifier = Modifier
                 .wrapContentHeight()
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 120.dp, vertical = 20.dp),
+            contentPadding = PaddingValues(
+            start = 120.dp,
+            end = 120.dp,
+            top = 0.dp,
+            bottom = 20.dp
+        ),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (row.isPlaceholder) {
