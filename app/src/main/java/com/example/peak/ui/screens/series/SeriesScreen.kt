@@ -47,6 +47,7 @@ fun SeriesScreen(
 
     val context = LocalContext.current
     val focusManager = rememberFocusMemoryManager()
+    val focusRegistry = com.example.peak.ui.focus.rememberMovieRowFocusManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
 
@@ -57,6 +58,14 @@ fun SeriesScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var isInitialFocusRequested by rememberSaveable { mutableStateOf(false) }
     var restorationTarget by remember { mutableStateOf<FocusState?>(null) }
+
+    val onVerticalMove: (String, Int) -> Unit = { targetRowId, targetIndex ->
+        val targetRow = rows.find { it.id == targetRowId }
+        val targetMovie = targetRow?.movies?.getOrNull(targetIndex) ?: targetRow?.movies?.lastOrNull()
+        if (targetMovie != null) {
+            restorationTarget = FocusState(targetRowId, targetMovie.movieId, targetMovie.mediaType, targetMovie)
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -152,6 +161,13 @@ fun SeriesScreen(
                             restorationMovieId = if (restorationTarget?.rowId == row.id) restorationTarget?.movieId else null,
                             restorationMediaType = if (restorationTarget?.rowId == row.id) restorationTarget?.mediaType else null,
                             onRestorationComplete = { restorationTarget = null },
+                            onVerticalMove = onVerticalMove,
+                            prevRowId = rows.getOrNull(index - 1)?.id,
+                            prevRowSize = rows.getOrNull(index - 1)?.movies?.size ?: 0,
+                            nextRowId = rows.getOrNull(index + 1)?.id,
+                            nextRowSize = rows.getOrNull(index + 1)?.movies?.size ?: 0,
+                            focusRegistry = focusRegistry,
+                            navFocusRequester = navFocusRequester,
                             modifier = Modifier.onRowPositioned(row.id, cameraState)
                         )
                     }

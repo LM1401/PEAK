@@ -45,6 +45,7 @@ fun HomeScreen(
 
     val context = LocalContext.current
     val focusManager = rememberFocusMemoryManager()
+    val focusRegistry = com.example.peak.ui.focus.rememberMovieRowFocusManager()
     val contentFocusRequester = remember { FocusRequester() }
     val navFocusRequester = remember { FocusRequester() }
 
@@ -56,6 +57,16 @@ fun HomeScreen(
     var isInitialFocusRequested by rememberSaveable { mutableStateOf(false) }
     var restorationTarget by remember { mutableStateOf<FocusState?>(null) }
     var startupFocusTarget by remember { mutableStateOf<FocusState?>(null) }
+    var hasUserMovedFocus by rememberSaveable { mutableStateOf(false) }
+
+    val onVerticalMove: (String, Int) -> Unit = { targetRowId, targetIndex ->
+        hasUserMovedFocus = true
+        val targetRow = rows.find { it.id == targetRowId }
+        val targetMovie = targetRow?.movies?.getOrNull(targetIndex) ?: targetRow?.movies?.lastOrNull()
+        if (targetMovie != null) {
+            restorationTarget = FocusState(targetRowId, targetMovie.movieId, targetMovie.mediaType, targetMovie)
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -80,7 +91,7 @@ fun HomeScreen(
     LaunchedEffect(restorationTarget, rows) {
         restorationTarget?.let { target ->
             val index = rows.indexOfFirst { it.id == target.rowId }
-            if (index != -1) {
+            if (index != -1 && !hasUserMovedFocus) {
                 cameraState.snapToRow(index)
             }
         }
@@ -94,7 +105,6 @@ fun HomeScreen(
 
     // AUTO-FOLLOW FOCUS: If the user hasn't manually moved focus, follow the ViewModel's state.
     // This ensures focus moves to 'Continue Watching' if it arrives after 'Trending' during startup.
-    var hasUserMovedFocus by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusState) {
         if (!hasUserMovedFocus && focusState != null) {
             // DO NOT set restorationTarget here; it triggers snapToRow which breaks bottom-row peek.
@@ -169,6 +179,13 @@ fun HomeScreen(
                                 restorationTarget = null 
                                 startupFocusTarget = null
                             },
+                            onVerticalMove = onVerticalMove,
+                            prevRowId = rows.getOrNull(index - 1)?.id,
+                            prevRowSize = rows.getOrNull(index - 1)?.movies?.size ?: 0,
+                            nextRowId = rows.getOrNull(index + 1)?.id,
+                            nextRowSize = rows.getOrNull(index + 1)?.movies?.size ?: 0,
+                            focusRegistry = focusRegistry,
+                            navFocusRequester = navFocusRequester,
                             modifier = Modifier.onRowPositioned(row.id, cameraState)
                         )
                     }
