@@ -146,7 +146,7 @@ fun MovieRow(
         modifier = modifier
             .fillMaxWidth()
             .height(HomeConstants.HOME_ROW_SLOT_HEIGHT - HomeConstants.HOME_ROW_SPACING)
-            .padding(top = 10.dp)
+            .padding(top = if (isFocused) 42.dp else 4.dp)
             .onFocusChanged { focusState ->
                 if (focusState.hasFocus && !isRowFocusedInternal) {
                     // ENTRY RESTORATION: When row gains focus from outside, restore last known position
@@ -179,7 +179,7 @@ fun MovieRow(
             start = 120.dp,
             end = 120.dp,
             top = 0.dp,
-            bottom = 20.dp
+            bottom = 4.dp
         ),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
