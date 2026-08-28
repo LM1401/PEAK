@@ -52,7 +52,7 @@ fun HeroSection(
                 if (currentMovie != null) {
                     Column(
                         modifier = Modifier.width(HERO_CONTENT_WIDTH),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
                         // 1. PEAK ORIGINAL BADGE
@@ -75,6 +75,8 @@ fun HeroSection(
                             )
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         // 2. TITLE (Cinematic typography)
                         Text(
                             text = currentMovie.name.uppercase(),
@@ -85,6 +87,8 @@ fun HeroSection(
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 52.sp
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         // 3. METADATA ROW
                         Row(
@@ -125,7 +129,7 @@ fun HeroSection(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = null,
                                         tint = Color.White.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(12.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
@@ -137,6 +141,8 @@ fun HeroSection(
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         // 4. DESCRIPTION
                         Text(
