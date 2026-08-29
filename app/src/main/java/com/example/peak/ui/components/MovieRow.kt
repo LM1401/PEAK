@@ -196,11 +196,14 @@ fun MovieRow(
                 ) { index, movie ->
                     val focusRequester = getRequester(index, movie)
 
+                    val prevFocusRequester = if (index > 0) getRequester(index - 1, row.movies[index - 1]) else null
+
                     StableMovieCardWrapper(
                         movie = movie,
                         index = index,
                         progress = progressMap?.get("${movie.mediaType.name}_${movie.movieId}"),
                         focusRequester = focusRequester,
+                        prevFocusRequester = prevFocusRequester,
                         onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId, it.mediaType) } },
                         onMovieSelected = onMovieSelected,
                         onMovieClick = onMovieClick,
@@ -227,6 +230,7 @@ private fun StableMovieCardWrapper(
     index: Int,
     progress: Float?,
     focusRequester: FocusRequester,
+    prevFocusRequester: FocusRequester? = null,
     onFocus: (Movie?) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
@@ -289,7 +293,11 @@ private fun StableMovieCardWrapper(
                 .focusRequester(focusRequester)
                 .focusProperties {
                     // HORIZONTAL DETERMINISM
-                    left = navFocusRequester ?: left
+                    left = if (index == 0) {
+                        navFocusRequester ?: left
+                    } else {
+                        prevFocusRequester ?: left
+                    }
                 },
             progress = progress,
             onFocus = onFocus,
