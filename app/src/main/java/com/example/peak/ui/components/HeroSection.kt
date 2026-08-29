@@ -121,9 +121,33 @@ fun HeroSection(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        // 4. CAST ROW
+                        if (currentMovie.cast.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "CAST:",
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = currentMovie.cast.replace(", ", "  ·  "),
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
 
-                        // 4. DESCRIPTION
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 5. DESCRIPTION
                         Text(
                             text = currentMovie.description,
                             color = Color.White.copy(alpha = 0.60f),
