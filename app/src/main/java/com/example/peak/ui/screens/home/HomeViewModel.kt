@@ -12,6 +12,7 @@ import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -144,7 +145,7 @@ class HomeViewModel(
 
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         val currentFocus = _focusState.value
-        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId) return
+        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) return
 
         // Mark as interacted if we are changing focus from an established state
         if (currentFocus != null) {
@@ -160,6 +161,7 @@ class HomeViewModel(
 
         focusDebounceJob?.cancel()
         focusDebounceJob = viewModelScope.launch {
+            delay(300L)
             repository.getMediaById(movieId, mediaType).onSuccess { movie ->
                 if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
                     _focusState.value = FocusState(rowId, movieId, mediaType, movie)
