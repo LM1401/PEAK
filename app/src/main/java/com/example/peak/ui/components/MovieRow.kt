@@ -25,6 +25,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.Row
@@ -32,9 +33,10 @@ import com.example.peak.ui.focus.FocusMemoryManager
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 import com.example.peak.ui.screens.home.HomeConstants
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 
 /**
@@ -44,7 +46,7 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun MovieRow(
     row: Row,
-    focusedMovieId: String?,
+    focusStateFlow: StateFlow<FocusState?>,
     onMovieFocused: (String, String, MediaType) -> Unit,
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
@@ -54,7 +56,6 @@ fun MovieRow(
     restorationMovieId: String? = null,
     restorationMediaType: MediaType? = null,
     onRestorationComplete: () -> Unit = {},
-    isFocused: Boolean = false,
     isNearViewport: Boolean = true,
     onVerticalMove: ((String, Int) -> Unit)? = null,
     prevRowId: String? = null,
@@ -67,6 +68,14 @@ fun MovieRow(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
+
+    val isFocused by remember(row.id) { 
+        focusStateFlow.map { it?.rowId == row.id }.distinctUntilChanged() 
+    }.collectAsState(initial = false)
+
+    val focusedMovieId by remember(row.id) { 
+        focusStateFlow.map { if (it?.rowId == row.id) it.movieId else null }.distinctUntilChanged() 
+    }.collectAsState(initial = null)
     
     // BACKWARD COMPATIBILITY: Internal map if no registry provided
     val localFocusRequesters = remember { mutableStateMapOf<String, FocusRequester>() }

@@ -49,18 +49,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PEAKApp() {
     val navController = rememberNavController()
-
-    val movieRepository = com.example.peak.data.repository.MovieRepositoryImpl(
-        com.example.peak.data.remote.retrofit.RetrofitInstance.api
-    )
-
     val context = androidx.compose.ui.platform.LocalContext.current
-    val continueWatchingStorage = remember {
-        com.example.peak.data.continuewatching.ContinueWatchingStorage(context)
-    }
-    val continueWatchingRepository = remember {
-        com.example.peak.data.repository.ContinueWatchingRepository(continueWatchingStorage)
-    }
+
+    val movieRepository = remember { PeakDependencyProvider.getMovieRepository() }
+    val continueWatchingRepository = remember { PeakDependencyProvider.getContinueWatchingRepository(context) }
 
     val onSidebarItemSelected: (SidebarItemType) -> Unit = { item ->
         when (item) {
@@ -189,8 +181,7 @@ fun PEAKApp() {
         }
 
         composable("search") {
-            val okHttpClient = okhttp3.OkHttpClient()
-            val searchRepository = com.example.peak.data.search.SearchRepository(okHttpClient)
+            val searchRepository = PeakDependencyProvider.getSearchRepository()
             val searchViewModel: com.example.peak.ui.search.SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = com.example.peak.ui.search.SearchViewModelFactory(searchRepository, movieRepository)
             )

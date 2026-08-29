@@ -19,7 +19,7 @@ enum class CompanyType {
 enum class CompanyTier(val baseScore: Int) {
     PREMIER(1000),
     MAJOR(500),
-    RECOGNISED(100),
+    RECOGNISED(120),
     UNKNOWN(0)
 }
 
@@ -35,32 +35,57 @@ data class RecognisedCompany(
  * IDs are verified TMDB internal identifiers.
  */
 object ProductionCompanyIndex {
-    private val index = mapOf(
-        // PREMIER STUDIOS & NETWORKS
+    private val companyIndex = mapOf(
+        // PREMIER STUDIOS
+        1 to RecognisedCompany(1, "Lucasfilm", CompanyTier.PREMIER, CompanyType.STUDIO),
         2 to RecognisedCompany(2, "Disney", CompanyTier.PREMIER, CompanyType.BOTH),
-        174 to RecognisedCompany(174, "Warner Bros.", CompanyTier.PREMIER, CompanyType.STUDIO),
-        33 to RecognisedCompany(33, "Universal", CompanyTier.PREMIER, CompanyType.STUDIO),
+        3 to RecognisedCompany(3, "Pixar", CompanyTier.PREMIER, CompanyType.STUDIO),
         4 to RecognisedCompany(4, "Paramount", CompanyTier.PREMIER, CompanyType.STUDIO),
         5 to RecognisedCompany(5, "Columbia Pictures", CompanyTier.PREMIER, CompanyType.STUDIO),
-        41077 to RecognisedCompany(41077, "A24", CompanyTier.PREMIER, CompanyType.STUDIO),
-        420 to RecognisedCompany(420, "Marvel Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
-        3 to RecognisedCompany(3, "Pixar", CompanyTier.PREMIER, CompanyType.STUDIO),
+        21 to RecognisedCompany(21, "MGM", CompanyTier.PREMIER, CompanyType.STUDIO),
+        25 to RecognisedCompany(25, "20th Century Fox", CompanyTier.PREMIER, CompanyType.STUDIO),
+        33 to RecognisedCompany(33, "Universal", CompanyTier.PREMIER, CompanyType.STUDIO),
+        174 to RecognisedCompany(174, "Warner Bros.", CompanyTier.PREMIER, CompanyType.STUDIO),
         213 to RecognisedCompany(213, "Netflix", CompanyTier.PREMIER, CompanyType.BOTH),
-        49 to RecognisedCompany(49, "HBO", CompanyTier.PREMIER, CompanyType.NETWORK),
+        420 to RecognisedCompany(420, "Marvel Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
         2552 to RecognisedCompany(2552, "Apple TV+", CompanyTier.PREMIER, CompanyType.BOTH),
+        12792 to RecognisedCompany(12792, "20th Century Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
         20580 to RecognisedCompany(20580, "Amazon Studios", CompanyTier.PREMIER, CompanyType.BOTH),
+        41077 to RecognisedCompany(41077, "A24", CompanyTier.PREMIER, CompanyType.STUDIO),
+        9993 to RecognisedCompany(9993, "DC Films", CompanyTier.PREMIER, CompanyType.STUDIO),
+        195574 to RecognisedCompany(195574, "DC Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
         
         // MAJOR PRODUCTION COMPANIES
-        3172 to RecognisedCompany(3172, "Blumhouse", CompanyTier.MAJOR, CompanyType.STUDIO),
-        1632 to RecognisedCompany(1632, "Lionsgate", CompanyTier.MAJOR, CompanyType.STUDIO),
-        923 to RecognisedCompany(923, "Legendary", CompanyTier.MAJOR, CompanyType.STUDIO),
+        12 to RecognisedCompany(12, "New Line Cinema", CompanyTier.MAJOR, CompanyType.STUDIO),
         521 to RecognisedCompany(521, "DreamWorks", CompanyTier.MAJOR, CompanyType.STUDIO),
+        923 to RecognisedCompany(923, "Legendary", CompanyTier.MAJOR, CompanyType.STUDIO),
+        1632 to RecognisedCompany(1632, "Lionsgate", CompanyTier.MAJOR, CompanyType.STUDIO),
+        3172 to RecognisedCompany(3172, "Blumhouse", CompanyTier.MAJOR, CompanyType.STUDIO),
+        10146 to RecognisedCompany(10146, "Focus Features", CompanyTier.MAJOR, CompanyType.STUDIO),
         13240 to RecognisedCompany(13240, "Searchlight Pictures", CompanyTier.MAJOR, CompanyType.STUDIO),
         
         // RECOGNISED STUDIOS
         7 to RecognisedCompany(7, "DreamWorks Animation", CompanyTier.RECOGNISED, CompanyType.STUDIO),
-        34 to RecognisedCompany(34, "Sony Pictures", CompanyTier.RECOGNISED, CompanyType.STUDIO)
+        14 to RecognisedCompany(14, "Miramax", CompanyTier.RECOGNISED, CompanyType.STUDIO),
+        34 to RecognisedCompany(34, "Sony Pictures", CompanyTier.RECOGNISED, CompanyType.STUDIO),
+        93444 to RecognisedCompany(93444, "Neon", CompanyTier.RECOGNISED, CompanyType.STUDIO)
     )
 
-    fun getRecognisedCompany(id: Int): RecognisedCompany? = index[id]
+    private val networkIndex = mapOf(
+        // PREMIER NETWORKS
+        2 to RecognisedCompany(2, "Disney", CompanyTier.PREMIER, CompanyType.BOTH),
+        30 to RecognisedCompany(30, "FX", CompanyTier.PREMIER, CompanyType.NETWORK),
+        49 to RecognisedCompany(49, "HBO", CompanyTier.PREMIER, CompanyType.NETWORK),
+        67 to RecognisedCompany(67, "Showtime", CompanyTier.PREMIER, CompanyType.NETWORK),
+        213 to RecognisedCompany(213, "Netflix", CompanyTier.PREMIER, CompanyType.BOTH),
+        453 to RecognisedCompany(453, "Hulu", CompanyTier.PREMIER, CompanyType.BOTH),
+        1024 to RecognisedCompany(1024, "Amazon", CompanyTier.PREMIER, CompanyType.BOTH),
+        2552 to RecognisedCompany(2552, "Apple TV+", CompanyTier.PREMIER, CompanyType.BOTH),
+        2739 to RecognisedCompany(2739, "Disney+", CompanyTier.PREMIER, CompanyType.BOTH),
+        3394 to RecognisedCompany(3394, "AMC", CompanyTier.PREMIER, CompanyType.NETWORK)
+    )
+
+    fun getRecognisedCompany(id: Int): RecognisedCompany? = companyIndex[id]
+    
+    fun getRecognisedNetwork(id: Int): RecognisedCompany? = networkIndex[id]
 }

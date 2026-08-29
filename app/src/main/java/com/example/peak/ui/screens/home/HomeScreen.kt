@@ -27,6 +27,9 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 
 import com.example.peak.ui.components.sidebar.SidebarItemType
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * HomeScreen.
@@ -38,10 +41,14 @@ fun HomeScreen(
     onSidebarItemSelected: (SidebarItemType) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
-    val focusState by viewModel.focusState.collectAsState()
+    val focusStateFlow = viewModel.focusState
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val continueWatchingProgress by viewModel.continueWatchingProgress.collectAsState()
+
+    // Collect ONLY the row ID at the top level to minimize recompositions 
+    // when focus moves between movies in the SAME row.
+    val focusRowId by remember { focusStateFlow.map { it?.rowId }.distinctUntilChanged() }.collectAsState(null)
 
     val context = LocalContext.current
     val focusManager = rememberFocusMemoryManager()
@@ -72,8 +79,9 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (isInitialFocusRequested) {
-                    if (focusState != null) {
-                        restorationTarget = focusState
+                    val currentFocus = focusStateFlow.value
+                    if (currentFocus != null) {
+                        restorationTarget = currentFocus
                     }
                 } else {
                     contentFocusRequester.requestFocus()
@@ -98,18 +106,17 @@ fun HomeScreen(
     }
 
     // SYNC FOCUS -> CAMERA SLOT
-    val focusRowIndex = remember(focusState?.rowId, rows) {
-        val rowId = focusState?.rowId
-        rows.indexOfFirst { it.id == rowId }
+    val focusRowIndex = remember(focusRowId, rows) {
+        rows.indexOfFirst { it.id == focusRowId }
     }
 
     // AUTO-FOLLOW FOCUS: If the user hasn't manually moved focus, follow the ViewModel's state.
     // This ensures focus moves to 'Continue Watching' if it arrives after 'Trending' during startup.
-    LaunchedEffect(focusState) {
-        if (!hasUserMovedFocus && focusState != null) {
-            // DO NOT set restorationTarget here; it triggers snapToRow which breaks bottom-row peek.
-            // Instead, use a dedicated startup target for UI focus, allowing scrollToRow to handle the camera.
-            startupFocusTarget = focusState
+    LaunchedEffect(focusStateFlow) {
+        focusStateFlow.collectLatest { focusState ->
+            if (!hasUserMovedFocus && focusState != null) {
+                startupFocusTarget = focusState
+            }
         }
     }
 
@@ -122,7 +129,7 @@ fun HomeScreen(
     HomeBaseLayout(
         selectedSidebarItem = SidebarItemType.HOME,
         onSidebarItemSelected = onSidebarItemSelected,
-        focusedMovie = focusState?.movie,
+        focusedMovieProvider = { focusStateFlow.collectAsState().value?.movie },
         showLoadingOverlay = loading && rows.isEmpty(),
         navFocusRequester = navFocusRequester,
         contentFocusRequester = contentFocusRequester
@@ -154,12 +161,11 @@ fun HomeScreen(
 
                         MovieRow(
                             row = row,
-                            focusedMovieId = focusState?.movieId,
-                            isFocused = focusState?.rowId == row.id,
-                            isNearViewport = if (focusRowIndex == -1) index <= 1 else kotlin.math.abs(index - focusRowIndex) <= 1,
+                            focusStateFlow = focusStateFlow,
                             onMovieFocused = { rowId, movieId, mediaType -> 
                                 // Track manual movement to stop auto-following focus
-                                if (focusState != null && (focusState?.rowId != rowId || focusState?.movieId != movieId)) {
+                                val currentFocus = focusStateFlow.value
+                                if (currentFocus != null && (currentFocus.rowId != rowId || currentFocus.movieId != movieId)) {
                                     hasUserMovedFocus = true
                                     startupFocusTarget = null // Ensure no pending auto-focus
                                 }

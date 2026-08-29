@@ -29,6 +29,8 @@ import com.example.peak.ui.focus.tvCameraWorld
 import com.example.peak.ui.focus.onRowPositioned
 import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 import com.example.peak.ui.components.sidebar.SidebarItemType
 
@@ -42,9 +44,12 @@ fun MoviesScreen(
     onSidebarItemSelected: (SidebarItemType) -> Unit,
     onMovieClick: (Movie) -> Unit
 ) {
-    val focusState by viewModel.focusState.collectAsState()
+    val focusStateFlow = viewModel.focusState
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
+
+    // Collect ONLY the row ID at the top level to minimize recompositions
+    val focusRowId by remember { focusStateFlow.map { it?.rowId }.distinctUntilChanged() }.collectAsState(null)
 
     val context = LocalContext.current
     val focusManager = rememberFocusMemoryManager()
@@ -73,8 +78,9 @@ fun MoviesScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (isInitialFocusRequested) {
                     // Return from Detail
-                    if (focusState != null) {
-                        restorationTarget = focusState
+                    val currentFocus = focusStateFlow.value
+                    if (currentFocus != null) {
+                        restorationTarget = currentFocus
                     }
                 } else {
                     // Initial entry
@@ -100,9 +106,8 @@ fun MoviesScreen(
     }
 
     // SYNC FOCUS -> CAMERA SLOT
-    val focusRowIndex = remember(focusState?.rowId, rows) {
-        val rowId = focusState?.rowId
-        rows.indexOfFirst { it.id == rowId }
+    val focusRowIndex = remember(focusRowId, rows) {
+        rows.indexOfFirst { it.id == focusRowId }
     }
 
     LaunchedEffect(focusRowIndex) {
@@ -117,7 +122,7 @@ fun MoviesScreen(
     HomeBaseLayout(
         selectedSidebarItem = SidebarItemType.MOVIES,
         onSidebarItemSelected = onSidebarItemSelected,
-        focusedMovie = focusState?.movie,
+        focusedMovieProvider = { focusStateFlow.collectAsState().value?.movie },
         showLoadingOverlay = loading && rows.isEmpty(),
         navFocusRequester = navFocusRequester,
         contentFocusRequester = contentFocusRequester
@@ -148,9 +153,7 @@ fun MoviesScreen(
 
                         MovieRow(
                             row = row,
-                            focusedMovieId = focusState?.movieId,
-                            isFocused = focusState?.rowId == row.id,
-                            isNearViewport = if (focusRowIndex == -1) index <= 1 else kotlin.math.abs(index - focusRowIndex) <= 1,
+                            focusStateFlow = focusStateFlow,
                             onMovieFocused = { rowId, movieId, mediaType ->
                                 row.movies.find { it.movieId == movieId && it.mediaType == mediaType }?.let { movie ->
                                     viewModel.onMovieFocused(rowId, movie)

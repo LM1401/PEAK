@@ -23,11 +23,11 @@ object ProductionCompanyRecognition {
     ): String {
         val scoredCandidates = when (mediaType) {
             MediaType.MOVIE -> {
-                scoreCompanies(productionCompanies, isTvContext = false)
+                scoreCompanies(productionCompanies, isTvContext = false, isNetworkSource = false)
             }
             MediaType.TV -> {
-                val networkScores = scoreCompanies(networks, isTvContext = true)
-                val companyScores = scoreCompanies(productionCompanies, isTvContext = true)
+                val networkScores = scoreCompanies(networks, isTvContext = true, isNetworkSource = true)
+                val companyScores = scoreCompanies(productionCompanies, isTvContext = true, isNetworkSource = false)
                 networkScores + companyScores
             }
         }
@@ -42,19 +42,24 @@ object ProductionCompanyRecognition {
 
     private fun scoreCompanies(
         companies: List<TmdbCompany>?,
-        isTvContext: Boolean
+        isTvContext: Boolean,
+        isNetworkSource: Boolean
     ): List<ScoredCandidate> {
         if (companies.isNullOrEmpty()) return emptyList()
 
         return companies.mapIndexed { index, company ->
             var score = 0
-            val recognised = ProductionCompanyIndex.getRecognisedCompany(company.id)
+            val recognised = if (isNetworkSource) {
+                ProductionCompanyIndex.getRecognisedNetwork(company.id)
+            } else {
+                ProductionCompanyIndex.getRecognisedCompany(company.id)
+            }
             
             // 1. Base Score from Recognition Tier
             score += recognised?.tier?.baseScore ?: CompanyTier.UNKNOWN.baseScore
 
             // 2. TV Network Contextual Boost
-            // Only recognized networks or streamers get the boost in TV context.
+            // Only recognized networks or streamers from the correct source get the boost in TV context.
             if (isTvContext && recognised != null && 
                 (recognised.type == CompanyType.NETWORK || recognised.type == CompanyType.BOTH)) {
                 score += RECOGNISED_NETWORK_BOOST

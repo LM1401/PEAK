@@ -26,7 +26,7 @@ import com.example.peak.ui.screens.home.HomeConstants
 fun HomeBaseLayout(
     selectedSidebarItem: SidebarItemType,
     onSidebarItemSelected: (SidebarItemType) -> Unit,
-    focusedMovie: Movie?,
+    focusedMovieProvider: @Composable () -> Movie?,
     showLoadingOverlay: Boolean = false,
     navFocusRequester: FocusRequester = remember { FocusRequester() },
     contentFocusRequester: FocusRequester = remember { FocusRequester() },
@@ -39,8 +39,7 @@ fun HomeBaseLayout(
     ) {
         // LAYER 1 — BACKGROUND (zIndex 0-1)
         CinematicBackground(
-            backdropUrl = focusedMovie?.backdropUrl,
-            movieId = focusedMovie?.movieId,
+            focusedMovieProvider = focusedMovieProvider,
             modifier = Modifier.fillMaxSize().zIndex(0f)
         )
         HomeGradientsOverlay(
@@ -58,7 +57,7 @@ fun HomeBaseLayout(
 
         // LAYER 3 — HERO HUD (zIndex 3)
         HeroSection(
-            movie = focusedMovie,
+            focusedMovieProvider = focusedMovieProvider,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 32.dp) // Premium spacing

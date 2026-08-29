@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  */
 object RetrofitInstance {
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.BASIC
     }
 
     private val client = OkHttpClient.Builder()
@@ -30,6 +30,8 @@ object RetrofitInstance {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
+
+    fun getOkHttpClient(): OkHttpClient = client
 
     val api: TmdbApi by lazy {
         Retrofit.Builder()

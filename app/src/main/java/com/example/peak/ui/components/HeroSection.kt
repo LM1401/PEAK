@@ -26,9 +26,10 @@ private val HERO_CONTENT_WIDTH = 640.dp
 @OptIn(ExperimentalAnimationApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 fun HeroSection(
-    movie: Movie?,
+    focusedMovieProvider: @Composable () -> Movie?,
     modifier: Modifier = Modifier
 ) {
+    val movie = focusedMovieProvider()
     key(movie?.movieId) {
         Box(
             modifier = modifier

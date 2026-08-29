@@ -13,6 +13,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.peak.domain.model.Movie
 
 /**
  * A full-screen cinematic background component for Android TV.
@@ -20,11 +21,13 @@ import coil.request.ImageRequest
  */
 @Composable
 fun CinematicBackground(
-    backdropUrl: String?,
-    movieId: String?,
+    focusedMovieProvider: @Composable () -> Movie?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val movie = focusedMovieProvider()
+    val backdropUrl = movie?.backdropUrl
+    val movieId = movie?.movieId
 
     // 1. Scale Animation (Slow zoom effect)
     val infiniteTransition = rememberInfiniteTransition(label = "CinematicZoom")
