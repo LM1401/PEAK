@@ -207,7 +207,7 @@ fun EmptyHomePlaceholder() {
         modifier = Modifier
             .fillMaxWidth()
             .height(400.dp)
-            .padding(horizontal = 120.dp),
+            .padding(horizontal = HomeConstants.HOME_CONTENT_START_PADDING),
         contentAlignment = androidx.compose.ui.Alignment.CenterStart
     ) {
         androidx.compose.foundation.layout.Column {

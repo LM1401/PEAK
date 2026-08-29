@@ -16,4 +16,5 @@ object HomeConstants {
     val HOME_VIEWPORT_PEEK = 60.dp
     val HOME_VIEWPORT_HEIGHT = 380.dp // Slot (320) + Peek (60)
     val HOME_HERO_BOTTOM_ANCHOR = 180.dp
+    val HOME_CONTENT_START_PADDING = 100.dp
 }

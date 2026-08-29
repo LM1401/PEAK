@@ -166,7 +166,7 @@ fun MovieRow(
             text = row.title,
             color = Color.White,
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 120.dp)
+            modifier = Modifier.padding(start = HomeConstants.HOME_CONTENT_START_PADDING)
         )
 
         // SINGLE LAZYROW: Prevents structural disposal during placeholder -> content transition.
@@ -176,7 +176,7 @@ fun MovieRow(
                 .wrapContentHeight()
                 .fillMaxWidth(),
             contentPadding = PaddingValues(
-            start = 120.dp,
+            start = HomeConstants.HOME_CONTENT_START_PADDING,
             end = 120.dp,
             top = 0.dp,
             bottom = 4.dp

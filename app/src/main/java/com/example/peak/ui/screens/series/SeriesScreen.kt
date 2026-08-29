@@ -22,6 +22,7 @@ import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.HomeBaseLayout
 import com.example.peak.ui.components.MovieRow
+import com.example.peak.ui.screens.home.HomeConstants
 import com.example.peak.ui.focus.rememberFocusMemoryManager
 import com.example.peak.ui.focus.rememberTvCameraState
 import com.example.peak.ui.focus.tvCameraWorld
@@ -189,7 +190,7 @@ fun EmptySeriesPlaceholder() {
         modifier = Modifier
             .fillMaxWidth()
             .height(400.dp)
-            .padding(horizontal = 120.dp),
+            .padding(horizontal = HomeConstants.HOME_CONTENT_START_PADDING),
         contentAlignment = Alignment.CenterStart
     ) {
         Column {

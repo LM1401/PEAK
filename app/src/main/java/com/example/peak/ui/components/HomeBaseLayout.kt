@@ -16,6 +16,7 @@ import androidx.tv.material3.Text
 import com.example.peak.domain.model.Movie
 import com.example.peak.ui.components.sidebar.Sidebar
 import com.example.peak.ui.components.sidebar.SidebarItemType
+import com.example.peak.ui.screens.home.HomeConstants
 
 /**
  * Shared Base Layout for PEAK Browse screens (Home, Movies, etc.)
@@ -60,7 +61,7 @@ fun HomeBaseLayout(
             movie = focusedMovie,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 120.dp, top = 32.dp) // Premium spacing
+                .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 32.dp) // Premium spacing
                 .zIndex(3f)
                 .focusProperties { canFocus = false }
         )
