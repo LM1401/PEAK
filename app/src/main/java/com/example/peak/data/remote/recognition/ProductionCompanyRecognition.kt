@@ -10,7 +10,7 @@ object ProductionCompanyRecognition {
 
     private const val LOGO_SCORE_BONUS = 50
     private const val ORDER_SCORE_PENALTY_STEP = 10
-    private const val RECOGNISED_NETWORK_BOOST = 200
+    private const val RECOGNISED_NETWORK_BOOST = 20
     private const val MIN_CONFIDENCE_THRESHOLD = 80 // Higher threshold to ensure quality
 
     /**
@@ -54,24 +54,27 @@ object ProductionCompanyRecognition {
             } else {
                 ProductionCompanyIndex.getRecognisedCompany(company.id)
             }
-            
+
             // 1. Base Score from Recognition Tier
             score += recognised?.tier?.baseScore ?: CompanyTier.UNKNOWN.baseScore
 
-            // 2. TV Network Contextual Boost
+            // 2. Recognition Priority/Weight
+            score += recognised?.weight ?: 0
+
+            // 3. TV Network Contextual Boost
             // Only recognized networks or streamers from the correct source get the boost in TV context.
-            if (isTvContext && recognised != null && 
+            if (isTvContext && recognised != null &&
                 (recognised.type == CompanyType.NETWORK || recognised.type == CompanyType.BOTH)) {
                 score += RECOGNISED_NETWORK_BOOST
             }
 
-            // 3. Logo Signal (Strictly supporting)
+            // 4. Logo Signal (Strictly supporting)
             // A logo adds confidence but cannot push an unknown company over the threshold alone.
             if (!company.logoPath.isNullOrBlank()) {
                 score += LOGO_SCORE_BONUS
             }
 
-            // 4. Order Penalty (Tie-breaker)
+            // 5. Order Penalty (Tie-breaker)
             score -= (index * ORDER_SCORE_PENALTY_STEP)
 
             ScoredCandidate(recognised?.name ?: company.name, score)
