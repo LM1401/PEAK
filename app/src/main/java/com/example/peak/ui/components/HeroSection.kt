@@ -3,9 +3,7 @@ package com.example.peak.ui.components
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,69 +91,37 @@ fun HeroSection(
                         // 3. METADATA ROW
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Info Group
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = currentMovie.year,
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    letterSpacing = 1.2.sp
-                                )
-                                Text(
-                                    text = "•",
-                                    color = Color.White.copy(alpha = 0.2f)
-                                )
-                                Text(
-                                    text = currentMovie.genres.split(",").firstOrNull() ?: "",
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    letterSpacing = 1.2.sp
-                                )
-                                Text(
-                                    text = "•",
-                                    color = Color.White.copy(alpha = 0.2f)
-                                )
-                                Text(
-                                    text = currentMovie.duration,
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    letterSpacing = 1.2.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(24.dp))
-
-                            // Tech Group
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                TechnicalBadge(text = "HD")
-                                TechnicalBadge(text = "4K")
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 1.0f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Dolby Atmos",
-                                        color = Color.White.copy(alpha = 1.0f),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-                            }
+                            Text(
+                                text = currentMovie.year,
+                                color = Color.White.copy(alpha = 0.65f),
+                                style = MaterialTheme.typography.labelMedium,
+                                letterSpacing = 1.2.sp
+                            )
+                            Text(
+                                text = "•",
+                                color = Color.White.copy(alpha = 0.2f)
+                            )
+                            Text(
+                                text = currentMovie.genres.split(",").firstOrNull() ?: "",
+                                color = Color.White.copy(alpha = 0.65f),
+                                style = MaterialTheme.typography.labelMedium,
+                                letterSpacing = 1.2.sp
+                            )
+                            Text(
+                                text = "•",
+                                color = Color.White.copy(alpha = 0.2f)
+                            )
+                            Text(
+                                text = currentMovie.duration,
+                                color = Color.White.copy(alpha = 0.65f),
+                                style = MaterialTheme.typography.labelMedium,
+                                letterSpacing = 1.2.sp
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         // 4. DESCRIPTION
                         Text(
@@ -176,20 +142,4 @@ fun HeroSection(
     }
 }
 
-@Composable
-private fun TechnicalBadge(text: String) {
-    Box(
-        modifier = Modifier
-            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.dp, vertical = 1.dp)
-    ) {
-        Text(
-            text = text,
-            color = Color.White.copy(alpha = 1.0f),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.sp,
-            letterSpacing = 0.5.sp
-        )
-    }
-}
+
