@@ -4,80 +4,59 @@ import com.example.peak.data.remote.dto.TmdbCompany
 import com.example.peak.domain.model.MediaType
 
 /**
- * Deterministic scoring algorithm to select the most recognizable company.
+ * Deterministic recognition algorithm to select the most recognizable display brand.
+ *
+ * Logic:
+ * 1. Filter: Only whitelisted entities are considered.
+ * 2. Tier Priority: PREMIER > MAJOR > RECOGNISED.
+ * 3. Source Priority: In TV context, Networks beat Production Companies.
+ * 4. Internal Priority: Curated tie-breaker within Tier.
+ * 5. Position Priority: First recognized entity in TMDB array wins.
  */
 object ProductionCompanyRecognition {
 
-    private const val LOGO_SCORE_BONUS = 50
-    private const val ORDER_SCORE_PENALTY_STEP = 10
-    private const val RECOGNISED_NETWORK_BOOST = 20
-    private const val MIN_CONFIDENCE_THRESHOLD = 80 // Higher threshold to ensure quality
-
     /**
-     * Examines all candidates and returns the name of the highest-scoring trustworthy company.
+     * Examines candidates and returns the curated branding name or company name.
      */
     fun findBestCompany(
         productionCompanies: List<TmdbCompany>?,
         networks: List<TmdbCompany>?,
         mediaType: MediaType
     ): String {
-        val scoredCandidates = when (mediaType) {
-            MediaType.MOVIE -> {
-                scoreCompanies(productionCompanies, isTvContext = false, isNetworkSource = false)
-            }
-            MediaType.TV -> {
-                val networkScores = scoreCompanies(networks, isTvContext = true, isNetworkSource = true)
-                val companyScores = scoreCompanies(productionCompanies, isTvContext = true, isNetworkSource = false)
-                networkScores + companyScores
+        val candidates = mutableListOf<RecognisedCandidate>()
+
+        // 1. Collect Whitelisted Candidates (Maintaining Namespace Isolation)
+        productionCompanies?.forEachIndexed { index, company ->
+            ProductionCompanyIndex.getRecognisedCompany(company.id)?.let { recognised ->
+                candidates.add(RecognisedCandidate(recognised, index, isNetworkSource = false))
             }
         }
 
-        return scoredCandidates
-            .maxByOrNull { it.score }
-            ?.takeIf { it.score >= MIN_CONFIDENCE_THRESHOLD }
-            ?.name ?: ""
-    }
-
-    private data class ScoredCandidate(val name: String, val score: Int)
-
-    private fun scoreCompanies(
-        companies: List<TmdbCompany>?,
-        isTvContext: Boolean,
-        isNetworkSource: Boolean
-    ): List<ScoredCandidate> {
-        if (companies.isNullOrEmpty()) return emptyList()
-
-        return companies.mapIndexed { index, company ->
-            var score = 0
-            val recognised = if (isNetworkSource) {
-                ProductionCompanyIndex.getRecognisedNetwork(company.id)
-            } else {
-                ProductionCompanyIndex.getRecognisedCompany(company.id)
+        // Only consider networks in TV context to prevent namespace leaks into Movies
+        if (mediaType == MediaType.TV) {
+            networks?.forEachIndexed { index, company ->
+                ProductionCompanyIndex.getRecognisedNetwork(company.id)?.let { recognised ->
+                    candidates.add(RecognisedCandidate(recognised, index, isNetworkSource = true))
+                }
             }
-
-            // 1. Base Score from Recognition Tier
-            score += recognised?.tier?.baseScore ?: CompanyTier.UNKNOWN.baseScore
-
-            // 2. Recognition Priority/Weight
-            score += recognised?.weight ?: 0
-
-            // 3. TV Network Contextual Boost
-            // Only recognized networks or streamers from the correct source get the boost in TV context.
-            if (isTvContext && recognised != null &&
-                (recognised.type == CompanyType.NETWORK || recognised.type == CompanyType.BOTH)) {
-                score += RECOGNISED_NETWORK_BOOST
-            }
-
-            // 4. Logo Signal (Strictly supporting)
-            // A logo adds confidence but cannot push an unknown company over the threshold alone.
-            if (!company.logoPath.isNullOrBlank()) {
-                score += LOGO_SCORE_BONUS
-            }
-
-            // 5. Order Penalty (Tie-breaker)
-            score -= (index * ORDER_SCORE_PENALTY_STEP)
-
-            ScoredCandidate(recognised?.name ?: company.name, score)
         }
+
+        if (candidates.isEmpty()) return ""
+
+        // 2. Deterministic Ranking
+        return candidates.sortedWith(
+            compareByDescending<RecognisedCandidate> { it.info.tier.priority }
+                .thenByDescending { if (it.isNetworkSource) 1 else 0 }
+                .thenByDescending { it.info.priority }
+                .thenBy { it.originalIndex }
+        ).firstOrNull()?.let {
+            it.info.brandingName ?: it.info.name
+        } ?: ""
     }
+
+    private data class RecognisedCandidate(
+        val info: RecognisedCompany,
+        val originalIndex: Int,
+        val isNetworkSource: Boolean
+    )
 }
