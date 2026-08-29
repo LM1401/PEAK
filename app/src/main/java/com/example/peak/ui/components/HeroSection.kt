@@ -68,14 +68,14 @@ fun HeroSection(
                             )
                             Text(
                                 text = "PEAK ORIGINAL",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.9f),
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                letterSpacing = 2.sp
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         // 2. TITLE (Cinematic typography)
                         Text(
@@ -88,71 +88,84 @@ fun HeroSection(
                             lineHeight = 52.sp
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // 3. METADATA ROW
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                text = currentMovie.year,
-                                color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                            Text(
-                                text = "•",
-                                color = Color.White.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                text = currentMovie.genres.split(",").firstOrNull() ?: "",
-                                color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                            Text(
-                                text = "•",
-                                color = Color.White.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                text = currentMovie.duration,
-                                color = Color.White.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            // Info Group
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = currentMovie.year,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    letterSpacing = 1.2.sp
+                                )
+                                Text(
+                                    text = "•",
+                                    color = Color.White.copy(alpha = 0.2f)
+                                )
+                                Text(
+                                    text = currentMovie.genres.split(",").firstOrNull() ?: "",
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    letterSpacing = 1.2.sp
+                                )
+                                Text(
+                                    text = "•",
+                                    color = Color.White.copy(alpha = 0.2f)
+                                )
+                                Text(
+                                    text = currentMovie.duration,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(24.dp))
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Tech Group
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 TechnicalBadge(text = "HD")
                                 TechnicalBadge(text = "4K")
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.7f),
+                                        tint = Color.White.copy(alpha = 1.0f),
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "Dolby Atmos",
-                                        color = Color.White.copy(alpha = 0.7f),
+                                        color = Color.White.copy(alpha = 1.0f),
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         // 4. DESCRIPTION
                         Text(
                             text = currentMovie.description,
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = Color.White.copy(alpha = 0.60f),
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            lineHeight = 22.sp,
-                            modifier = Modifier.fillMaxWidth(0.9f)
+                            lineHeight = 24.sp,
+                            modifier = Modifier.fillMaxWidth(0.85f)
                         )
                     }
                 } else {
@@ -167,15 +180,16 @@ fun HeroSection(
 private fun TechnicalBadge(text: String) {
     Box(
         modifier = Modifier
-            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.dp, vertical = 1.dp)
     ) {
         Text(
             text = text,
-            color = Color.White.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = 1.0f),
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Black,
-            fontSize = 10.sp
+            fontWeight = FontWeight.Bold,
+            fontSize = 9.sp,
+            letterSpacing = 0.5.sp
         )
     }
 }
