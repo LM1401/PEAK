@@ -38,12 +38,12 @@ import com.example.peak.ui.components.DetailMovieCard
 import com.example.peak.data.repository.ContinueWatchingRepository
 
 /**
- * A Netflix-style Movie Detail Screen for Android TV.
+ * A Movie Detail Screen for Android TV.
  * Refactored to Option A: movieId is the single source of truth.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun NetflixDetailScreen(
+fun DetailScreen(
     mediaId: String,
     mediaType: MediaType,
     movieRepository: MovieRepository,
@@ -79,7 +79,7 @@ fun NetflixDetailScreen(
                 }
             }
             movie != null -> {
-                NetflixDetailContent(
+                DetailContent(
                     movie = movie!!,
                     similarMovies = similarMovies,
                     resumePosition = resumePosition,
@@ -94,7 +94,7 @@ fun NetflixDetailScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun NetflixDetailContent(
+fun DetailContent(
     movie: Movie,
     similarMovies: List<Movie>,
     resumePosition: Long = 0L,
@@ -341,7 +341,7 @@ fun NetflixDetailContent(
 
 @Preview(device = "id:tv_1080p")
 @Composable
-fun NetflixDetailScreenPreview() {
+fun DetailScreenPreview() {
     val mockMovie = Movie(
         movieId = "1",
         name = "The Gray Man",
@@ -357,7 +357,7 @@ fun NetflixDetailScreenPreview() {
         genres = "Action, Thriller"
     )
     MaterialTheme {
-        NetflixDetailContent(
+        DetailContent(
             movie = mockMovie,
             similarMovies = listOf(mockMovie, mockMovie, mockMovie),
             onPlayClick = {},

@@ -21,7 +21,7 @@ import androidx.navigation.navArgument
 import androidx.tv.material3.*
 import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.components.sidebar.SidebarItemType
-import com.example.peak.ui.screens.detail.NetflixDetailScreen
+import com.example.peak.ui.screens.detail.DetailScreen
 import com.example.peak.ui.screens.home.HomeScreen
 import com.example.peak.ui.screens.player.PlayerScreen
 import com.example.peak.ui.theme.PEAKTheme
@@ -151,7 +151,7 @@ fun PEAKApp() {
             val mediaTypeStr = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
             val mediaType = try { MediaType.valueOf(mediaTypeStr) } catch (e: Exception) { MediaType.MOVIE }
             
-            NetflixDetailScreen(
+            DetailScreen(
                 mediaId = mediaId,
                 mediaType = mediaType,
                 movieRepository = movieRepository,
