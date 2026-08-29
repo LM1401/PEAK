@@ -1,5 +1,6 @@
 package com.example.peak.data.remote.dto
 
+import com.example.peak.data.remote.recognition.ProductionCompanyRecognition
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.google.gson.annotations.SerializedName
@@ -27,6 +28,8 @@ data class TmdbMovie(
     @SerializedName("number_of_episodes") val numberOfEpisodes: Int?,
     val genres: List<TmdbGenre>?,
     val credits: TmdbCredits?,
+    @SerializedName("production_companies") val productionCompanies: List<TmdbCompany>?,
+    val networks: List<TmdbCompany>?,
     @SerializedName("release_dates") val releaseDates: TmdbReleaseDates?,
     @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?
 )
@@ -34,6 +37,13 @@ data class TmdbMovie(
 data class TmdbGenre(
     val id: Int,
     val name: String
+)
+
+data class TmdbCompany(
+    val id: Int,
+    val name: String,
+    @SerializedName("logo_path") val logoPath: String?,
+    @SerializedName("origin_country") val originCountry: String?
 )
 
 data class TmdbCredits(
@@ -105,7 +115,7 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     val summary = toMovie(mediaType)
     
     val genreString = genres?.joinToString(", ") { it.name } ?: ""
-    val castString = credits?.cast?.take(5)?.joinToString(", ") { it.name } ?: ""
+    val castString = credits?.cast?.take(3)?.joinToString(", ") { it.name } ?: ""
     
     val directorString = when (mediaType) {
         MediaType.MOVIE -> credits?.crew?.find { it.job == "Director" }?.name ?: ""
@@ -133,12 +143,15 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         }
     }
 
+    val company = ProductionCompanyRecognition.findBestCompany(productionCompanies, networks, mediaType)
+
     return summary.copy(
         genres = genreString,
         cast = castString,
         director = directorString,
         duration = durationString,
         ageRating = certification,
+        productionCompany = company,
         isEnriched = true
     )
 }

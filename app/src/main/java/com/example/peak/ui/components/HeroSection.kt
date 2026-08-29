@@ -53,8 +53,8 @@ fun HeroSection(
                         verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
-                        // 1. PEAK ORIGINAL BADGE (Only shown if enriched or data present)
-                        if (currentMovie.isEnriched || currentMovie.productionCompany.isNotBlank()) {
+                        // 1. PRODUCTION COMPANY BADGE
+                        if (currentMovie.productionCompany.isNotBlank()) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -66,7 +66,7 @@ fun HeroSection(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = currentMovie.productionCompany.ifBlank { "PEAK ORIGINAL" }.uppercase(),
+                                    text = currentMovie.productionCompany.uppercase(),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.9f),
                                     fontWeight = FontWeight.Bold,
