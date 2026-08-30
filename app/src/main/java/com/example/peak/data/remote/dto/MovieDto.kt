@@ -97,7 +97,8 @@ data class TmdbCountryProviders(
 
 data class TmdbProvider(
     @SerializedName("provider_id") val id: Int,
-    @SerializedName("provider_name") val name: String
+    @SerializedName("provider_name") val name: String,
+    @SerializedName("logo_path") val logoPath: String?
 )
 
 /**
@@ -166,14 +167,14 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     val providers = watchProviders?.results?.get("US")?.flatrate
     val releaseNotes = releaseDates?.results?.find { it.iso3166 == "US" }?.releaseDates?.mapNotNull { it.note }
 
-    val company = ProductionCompanyRecognition.findBestCompany(
+    val brandIdentity = ProductionCompanyRecognition.findBestCompany(
         productionCompanies = productionCompanies,
         networks = networks,
         providers = providers,
         releaseNotes = releaseNotes,
         mediaType = mediaType
     )
-    Log.e("PEAK_DIAGNOSTIC", "Resolved Company for $id: '$company'")
+    Log.e("PEAK_DIAGNOSTIC", "Resolved Brand for $id: '${brandIdentity?.displayName ?: "None"}'")
 
     return summary.copy(
         genres = genreString,
@@ -181,7 +182,8 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         director = directorString,
         duration = durationString,
         ageRating = certification,
-        productionCompany = company,
+        productionCompany = brandIdentity?.displayName ?: "",
+        brand = brandIdentity,
         isEnriched = true
     )
 }

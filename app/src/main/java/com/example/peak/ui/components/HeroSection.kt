@@ -17,6 +17,8 @@ import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 
 private val HERO_CONTENT_WIDTH = 640.dp
 
@@ -55,10 +57,42 @@ fun HeroSection(
                         verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
-                        // 1. PRODUCTION COMPANY BADGE
-                        Log.d("PEAK_DIAGNOSTIC", "HeroSection: Rendering '${currentMovie.name}', studio: '${currentMovie.productionCompany}'")
-                        if (currentMovie.productionCompany.isNotBlank()) {
-                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing badge for '${currentMovie.productionCompany}'")
+                        // 1. BRAND IDENTITY BADGE
+                        val brand = currentMovie.brand
+                        if (brand != null && brand.isDisplayable) {
+                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing brand badge for '${brand.displayName}', logo: ${brand.logoUrl != null}")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (!brand.logoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = brand.logoUrl,
+                                        contentDescription = brand.displayName,
+                                        modifier = Modifier
+                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
+                                            .wrapContentWidth(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = brand.displayName.uppercase(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 2.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        } else if (currentMovie.productionCompany.isNotBlank()) {
+                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing legacy badge for '${currentMovie.productionCompany}'")
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)

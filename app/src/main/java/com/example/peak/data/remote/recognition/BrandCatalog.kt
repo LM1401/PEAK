@@ -1,11 +1,14 @@
 package com.example.peak.data.remote.recognition
 
+import com.example.peak.domain.model.BrandIdentityType
+
 object BrandCatalog {
     val brands = listOf(
         BrandDefinition(
             key = "lucasfilm",
             displayName = "Lucasfilm",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STUDIO,
             whitelistedCompanyIds = setOf(1),
             namePatterns = listOf(Regex("lucasfilm"))
         ),
@@ -13,10 +16,11 @@ object BrandCatalog {
             key = "disney",
             displayName = "Disney",
             tier = BrandTier.PREMIER,
-            whitelistedCompanyIds = setOf(2),
+            type = BrandIdentityType.STUDIO,
+            whitelistedCompanyIds = setOf(2, 3, 6125),
             whitelistedNetworkIds = setOf(2, 2739),
             whitelistedProviderIds = setOf(337),
-            namePatterns = listOf(Regex("disney"), Regex("walt disney"))
+            namePatterns = listOf(Regex("disney"), Regex("walt disney"), Regex("pixar"))
         ),
         BrandDefinition(
             key = "sony_pictures",
@@ -177,6 +181,7 @@ object BrandCatalog {
             key = "netflix",
             displayName = "Netflix Original",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
             whitelistedCompanyIds = setOf(178464),
             whitelistedNetworkIds = setOf(213),
             whitelistedProviderIds = setOf(8),
@@ -186,6 +191,7 @@ object BrandCatalog {
             key = "amazon",
             displayName = "Prime Video",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
             whitelistedCompanyIds = setOf(20580),
             whitelistedNetworkIds = setOf(1024),
             whitelistedProviderIds = setOf(9, 10, 119),
@@ -196,6 +202,7 @@ object BrandCatalog {
             key = "apple",
             displayName = "Apple TV+",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
             whitelistedCompanyIds = setOf(194232),
             whitelistedNetworkIds = setOf(2552),
             whitelistedProviderIds = setOf(350),
@@ -205,6 +212,7 @@ object BrandCatalog {
             key = "hbo",
             displayName = "HBO",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.NETWORK,
             whitelistedNetworkIds = setOf(49),
             whitelistedProviderIds = setOf(384),
             namePatterns = listOf(Regex("^hbo$"))
@@ -213,6 +221,7 @@ object BrandCatalog {
             key = "showtime",
             displayName = "Showtime",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.NETWORK,
             whitelistedNetworkIds = setOf(67),
             namePatterns = listOf(Regex("showtime"))
         ),
@@ -220,6 +229,7 @@ object BrandCatalog {
             key = "fx",
             displayName = "FX",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.NETWORK,
             whitelistedNetworkIds = setOf(88),
             namePatterns = listOf(Regex("^fx$"))
         ),
@@ -227,6 +237,7 @@ object BrandCatalog {
             key = "hulu",
             displayName = "Hulu",
             tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
             whitelistedNetworkIds = setOf(453),
             whitelistedProviderIds = setOf(15),
             namePatterns = listOf(Regex("hulu"))
