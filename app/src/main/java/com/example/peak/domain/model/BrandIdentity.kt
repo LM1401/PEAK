@@ -7,6 +7,7 @@ data class BrandIdentity(
     val key: String,
     val displayName: String,
     val logoUrl: String? = null,
+    val localResource: Int? = null,
     val tmdbCompanyId: Int? = null,
     val type: BrandIdentityType = BrandIdentityType.UNKNOWN,
     val confidence: BrandConfidence = BrandConfidence.NO_CONFIDENCE

@@ -12,6 +12,7 @@ data class BrandDefinition(
     val whitelistedProviderIds: Set<Int> = emptySet(),
     val namePatterns: List<Regex> = emptyList(),
     val networkDisplayName: String? = null,
+    val localResource: Int? = null,
     val priority: Int = 0
 ) {
     fun getDisplayName(isNetwork: Boolean): String {

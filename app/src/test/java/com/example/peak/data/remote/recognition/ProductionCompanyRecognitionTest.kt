@@ -282,6 +282,36 @@ class ProductionCompanyRecognitionTest {
     }
 
     @Test
+    fun `LOCAL_ASSET - Netflix uses local resource fallback`() {
+        val result = ProductionCompanyRecognition.findBestCompany(
+            productionCompanies = null,
+            networks = null,
+            providers = listOf(netflixProvider),
+            releaseNotes = null,
+            mediaType = MediaType.MOVIE
+        )
+
+        assertEquals("Netflix Original", result?.displayName)
+        // Should have the local resource ID from BrandCatalog
+        assertNotNull(result?.localResource)
+    }
+
+    @Test
+    fun `LOCAL_ASSET - Disney uses local resource fallback`() {
+        val disneyProvider = TmdbProvider(id = 337, name = "Disney+", logoPath = null)
+        val result = ProductionCompanyRecognition.findBestCompany(
+            productionCompanies = null,
+            networks = null,
+            providers = listOf(disneyProvider),
+            releaseNotes = null,
+            mediaType = MediaType.MOVIE
+        )
+
+        assertEquals("Disney", result?.displayName)
+        assertNotNull(result?.localResource)
+    }
+
+    @Test
     fun `DETERMINISM - Same input produces identical brand identity`() {
         val input = {
             ProductionCompanyRecognition.findBestCompany(

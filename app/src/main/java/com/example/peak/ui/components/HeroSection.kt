@@ -65,7 +65,18 @@ fun HeroSection(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (!brand.logoUrl.isNullOrBlank()) {
+                                if (brand.localResource != null) {
+                                    // 1a. PEAK Local Fallback Logo
+                                    androidx.compose.foundation.Image(
+                                        painter = androidx.compose.ui.res.painterResource(id = brand.localResource),
+                                        contentDescription = brand.displayName,
+                                        modifier = Modifier
+                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
+                                            .wrapContentWidth(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else if (!brand.logoUrl.isNullOrBlank()) {
+                                    // 1b. TMDB Remote Logo
                                     AsyncImage(
                                         model = brand.logoUrl,
                                         contentDescription = brand.displayName,

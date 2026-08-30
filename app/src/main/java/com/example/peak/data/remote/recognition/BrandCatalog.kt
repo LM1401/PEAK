@@ -1,6 +1,7 @@
 package com.example.peak.data.remote.recognition
 
 import com.example.peak.domain.model.BrandIdentityType
+import com.example.peak.R
 
 object BrandCatalog {
     val brands = listOf(
@@ -20,7 +21,8 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(2, 3, 6125),
             whitelistedNetworkIds = setOf(2, 2739),
             whitelistedProviderIds = setOf(337),
-            namePatterns = listOf(Regex("disney"), Regex("walt disney"), Regex("pixar"))
+            namePatterns = listOf(Regex("disney"), Regex("walt disney"), Regex("pixar")),
+            localResource = R.drawable.ic_brand_disney
         ),
         BrandDefinition(
             key = "sony_pictures",
@@ -185,7 +187,8 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(178464),
             whitelistedNetworkIds = setOf(213),
             whitelistedProviderIds = setOf(8),
-            namePatterns = listOf(Regex("netflix"))
+            namePatterns = listOf(Regex("netflix")),
+            localResource = R.drawable.ic_brand_netflix
         ),
         BrandDefinition(
             key = "amazon",
@@ -196,7 +199,8 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(1024),
             whitelistedProviderIds = setOf(9, 10, 119),
             namePatterns = listOf(Regex("amazon"), Regex("prime video")),
-            networkDisplayName = "Prime Exclusive"
+            networkDisplayName = "Prime Exclusive",
+            localResource = R.drawable.ic_brand_prime_video
         ),
         BrandDefinition(
             key = "apple",

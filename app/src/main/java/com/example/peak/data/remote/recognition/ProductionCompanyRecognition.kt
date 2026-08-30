@@ -35,6 +35,7 @@ object ProductionCompanyRecognition {
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = true),
                         logoUrl = provider.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+                        localResource = result.definition.localResource,
                         tmdbCompanyId = provider.id,
                         type = result.definition.type,
                         confidence = result.confidence
@@ -55,6 +56,7 @@ object ProductionCompanyRecognition {
                             key = result.definition.key,
                             displayName = result.definition.getDisplayName(isNetwork = true),
                             logoUrl = network.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+                            localResource = result.definition.localResource,
                             tmdbCompanyId = network.id,
                             type = BrandIdentityType.NETWORK,
                             confidence = result.confidence
@@ -76,6 +78,7 @@ object ProductionCompanyRecognition {
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = false),
                         logoUrl = company.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+                        localResource = result.definition.localResource,
                         tmdbCompanyId = company.id,
                         type = result.definition.type,
                         confidence = result.confidence
@@ -109,6 +112,7 @@ object ProductionCompanyRecognition {
                     identity = BrandIdentity(
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = false),
+                        localResource = result.definition.localResource,
                         type = BrandIdentityType.DISTRIBUTOR,
                         confidence = BrandConfidence.MEDIUM // Evidence from notes is medium confidence
                     ),
@@ -123,8 +127,8 @@ object ProductionCompanyRecognition {
 
         // Group candidates by brand key to separate Identity from Display Asset
         val mergedBrands = candidates.groupBy { it.identity.key }.map { (key, group) ->
-            // 1. Determine the Best Metadata (highest source priority wins identity)
-            val bestInfo = group.maxWith(
+            // 1. Determine the Best Metadata (highest confidence/priority wins identity)
+            val bestInfo = group.minWith(
                 compareBy<BrandCandidate> { it.identity.confidence.ordinal }
                     .thenByDescending { it.sourcePriority }
             )
@@ -142,7 +146,8 @@ object ProductionCompanyRecognition {
 
             MergedCandidate(
                 identity = bestInfo.identity.copy(
-                    logoUrl = bestLogo?.identity?.logoUrl ?: bestInfo.identity.logoUrl
+                    logoUrl = bestLogo?.identity?.logoUrl ?: bestInfo.identity.logoUrl,
+                    localResource = bestInfo.identity.localResource
                 ),
                 maxSourcePriority = bestInfo.sourcePriority,
                 brandPriority = brandPriority,
