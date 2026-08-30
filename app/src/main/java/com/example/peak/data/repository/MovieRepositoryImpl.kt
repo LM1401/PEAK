@@ -1,5 +1,6 @@
 package com.example.peak.data.repository
 
+import android.util.Log
 import com.example.peak.data.network.SafeApiCall
 import com.example.peak.data.remote.api.TmdbApi
 import com.example.peak.data.remote.dto.toMovie
@@ -136,6 +137,7 @@ class MovieRepositoryImpl(
         val cacheKey = getCacheKey(id, type)
         
         movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }?.let {
+            Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id")
             return Result.success(it)
         }
 
@@ -144,17 +146,20 @@ class MovieRepositoryImpl(
                 return@withLock Result.success(it)
             }
 
+            Log.e("PEAK_DIAGNOSTIC", "Fetching detail data for $id from API")
             val result = SafeApiCall.execute("MovieRepository") {
                 if (type == MediaType.MOVIE) api.getMovieDetails(id) else api.getTvDetails(id)
             }
 
             return@withLock when {
                 result.data != null -> {
+                    Log.e("PEAK_DIAGNOSTIC", "Successfully fetched detail for $id. Mapping to enriched.")
                     val movie = result.data.toEnrichedMovie(type)
                     movieDetailsCache[cacheKey] = movie
                     Result.success(movie)
                 }
                 else -> {
+                    Log.e("PEAK_DIAGNOSTIC", "Failed to fetch detail for $id: ${result.error?.message}")
                     movieDetailsCache[cacheKey]?.let { Result.success(it) } 
                         ?: Result.failure(result.error ?: Exception("Media not found"))
                 }

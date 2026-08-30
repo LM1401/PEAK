@@ -19,13 +19,13 @@ interface TmdbApi {
     @GET("movie/{movie_id}")
     suspend fun getMovieDetails(
         @Path("movie_id") movieId: String,
-        @Query("append_to_response") append: String = "credits,release_dates"
+        @Query("append_to_response") append: String = "credits,release_dates,watch/providers"
     ): TmdbMovie
 
     @GET("tv/{tv_id}")
     suspend fun getTvDetails(
         @Path("tv_id") tvId: String,
-        @Query("append_to_response") append: String = "credits,content_ratings"
+        @Query("append_to_response") append: String = "credits,content_ratings,watch/providers"
     ): TmdbMovie
 
     // MOVIE CATEGORIES

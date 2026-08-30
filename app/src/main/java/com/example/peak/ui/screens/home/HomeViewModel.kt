@@ -1,5 +1,6 @@
 package com.example.peak.ui.screens.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -144,8 +145,12 @@ class HomeViewModel(
     }
 
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
+        Log.e("PEAK_DIAGNOSTIC", "onMovieFocused: rowId=$rowId, movieId=$movieId, mediaType=$mediaType")
         val currentFocus = _focusState.value
-        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) return
+        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) {
+            Log.e("PEAK_DIAGNOSTIC", "  Already focused and enriched. Ignoring.")
+            return
+        }
 
         // Mark as interacted if we are changing focus from an established state
         if (currentFocus != null) {

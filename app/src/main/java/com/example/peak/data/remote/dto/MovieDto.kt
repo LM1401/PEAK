@@ -1,5 +1,6 @@
 package com.example.peak.data.remote.dto
 
+import android.util.Log
 import com.example.peak.data.remote.recognition.ProductionCompanyRecognition
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
@@ -31,7 +32,8 @@ data class TmdbMovie(
     @SerializedName("production_companies") val productionCompanies: List<TmdbCompany>?,
     val networks: List<TmdbCompany>?,
     @SerializedName("release_dates") val releaseDates: TmdbReleaseDates?,
-    @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?
+    @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?,
+    @SerializedName("watch/providers") val watchProviders: TmdbWatchProviders?
 )
 
 data class TmdbGenre(
@@ -70,7 +72,8 @@ data class TmdbReleaseDateResult(
 )
 
 data class TmdbCertification(
-    val certification: String
+    val certification: String,
+    val note: String? = null
 )
 
 data class TmdbContentRatings(
@@ -80,6 +83,21 @@ data class TmdbContentRatings(
 data class TmdbContentRatingResult(
     @SerializedName("iso_3166_1") val iso3166: String,
     val rating: String
+)
+
+data class TmdbWatchProviders(
+    val results: Map<String, TmdbCountryProviders>?
+)
+
+data class TmdbCountryProviders(
+    val flatrate: List<TmdbProvider>?,
+    val rent: List<TmdbProvider>?,
+    val buy: List<TmdbProvider>?
+)
+
+data class TmdbProvider(
+    @SerializedName("provider_id") val id: Int,
+    @SerializedName("provider_name") val name: String
 )
 
 /**
@@ -112,6 +130,8 @@ fun TmdbMovie.toMovie(mediaType: MediaType = MediaType.MOVIE): Movie {
  * Maps full Detail DTO to enriched Domain Model.
  */
 fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
+    Log.e("PEAK_DIAGNOSTIC", "Enriching movie ID: $id ($title/$name)")
+    Log.e("PEAK_DIAGNOSTIC", "Raw Production Companies: ${productionCompanies?.joinToString { "${it.name}(${it.id})" }}")
     val summary = toMovie(mediaType)
     
     val genreString = genres?.joinToString(", ") { it.name } ?: ""
@@ -143,7 +163,17 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         }
     }
 
-    val company = ProductionCompanyRecognition.findBestCompany(productionCompanies, networks, mediaType)
+    val providers = watchProviders?.results?.get("US")?.flatrate
+    val releaseNotes = releaseDates?.results?.find { it.iso3166 == "US" }?.releaseDates?.mapNotNull { it.note }
+
+    val company = ProductionCompanyRecognition.findBestCompany(
+        productionCompanies = productionCompanies,
+        networks = networks,
+        providers = providers,
+        releaseNotes = releaseNotes,
+        mediaType = mediaType
+    )
+    Log.e("PEAK_DIAGNOSTIC", "Resolved Company for $id: '$company'")
 
     return summary.copy(
         genres = genreString,

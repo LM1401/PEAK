@@ -1,5 +1,6 @@
 package com.example.peak.ui.components
 
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -55,7 +56,9 @@ fun HeroSection(
                         horizontalAlignment = Alignment.Start
                     ) {
                         // 1. PRODUCTION COMPANY BADGE
+                        Log.d("PEAK_DIAGNOSTIC", "HeroSection: Rendering '${currentMovie.name}', studio: '${currentMovie.productionCompany}'")
                         if (currentMovie.productionCompany.isNotBlank()) {
+                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing badge for '${currentMovie.productionCompany}'")
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)

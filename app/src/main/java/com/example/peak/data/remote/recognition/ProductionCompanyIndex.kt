@@ -40,18 +40,18 @@ object ProductionCompanyIndex {
     private val companyIndex = mapOf(
         // PREMIER STUDIOS
         1 to RecognisedCompany(1, "Lucasfilm", CompanyTier.PREMIER, CompanyType.STUDIO),
-        2 to RecognisedCompany(2, "Disney", CompanyTier.PREMIER, CompanyType.BOTH),
+        2 to RecognisedCompany(2, "Disney", CompanyTier.PREMIER, CompanyType.BOTH, brandingName = "Disney"),
         3 to RecognisedCompany(3, "Pixar", CompanyTier.PREMIER, CompanyType.STUDIO),
-        4 to RecognisedCompany(4, "Paramount", CompanyTier.PREMIER, CompanyType.STUDIO),
+        4 to RecognisedCompany(4, "Paramount", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "Paramount"),
         5 to RecognisedCompany(5, "Columbia Pictures", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "Sony Pictures"),
         21 to RecognisedCompany(21, "MGM", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "MGM Studios"),
         25 to RecognisedCompany(25, "20th Century Fox", CompanyTier.PREMIER, CompanyType.STUDIO),
-        33 to RecognisedCompany(33, "Universal", CompanyTier.PREMIER, CompanyType.STUDIO),
-        174 to RecognisedCompany(174, "Warner Bros.", CompanyTier.PREMIER, CompanyType.STUDIO),
+        33 to RecognisedCompany(33, "Universal", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "Universal"),
+        174 to RecognisedCompany(174, "Warner Bros.", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "Warner Bros."),
         420 to RecognisedCompany(420, "Marvel Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
-        429 to RecognisedCompany(429, "DC", CompanyTier.PREMIER, CompanyType.STUDIO),
+        429 to RecognisedCompany(429, "DC", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "DC"),
         178464 to RecognisedCompany(178464, "Netflix", CompanyTier.PREMIER, CompanyType.BOTH, brandingName = "Netflix Original"),
-        184898 to RecognisedCompany(184898, "DC Studios", CompanyTier.PREMIER, CompanyType.STUDIO),
+        184898 to RecognisedCompany(184898, "DC Studios", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "DC"),
         194232 to RecognisedCompany(194232, "Apple Studios", CompanyTier.PREMIER, CompanyType.STUDIO, brandingName = "Apple TV+"),
         210099 to RecognisedCompany(210099, "Amazon MGM Studios", CompanyTier.PREMIER, CompanyType.STUDIO, priority = 1),
         41077 to RecognisedCompany(41077, "A24", CompanyTier.PREMIER, CompanyType.STUDIO),
@@ -64,6 +64,8 @@ object ProductionCompanyIndex {
         521 to RecognisedCompany(521, "DreamWorks", CompanyTier.MAJOR, CompanyType.STUDIO),
         923 to RecognisedCompany(923, "Legendary", CompanyTier.MAJOR, CompanyType.STUDIO),
         1632 to RecognisedCompany(1632, "Lionsgate", CompanyTier.MAJOR, CompanyType.STUDIO),
+        35 to RecognisedCompany(35, "Lions Gate Films", CompanyTier.MAJOR, CompanyType.STUDIO, brandingName = "Lionsgate"),
+        6920 to RecognisedCompany(6920, "Lionsgate UK", CompanyTier.MAJOR, CompanyType.STUDIO, brandingName = "Lionsgate"),
         3172 to RecognisedCompany(3172, "Blumhouse", CompanyTier.MAJOR, CompanyType.STUDIO),
         10146 to RecognisedCompany(10146, "Focus Features", CompanyTier.MAJOR, CompanyType.STUDIO),
         127929 to RecognisedCompany(127929, "Searchlight Pictures", CompanyTier.MAJOR, CompanyType.STUDIO),
@@ -85,7 +87,7 @@ object ProductionCompanyIndex {
         453 to RecognisedCompany(453, "Hulu", CompanyTier.PREMIER, CompanyType.BOTH),
         1024 to RecognisedCompany(1024, "Prime Video", CompanyTier.PREMIER, CompanyType.BOTH, brandingName = "Prime Exclusive"),
         2552 to RecognisedCompany(2552, "Apple TV", CompanyTier.PREMIER, CompanyType.BOTH, brandingName = "Apple TV+"),
-        2739 to RecognisedCompany(2739, "Disney+", CompanyTier.PREMIER, CompanyType.BOTH)
+        2739 to RecognisedCompany(2739, "Disney+", CompanyTier.PREMIER, CompanyType.BOTH, brandingName = "Disney+")
     )
 
     fun getRecognisedCompany(id: Int): RecognisedCompany? = companyIndex[id]
