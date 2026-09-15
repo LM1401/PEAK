@@ -1,6 +1,5 @@
 package com.example.peak.data.remote.recognition
 
-import android.util.Log
 import com.example.peak.data.remote.dto.TmdbCompany
 import com.example.peak.data.remote.dto.TmdbProvider
 import com.example.peak.domain.model.BrandConfidence
@@ -24,7 +23,6 @@ object ProductionCompanyRecognition {
         releaseNotes: List<String>?,
         mediaType: MediaType
     ): BrandIdentity? {
-        Log.e("PEAK_DIAGNOSTIC", "findBestCompany: companies=${productionCompanies?.size}, networks=${networks?.size}, providers=${providers?.size}, notes=${releaseNotes?.size}")
         val candidates = mutableListOf<BrandCandidate>()
 
         // 1. Providers (Streaming Originals / Strongest Signal)
@@ -160,7 +158,6 @@ object ProductionCompanyRecognition {
         val displayableMerged = mergedBrands.filter { it.identity.isDisplayable }
 
         if (displayableMerged.isEmpty()) {
-            Log.d("PEAK_DIAGNOSTIC", "No displayable brand found for title.")
             return null
         }
 
@@ -172,7 +169,6 @@ object ProductionCompanyRecognition {
                 .thenBy { it.minOriginalIndex }
         ).firstOrNull()
 
-        Log.d("PEAK_DIAGNOSTIC", "Resolved winner: ${winner?.identity?.displayName} with confidence ${winner?.identity?.confidence}")
         return winner?.identity
     }
 

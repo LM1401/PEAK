@@ -36,21 +36,24 @@ object BrandCatalog {
             displayName = "Sony Pictures",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(5),
-            namePatterns = listOf(Regex("columbia"))
+            namePatterns = listOf(Regex("columbia")),
+            localResource = R.drawable.ic_brand_columbia
         ),
         BrandDefinition(
             key = "universal",
             displayName = "Universal",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(33),
-            namePatterns = listOf(Regex("^universal$"))
+            namePatterns = listOf(Regex("^universal$")),
+            localResource = R.drawable.ic_brand_universal
         ),
         BrandDefinition(
             key = "warner_bros",
             displayName = "Warner Bros.",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(174),
-            namePatterns = listOf(Regex("warner bros"), Regex("warner brothers"))
+            namePatterns = listOf(Regex("warner bros"), Regex("warner brothers")),
+            localResource = R.drawable.ic_brand_warner_bros
         ),
         BrandDefinition(
             key = "amc",
@@ -65,6 +68,16 @@ object BrandCatalog {
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(4),
             namePatterns = listOf(Regex("paramount"))
+        ),
+        BrandDefinition(
+            key = "paramount_plus",
+            displayName = "Paramount+",
+            tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
+            whitelistedNetworkIds = setOf(433),
+            whitelistedProviderIds = setOf(531),
+            namePatterns = listOf(Regex("paramount\\+"), Regex("paramount plus")),
+            localResource = R.drawable.ic_brand_paramount_plus
         ),
         BrandDefinition(
             key = "mgm",
@@ -149,7 +162,8 @@ object BrandCatalog {
             displayName = "Blumhouse",
             tier = BrandTier.MAJOR,
             whitelistedCompanyIds = setOf(3172),
-            namePatterns = listOf(Regex("blumhouse"))
+            namePatterns = listOf(Regex("blumhouse")),
+            localResource = R.drawable.ic_brand_blumhouse
         ),
         BrandDefinition(
             key = "focus_features",
@@ -210,7 +224,8 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(194232),
             whitelistedNetworkIds = setOf(2552),
             whitelistedProviderIds = setOf(350),
-            namePatterns = listOf(Regex("apple"))
+            namePatterns = listOf(Regex("apple")),
+            localResource = R.drawable.ic_brand_apple_tv
         ),
         BrandDefinition(
             key = "hbo",
@@ -244,7 +259,28 @@ object BrandCatalog {
             type = BrandIdentityType.STREAMER,
             whitelistedNetworkIds = setOf(453),
             whitelistedProviderIds = setOf(15),
-            namePatterns = listOf(Regex("hulu"))
+            namePatterns = listOf(Regex("hulu")),
+            localResource = R.drawable.ic_brand_hulu
+        ),
+        BrandDefinition(
+            key = "itv",
+            displayName = "ITV",
+            tier = BrandTier.PREMIER,
+            type = BrandIdentityType.NETWORK,
+            whitelistedCompanyIds = setOf(3290),
+            whitelistedNetworkIds = setOf(9, 675),
+            namePatterns = listOf(Regex("^itv$"), Regex("itv studios")),
+            localResource = R.drawable.ic_brand_itv
+        ),
+        BrandDefinition(
+            key = "mgm_plus",
+            displayName = "MGM+",
+            tier = BrandTier.PREMIER,
+            type = BrandIdentityType.STREAMER,
+            whitelistedNetworkIds = setOf(233),
+            whitelistedProviderIds = setOf(34),
+            namePatterns = listOf(Regex("mgm\\+"), Regex("mgm plus")),
+            localResource = R.drawable.ic_brand_mgm_plus
         )
     )
 }
