@@ -27,21 +27,30 @@ object BrandResolver {
             }
         }
 
-        // 2. Match by Name Pattern
+        // 2. Match by Name Pattern (Specificity-aware & Deterministic)
         if (name == null) return null
         val normalized = normalize(name)
         if (normalized.isEmpty()) return null
 
-        BrandCatalog.brands.find { definition ->
+        val matchingDefs = BrandCatalog.brands.filter { definition ->
             definition.namePatterns.any { it.containsMatchIn(normalized) }
-        }?.let {
-            // Name patterns for Premier/Major brands are Medium-High confidence
-            val confidence = if (it.tier == BrandTier.PREMIER || it.tier == BrandTier.MAJOR) {
-                BrandConfidence.HIGH
-            } else {
-                BrandConfidence.MEDIUM
+        }
+
+        if (matchingDefs.isNotEmpty()) {
+            val bestDef = matchingDefs.maxWithOrNull(
+                compareBy<BrandDefinition> { it.priority }
+                    .thenBy { def ->
+                        def.namePatterns.maxOfOrNull { it.pattern.length } ?: 0
+                    }
+            )
+            if (bestDef != null) {
+                val confidence = if (bestDef.tier == BrandTier.PREMIER || bestDef.tier == BrandTier.MAJOR) {
+                    BrandConfidence.HIGH
+                } else {
+                    BrandConfidence.MEDIUM
+                }
+                return ResolutionResult(bestDef, confidence)
             }
-            return ResolutionResult(it, confidence)
         }
         
         return null
@@ -54,6 +63,7 @@ object BrandResolver {
         )
         
         var result = name.lowercase()
+            .replace("+", " plus ")
         
         // Remove corporate noise
         noise.forEach { word ->

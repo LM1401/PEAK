@@ -71,8 +71,8 @@ fun HeroSection(
                                         painter = androidx.compose.ui.res.painterResource(id = brand.localResource),
                                         contentDescription = brand.displayName,
                                         modifier = Modifier
-                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
-                                            .wrapContentWidth(),
+                                            .sizeIn(maxHeight = 52.dp, maxWidth = 240.dp)
+                                            .wrapContentWidth(Alignment.Start),
                                         contentScale = ContentScale.Fit
                                     )
                                 } else if (!brand.logoUrl.isNullOrBlank()) {
@@ -81,8 +81,8 @@ fun HeroSection(
                                         model = brand.logoUrl,
                                         contentDescription = brand.displayName,
                                         modifier = Modifier
-                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
-                                            .wrapContentWidth(),
+                                            .sizeIn(maxHeight = 52.dp, maxWidth = 240.dp)
+                                            .wrapContentWidth(Alignment.Start),
                                         contentScale = ContentScale.Fit
                                     )
                                 } else {

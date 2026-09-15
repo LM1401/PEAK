@@ -99,9 +99,29 @@ class HomeViewModel(
                 if (_focusState.value == null) {
                     // Initial establishment
                     _focusState.value = potentialFocus
+                    if (!firstMovie.isEnriched) {
+                        viewModelScope.launch {
+                            repository.getMediaById(firstMovie.movieId, firstMovie.mediaType).onSuccess { enriched ->
+                                if (_focusState.value?.movieId == firstMovie.movieId && _focusState.value?.mediaType == firstMovie.mediaType) {
+                                    _focusState.value = FocusState(firstRealRow.id, firstMovie.movieId, firstMovie.mediaType, enriched)
+                                }
+                                updateRowMovie(firstRealRow.id, enriched)
+                            }
+                        }
+                    }
                 } else if (!hasUserInteracted && (_focusState.value?.rowId != potentialFocus.rowId || _focusState.value?.movieId != potentialFocus.movieId)) {
                     // Follow Row 0 if it changes (e.g. Continue Watching arrives) before user interaction
                     _focusState.value = potentialFocus
+                    if (!firstMovie.isEnriched) {
+                        viewModelScope.launch {
+                            repository.getMediaById(firstMovie.movieId, firstMovie.mediaType).onSuccess { enriched ->
+                                if (_focusState.value?.movieId == firstMovie.movieId && _focusState.value?.mediaType == firstMovie.mediaType) {
+                                    _focusState.value = FocusState(firstRealRow.id, firstMovie.movieId, firstMovie.mediaType, enriched)
+                                }
+                                updateRowMovie(firstRealRow.id, enriched)
+                            }
+                        }
+                    }
                 }
             }
         }.launchIn(viewModelScope)
@@ -144,6 +164,21 @@ class HomeViewModel(
         }
     }
 
+    private fun updateRowMovie(rowId: String, movie: Movie) {
+        _apiRowsMap.update { currentMap ->
+            currentMap.mapValues { (currentId, row) ->
+                if (currentId == rowId) {
+                    val updatedMovies = row.movies.map { m ->
+                        if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) movie else m
+                    }
+                    row.copy(movies = updatedMovies)
+                } else {
+                    row
+                }
+            }
+        }
+    }
+
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         Log.e("PEAK_DIAGNOSTIC", "onMovieFocused: rowId=$rowId, movieId=$movieId, mediaType=$mediaType")
         val currentFocus = _focusState.value
@@ -171,6 +206,7 @@ class HomeViewModel(
                 if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
                     _focusState.value = FocusState(rowId, movieId, mediaType, movie)
                 }
+                updateRowMovie(rowId, movie)
             }
         }
     }

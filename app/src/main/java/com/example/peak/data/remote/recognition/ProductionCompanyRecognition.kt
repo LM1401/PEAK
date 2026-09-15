@@ -131,21 +131,27 @@ object ProductionCompanyRecognition {
                     .thenByDescending { it.sourcePriority }
             )
 
-            // 2. Determine the Best Visual Asset (Wordmark > Icon)
-            // We prefer COMPANY/NETWORK logos over PROVIDER icons for Hero branding.
-            val bestLogo = group.filter { !it.identity.logoUrl.isNullOrBlank() }
-                .sortedWith(
-                    compareByDescending<BrandCandidate> { it.signalType != BrandSignalType.PROVIDER }
-                        .thenByDescending { it.sourcePriority }
-                ).firstOrNull()
+            // Fetch brand definition from catalog
+            val definition = BrandCatalog.brands.find { it.key == key }
+            val brandPriority = definition?.priority ?: 0
+            val localResource = definition?.localResource
 
-            // Fetch brand priority from catalog
-            val brandPriority = BrandCatalog.brands.find { it.key == key }?.priority ?: 0
+            // 2. Determine the Best Visual Asset (Wordmark > Icon)
+            // For canonical brands with a localResource, localResource is authoritative and logoUrl is null.
+            val bestLogo = if (localResource != null) {
+                null
+            } else {
+                group.filter { !it.identity.logoUrl.isNullOrBlank() }
+                    .sortedWith(
+                        compareByDescending<BrandCandidate> { it.signalType != BrandSignalType.PROVIDER }
+                            .thenByDescending { it.sourcePriority }
+                    ).firstOrNull()
+            }
 
             MergedCandidate(
                 identity = bestInfo.identity.copy(
-                    logoUrl = bestLogo?.identity?.logoUrl ?: bestInfo.identity.logoUrl,
-                    localResource = bestInfo.identity.localResource
+                    logoUrl = if (localResource != null) null else (bestLogo?.identity?.logoUrl ?: bestInfo.identity.logoUrl),
+                    localResource = localResource ?: bestInfo.identity.localResource
                 ),
                 maxSourcePriority = bestInfo.sourcePriority,
                 brandPriority = brandPriority,

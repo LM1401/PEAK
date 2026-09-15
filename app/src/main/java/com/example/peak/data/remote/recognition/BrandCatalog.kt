@@ -67,7 +67,8 @@ object BrandCatalog {
             displayName = "Paramount",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(4),
-            namePatterns = listOf(Regex("paramount"))
+            namePatterns = listOf(Regex("paramount")),
+            priority = 0
         ),
         BrandDefinition(
             key = "paramount_plus",
@@ -77,14 +78,16 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(433),
             whitelistedProviderIds = setOf(531),
             namePatterns = listOf(Regex("paramount\\+"), Regex("paramount plus")),
-            localResource = R.drawable.ic_brand_paramount_plus
+            localResource = R.drawable.ic_brand_paramount_plus,
+            priority = 1
         ),
         BrandDefinition(
             key = "mgm",
             displayName = "MGM Studios",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(21),
-            namePatterns = listOf(Regex("mgm"), Regex("metro goldwyn mayer"))
+            namePatterns = listOf(Regex("mgm"), Regex("metro goldwyn mayer")),
+            priority = 0
         ),
         BrandDefinition(
             key = "amazon_mgm",
@@ -280,7 +283,8 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(233),
             whitelistedProviderIds = setOf(34),
             namePatterns = listOf(Regex("mgm\\+"), Regex("mgm plus")),
-            localResource = R.drawable.ic_brand_mgm_plus
+            localResource = R.drawable.ic_brand_mgm_plus,
+            priority = 1
         )
     )
 }

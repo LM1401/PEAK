@@ -102,4 +102,54 @@ class BrandResolverTest {
         val result = BrandResolver.resolve(name = note)
         assertEquals("lionsgate", result?.definition?.key)
     }
+
+    @Test
+    fun `resolve Paramount vs Paramount Plus specificity and IDs`() {
+        // ID 4 -> paramount
+        val pCompany = BrandResolver.resolve(id = 4, type = BrandSignalType.COMPANY)
+        assertEquals("paramount", pCompany?.definition?.key)
+
+        // ID 433 as NETWORK -> paramount_plus
+        val pNetwork = BrandResolver.resolve(id = 433, type = BrandSignalType.NETWORK)
+        assertEquals("paramount_plus", pNetwork?.definition?.key)
+
+        // ID 531 as PROVIDER -> paramount_plus
+        val pProvider = BrandResolver.resolve(id = 531, type = BrandSignalType.PROVIDER)
+        assertEquals("paramount_plus", pProvider?.definition?.key)
+
+        // Name matching
+        assertEquals("paramount_plus", BrandResolver.resolve("Paramount+")?.definition?.key)
+        assertEquals("paramount_plus", BrandResolver.resolve("Paramount Plus")?.definition?.key)
+        assertEquals("paramount", BrandResolver.resolve("Paramount Pictures")?.definition?.key)
+        assertEquals("paramount", BrandResolver.resolve("Paramount")?.definition?.key)
+    }
+
+    @Test
+    fun `resolve MGM vs MGM Plus specificity and IDs`() {
+        // ID 21 -> mgm
+        val mgmCompany = BrandResolver.resolve(id = 21, type = BrandSignalType.COMPANY)
+        assertEquals("mgm", mgmCompany?.definition?.key)
+
+        // ID 233 as NETWORK -> mgm_plus
+        val mgmNetwork = BrandResolver.resolve(id = 233, type = BrandSignalType.NETWORK)
+        assertEquals("mgm_plus", mgmNetwork?.definition?.key)
+
+        // ID 34 as PROVIDER -> mgm_plus
+        val mgmProvider = BrandResolver.resolve(id = 34, type = BrandSignalType.PROVIDER)
+        assertEquals("mgm_plus", mgmProvider?.definition?.key)
+
+        // Name matching
+        assertEquals("mgm_plus", BrandResolver.resolve("MGM+")?.definition?.key)
+        assertEquals("mgm_plus", BrandResolver.resolve("MGM Plus")?.definition?.key)
+        assertEquals("mgm", BrandResolver.resolve("Metro-Goldwyn-Mayer")?.definition?.key)
+        assertEquals("mgm", BrandResolver.resolve("MGM")?.definition?.key)
+    }
+
+    @Test
+    fun `resolve Apple brand IDs and names`() {
+        assertEquals("apple", BrandResolver.resolve(id = 350, type = BrandSignalType.PROVIDER)?.definition?.key)
+        assertEquals("apple", BrandResolver.resolve(id = 2552, type = BrandSignalType.NETWORK)?.definition?.key)
+        assertEquals("apple", BrandResolver.resolve(id = 194232, type = BrandSignalType.COMPANY)?.definition?.key)
+        assertEquals("apple", BrandResolver.resolve("Apple TV+")?.definition?.key)
+    }
 }
