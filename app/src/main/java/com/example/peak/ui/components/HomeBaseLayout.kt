@@ -60,7 +60,7 @@ fun HomeBaseLayout(
             focusedMovieProvider = focusedMovieProvider,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 32.dp) // Premium spacing
+                .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 16.dp) // Premium spacing
                 .zIndex(3f)
                 .focusProperties { canFocus = false }
         )
