@@ -1,7 +1,6 @@
 package com.example.peak.data.remote.recognition
 
 import com.example.peak.domain.model.BrandIdentityType
-import com.example.peak.R
 
 object BrandCatalog {
     val brands = listOf(
@@ -21,8 +20,7 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(2, 3, 6125),
             whitelistedNetworkIds = setOf(2, 2739),
             whitelistedProviderIds = setOf(337),
-            namePatterns = listOf(Regex("disney"), Regex("walt disney"), Regex("pixar")),
-            localResource = R.drawable.ic_brand_disney
+            namePatterns = listOf(Regex("disney"), Regex("walt disney"), Regex("pixar"))
         ),
         BrandDefinition(
             key = "sony_pictures",
@@ -36,24 +34,21 @@ object BrandCatalog {
             displayName = "Sony Pictures",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(5),
-            namePatterns = listOf(Regex("columbia")),
-            localResource = R.drawable.ic_brand_columbia
+            namePatterns = listOf(Regex("columbia"))
         ),
         BrandDefinition(
             key = "universal",
             displayName = "Universal",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(33),
-            namePatterns = listOf(Regex("^universal$")),
-            localResource = R.drawable.ic_brand_universal
+            namePatterns = listOf(Regex("^universal$"))
         ),
         BrandDefinition(
             key = "warner_bros",
             displayName = "Warner Bros.",
             tier = BrandTier.PREMIER,
             whitelistedCompanyIds = setOf(174),
-            namePatterns = listOf(Regex("warner bros"), Regex("warner brothers")),
-            localResource = R.drawable.ic_brand_warner_bros
+            namePatterns = listOf(Regex("warner bros"), Regex("warner brothers"))
         ),
         BrandDefinition(
             key = "amc",
@@ -78,7 +73,6 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(433),
             whitelistedProviderIds = setOf(531),
             namePatterns = listOf(Regex("paramount\\+"), Regex("paramount plus")),
-            localResource = R.drawable.ic_brand_paramount_plus,
             priority = 1
         ),
         BrandDefinition(
@@ -165,8 +159,7 @@ object BrandCatalog {
             displayName = "Blumhouse",
             tier = BrandTier.MAJOR,
             whitelistedCompanyIds = setOf(3172),
-            namePatterns = listOf(Regex("blumhouse")),
-            localResource = R.drawable.ic_brand_blumhouse
+            namePatterns = listOf(Regex("blumhouse"))
         ),
         BrandDefinition(
             key = "focus_features",
@@ -204,8 +197,7 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(178464),
             whitelistedNetworkIds = setOf(213),
             whitelistedProviderIds = setOf(8),
-            namePatterns = listOf(Regex("netflix")),
-            localResource = R.drawable.ic_brand_netflix
+            namePatterns = listOf(Regex("netflix"))
         ),
         BrandDefinition(
             key = "amazon",
@@ -216,8 +208,7 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(1024),
             whitelistedProviderIds = setOf(9, 10, 119),
             namePatterns = listOf(Regex("amazon"), Regex("prime video")),
-            networkDisplayName = "Prime Exclusive",
-            localResource = R.drawable.ic_brand_prime_video
+            networkDisplayName = "Prime Exclusive"
         ),
         BrandDefinition(
             key = "apple",
@@ -227,8 +218,7 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(194232),
             whitelistedNetworkIds = setOf(2552),
             whitelistedProviderIds = setOf(350),
-            namePatterns = listOf(Regex("apple")),
-            localResource = R.drawable.ic_brand_apple_tv
+            namePatterns = listOf(Regex("apple"))
         ),
         BrandDefinition(
             key = "hbo",
@@ -262,8 +252,7 @@ object BrandCatalog {
             type = BrandIdentityType.STREAMER,
             whitelistedNetworkIds = setOf(453),
             whitelistedProviderIds = setOf(15),
-            namePatterns = listOf(Regex("hulu")),
-            localResource = R.drawable.ic_brand_hulu
+            namePatterns = listOf(Regex("hulu"))
         ),
         BrandDefinition(
             key = "itv",
@@ -272,8 +261,7 @@ object BrandCatalog {
             type = BrandIdentityType.NETWORK,
             whitelistedCompanyIds = setOf(3290),
             whitelistedNetworkIds = setOf(9, 675),
-            namePatterns = listOf(Regex("^itv$"), Regex("itv studios")),
-            localResource = R.drawable.ic_brand_itv
+            namePatterns = listOf(Regex("^itv$"), Regex("itv studios"))
         ),
         BrandDefinition(
             key = "mgm_plus",
@@ -283,7 +271,6 @@ object BrandCatalog {
             whitelistedNetworkIds = setOf(233),
             whitelistedProviderIds = setOf(34),
             namePatterns = listOf(Regex("mgm\\+"), Regex("mgm plus")),
-            localResource = R.drawable.ic_brand_mgm_plus,
             priority = 1
         )
     )

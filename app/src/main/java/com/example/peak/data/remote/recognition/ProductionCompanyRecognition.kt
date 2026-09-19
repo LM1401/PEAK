@@ -32,8 +32,6 @@ object ProductionCompanyRecognition {
                     identity = BrandIdentity(
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = true),
-                        logoUrl = provider.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
-                        localResource = result.definition.localResource,
                         tmdbCompanyId = provider.id,
                         type = result.definition.type,
                         confidence = result.confidence
@@ -53,8 +51,6 @@ object ProductionCompanyRecognition {
                         identity = BrandIdentity(
                             key = result.definition.key,
                             displayName = result.definition.getDisplayName(isNetwork = true),
-                            logoUrl = network.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
-                            localResource = result.definition.localResource,
                             tmdbCompanyId = network.id,
                             type = BrandIdentityType.NETWORK,
                             confidence = result.confidence
@@ -75,29 +71,12 @@ object ProductionCompanyRecognition {
                     identity = BrandIdentity(
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = false),
-                        logoUrl = company.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" },
-                        localResource = result.definition.localResource,
                         tmdbCompanyId = company.id,
                         type = result.definition.type,
                         confidence = result.confidence
                     ),
                     originalIndex = index,
                     sourcePriority = 0,
-                    signalType = BrandSignalType.COMPANY
-                ))
-            } else if (!company.logoPath.isNullOrBlank()) {
-                // Unknown company with a logo -> LOW confidence candidate
-                candidates.add(BrandCandidate(
-                    identity = BrandIdentity(
-                        key = "unknown_${company.id}",
-                        displayName = company.name,
-                        logoUrl = "https://image.tmdb.org/t/p/w500${company.logoPath}",
-                        tmdbCompanyId = company.id,
-                        type = BrandIdentityType.PRODUCTION_COMPANY,
-                        confidence = BrandConfidence.LOW
-                    ),
-                    originalIndex = index,
-                    sourcePriority = -10, // Low priority for unknown companies
                     signalType = BrandSignalType.COMPANY
                 ))
             }
@@ -110,7 +89,6 @@ object ProductionCompanyRecognition {
                     identity = BrandIdentity(
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = false),
-                        localResource = result.definition.localResource,
                         type = BrandIdentityType.DISTRIBUTOR,
                         confidence = BrandConfidence.MEDIUM // Evidence from notes is medium confidence
                     ),
@@ -123,36 +101,18 @@ object ProductionCompanyRecognition {
 
         if (candidates.isEmpty()) return null
 
-        // Group candidates by brand key to separate Identity from Display Asset
+        // Group candidates by brand key
         val mergedBrands = candidates.groupBy { it.identity.key }.map { (key, group) ->
-            // 1. Determine the Best Metadata (highest confidence/priority wins identity)
             val bestInfo = group.minWith(
                 compareBy<BrandCandidate> { it.identity.confidence.ordinal }
                     .thenByDescending { it.sourcePriority }
             )
 
-            // Fetch brand definition from catalog
             val definition = BrandCatalog.brands.find { it.key == key }
             val brandPriority = definition?.priority ?: 0
-            val localResource = definition?.localResource
-
-            // 2. Determine the Best Visual Asset (Wordmark > Icon)
-            // For canonical brands with a localResource, localResource is authoritative and logoUrl is null.
-            val bestLogo = if (localResource != null) {
-                null
-            } else {
-                group.filter { !it.identity.logoUrl.isNullOrBlank() }
-                    .sortedWith(
-                        compareByDescending<BrandCandidate> { it.signalType != BrandSignalType.PROVIDER }
-                            .thenByDescending { it.sourcePriority }
-                    ).firstOrNull()
-            }
 
             MergedCandidate(
-                identity = bestInfo.identity.copy(
-                    logoUrl = if (localResource != null) null else (bestLogo?.identity?.logoUrl ?: bestInfo.identity.logoUrl),
-                    localResource = localResource ?: bestInfo.identity.localResource
-                ),
+                identity = bestInfo.identity,
                 maxSourcePriority = bestInfo.sourcePriority,
                 brandPriority = brandPriority,
                 minOriginalIndex = group.minOf { it.originalIndex }
@@ -192,4 +152,3 @@ object ProductionCompanyRecognition {
         val minOriginalIndex: Int
     )
 }
-

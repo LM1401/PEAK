@@ -4,6 +4,7 @@ import com.example.peak.data.remote.dto.TmdbCompany
 import com.example.peak.data.remote.dto.TmdbProvider
 import com.example.peak.domain.model.BrandConfidence
 import com.example.peak.domain.model.MediaType
+import com.example.peak.domain.model.formatBrandingText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -30,7 +31,7 @@ class ProductionCompanyRecognitionTest {
     private val netflixProvider = TmdbProvider(id = 8, name = "Netflix", logoPath = "/p69BYX927Y6pY686p69BYX927Y6.png")
     private val primeProvider = TmdbProvider(id = 119, name = "Amazon Prime Video", logoPath = "/pE356A2U7Z8D9E0F1G2H3I4J5K6.png")
 
-    // EXTRA COMPANIES FOR DISPLAY ASSET TESTS
+    // EXTRA COMPANIES FOR DISPLAY TESTS
     private val netflixStudio = TmdbCompany(id = 178464, name = "Netflix Studios", logoPath = "/netflix_wordmark.png", originCountry = "US")
 
 
@@ -43,43 +44,42 @@ class ProductionCompanyRecognitionTest {
     }
 
     @Test
-    fun `BRANDING - Propagation of TMDB logos for non-canonical brands`() {
+    fun `BRANDING - Resolution of Sony Pictures company`() {
         val result = ProductionCompanyRecognition.findBestCompany(listOf(sonyPicturesCompany), null, null, null, MediaType.MOVIE)
-        assertNotNull(result?.logoUrl)
-        assertEquals("https://image.tmdb.org/t/p/w500/logo_sony.png", result?.logoUrl)
+        assertNotNull(result)
+        assertEquals("Sony Pictures", result?.displayName)
+        assertEquals(BrandConfidence.HIGH, result?.confidence)
     }
 
     @Test
-    fun `CANONICAL ASSETS - Canonical local assets take precedence and suppress TMDB remote logo override`() {
-        // Netflix has localResource, so TMDB logo must be null and localResource must be non-null
+    fun `TEXT PRESENTATION - Formats brand names into clean presentation text`() {
         val netflixResult = ProductionCompanyRecognition.findBestCompany(null, null, listOf(netflixProvider), null, MediaType.MOVIE)
-        assertEquals("Netflix Original", netflixResult?.displayName)
-        assertNotNull(netflixResult?.localResource)
-        assertNull(netflixResult?.logoUrl)
+        assertEquals("A Netflix Original", netflixResult?.formatPresentationText())
 
-        // Prime Video has localResource, so TMDB logo must be null and localResource must be non-null
-        val primeResult = ProductionCompanyRecognition.findBestCompany(null, null, listOf(primeProvider), null, MediaType.MOVIE)
-        assertEquals("Prime Exclusive", primeResult?.displayName)
-        assertNotNull(primeResult?.localResource)
-        assertNull(primeResult?.logoUrl)
+        val blumhouse = TmdbCompany(id = 3172, name = "Blumhouse", logoPath = null, originCountry = "US")
+        val blumhouseResult = ProductionCompanyRecognition.findBestCompany(listOf(blumhouse), null, null, null, MediaType.MOVIE)
+        assertEquals("A Blumhouse Production", blumhouseResult?.formatPresentationText())
+
+        val disneyStudio = TmdbCompany(id = 2, name = "Walt Disney Pictures", logoPath = null, originCountry = "US")
+        val disneyResult = ProductionCompanyRecognition.findBestCompany(listOf(disneyStudio), null, null, null, MediaType.MOVIE)
+        assertEquals("A Disney Production", disneyResult?.formatPresentationText())
+
+        val universalResult = ProductionCompanyRecognition.findBestCompany(listOf(universal), null, null, null, MediaType.MOVIE)
+        assertEquals("A Universal Production", universalResult?.formatPresentationText())
+
+        val warnerCompany = TmdbCompany(id = 174, name = "Warner Bros.", logoPath = null, originCountry = "US")
+        val warnerResult = ProductionCompanyRecognition.findBestCompany(listOf(warnerCompany), null, null, null, MediaType.MOVIE)
+        assertEquals("A Warner Bros. Production", warnerResult?.formatPresentationText())
+
+        val appleProvider = TmdbProvider(id = 350, name = "Apple TV+", logoPath = null)
+        val appleResult = ProductionCompanyRecognition.findBestCompany(null, null, listOf(appleProvider), null, MediaType.MOVIE)
+        assertEquals("An Apple TV+ Original", appleResult?.formatPresentationText())
     }
 
     @Test
-    fun `BRANDING - Provider without logo falls back correctly`() {
-        val providerNoLogo = TmdbProvider(id = 8, name = "Netflix", logoPath = null)
-        val result = ProductionCompanyRecognition.findBestCompany(null, null, listOf(providerNoLogo), null, MediaType.MOVIE)
-        
-        assertEquals("Netflix Original", result?.displayName)
-        assertNull(result?.logoUrl)
-        assertNotNull(result?.localResource)
-    }
-
-    @Test
-    fun `CONFIDENCE - Unknown company with logo is LOW confidence and NOT displayable`() {
-        val unknownWithLogo = TmdbCompany(id = 999, name = "Unknown Studio", logoPath = "/path.png", originCountry = "US")
-        val result = ProductionCompanyRecognition.findBestCompany(listOf(unknownWithLogo), null, null, null, MediaType.MOVIE)
-        
-        // It should NOT be returned by findBestCompany because findBestCompany filters for displayable brands
+    fun `CONFIDENCE - Unknown company is NOT displayable`() {
+        val unknown = TmdbCompany(id = 999, name = "Unknown Studio", logoPath = null, originCountry = "US")
+        val result = ProductionCompanyRecognition.findBestCompany(listOf(unknown), null, null, null, MediaType.MOVIE)
         assertNull(result)
     }
 
@@ -87,8 +87,6 @@ class ProductionCompanyRecognitionTest {
     fun `PRIORITY - Provider beats network and company`() {
         val amazonStudios = TmdbCompany(id = 20580, name = "Amazon Studios", logoPath = null, originCountry = "US")
 
-        // Amazon Studios (Company) + Prime Video (Network) + Prime Video (Provider)
-        // Provider (Streaming Original) should win and use "Prime Exclusive" branding for TV
         val result = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(amazonStudios),
             networks = listOf(primeVideoNetwork),
@@ -120,7 +118,6 @@ class ProductionCompanyRecognitionTest {
     fun `PRIORITY - Stronger signal beats weak release note`() {
         val releaseNotes = listOf("Lionsgate")
 
-        // Universal (Company) vs Lionsgate (Note) -> Universal should win
         val result = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(universal),
             networks = null,
@@ -134,11 +131,9 @@ class ProductionCompanyRecognitionTest {
 
     @Test
     fun `NAMESPACE - Isolation of entity IDs between Movie and TV`() {
-        // ID 174 -> Warner Bros (Company)
         val warner = TmdbCompany(id = 174, name = "Warner Bros.", logoPath = null, originCountry = "US")
         assertEquals("Warner Bros.", ProductionCompanyRecognition.findBestCompany(listOf(warner), null, null, null, MediaType.MOVIE)?.displayName)
 
-        // ID 174 -> AMC (Network)
         assertEquals("AMC", ProductionCompanyRecognition.findBestCompany(null, listOf(amc), null, null, MediaType.TV)?.displayName)
     }
 
@@ -152,14 +147,14 @@ class ProductionCompanyRecognitionTest {
             mediaType = MediaType.MOVIE
         )
         assertEquals("Netflix Original", result?.displayName)
+        assertEquals("A Netflix Original", result?.formatPresentationText())
     }
 
     @Test
     fun `MUTINY - Verification for TMDB ID 1288445`() {
-        val punchPalace = TmdbCompany(id = 218150, name = "Punch Palace Productions", logoPath = "/logo1.png", originCountry = "US")
-        val madRiver = TmdbCompany(id = 73492, name = "MadRiver Pictures", logoPath = "/logo2.png", originCountry = "US")
+        val punchPalace = TmdbCompany(id = 218150, name = "Punch Palace Productions", logoPath = null, originCountry = "US")
+        val madRiver = TmdbCompany(id = 73492, name = "MadRiver Pictures", logoPath = null, originCountry = "US")
         
-        // 1. Without release notes, it should resolve to nothing displayable (Punch Palace/MadRiver not recognized, and unknown logos are LOW confidence)
         val resultNoNotes = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(punchPalace, madRiver),
             networks = null,
@@ -169,7 +164,6 @@ class ProductionCompanyRecognitionTest {
         )
         assertNull(resultNoNotes)
 
-        // 2. With "Lionsgate" in release notes, it should resolve to Lionsgate
         val resultWithNotes = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(punchPalace, madRiver),
             networks = null,
@@ -188,9 +182,6 @@ class ProductionCompanyRecognitionTest {
 
     @Test
     fun `PRIORITY - Brand Priority beats Source Priority (Specific beats Generic)`() {
-        // Amazon Provider (ID 119) -> Brand "amazon" (Priority 0, Source Priority 10)
-        // Amazon MGM Studios (ID 210099) -> Brand "amazon_mgm" (Priority 1, Source Priority 0)
-
         val result = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(amazonMGM),
             networks = null,
@@ -199,23 +190,22 @@ class ProductionCompanyRecognitionTest {
             mediaType = MediaType.MOVIE
         )
 
-        // Amazon MGM should win because it has higher Brand Priority (1 vs 0)
         assertEquals("Amazon MGM Studios", result?.displayName)
     }
 
     @Test
-    fun `CANONICAL ASSETS - All curated brands with localResource return non-null localResource and null logoUrl`() {
+    fun `RECOGNITION - All curated brands resolve correctly`() {
         val testCases = listOf(
-            Triple("Netflix Original", null, listOf(TmdbProvider(id = 8, name = "Netflix", logoPath = "/logo.png"))),
-            Triple("Prime Exclusive", null, listOf(TmdbProvider(id = 119, name = "Prime Video", logoPath = "/logo.png"))),
-            Triple("Disney", listOf(TmdbCompany(id = 2, name = "Walt Disney Pictures", logoPath = "/logo.png", originCountry = "US")), null),
-            Triple("Apple TV+", null, listOf(TmdbProvider(id = 350, name = "Apple TV+", logoPath = "/logo.png"))),
-            Triple("Paramount+", null, listOf(TmdbProvider(id = 531, name = "Paramount+", logoPath = "/logo.png"))),
-            Triple("MGM+", null, listOf(TmdbProvider(id = 34, name = "MGM+", logoPath = "/logo.png"))),
-            Triple("Hulu", null, listOf(TmdbProvider(id = 15, name = "Hulu", logoPath = "/logo.png"))),
-            Triple("Warner Bros.", listOf(TmdbCompany(id = 174, name = "Warner Bros.", logoPath = "/logo.png", originCountry = "US")), null),
-            Triple("Universal", listOf(TmdbCompany(id = 33, name = "Universal Pictures", logoPath = "/logo.png", originCountry = "US")), null),
-            Triple("Blumhouse", listOf(TmdbCompany(id = 3172, name = "Blumhouse", logoPath = "/logo.png", originCountry = "US")), null)
+            Triple("Netflix Original", null, listOf(TmdbProvider(id = 8, name = "Netflix", logoPath = null))),
+            Triple("Prime Exclusive", null, listOf(TmdbProvider(id = 119, name = "Prime Video", logoPath = null))),
+            Triple("Disney", listOf(TmdbCompany(id = 2, name = "Walt Disney Pictures", logoPath = null, originCountry = "US")), null),
+            Triple("Apple TV+", null, listOf(TmdbProvider(id = 350, name = "Apple TV+", logoPath = null))),
+            Triple("Paramount+", null, listOf(TmdbProvider(id = 531, name = "Paramount+", logoPath = null))),
+            Triple("MGM+", null, listOf(TmdbProvider(id = 34, name = "MGM+", logoPath = null))),
+            Triple("Hulu", null, listOf(TmdbProvider(id = 15, name = "Hulu", logoPath = null))),
+            Triple("Warner Bros.", listOf(TmdbCompany(id = 174, name = "Warner Bros.", logoPath = null, originCountry = "US")), null),
+            Triple("Universal", listOf(TmdbCompany(id = 33, name = "Universal Pictures", logoPath = null, originCountry = "US")), null),
+            Triple("Blumhouse", listOf(TmdbCompany(id = 3172, name = "Blumhouse", logoPath = null, originCountry = "US")), null)
         )
 
         testCases.forEach { (expectedName, companies, providers) ->
@@ -228,16 +218,13 @@ class ProductionCompanyRecognitionTest {
             )
             assertNotNull("Failed to resolve brand for $expectedName", result)
             assertEquals(expectedName, result?.displayName)
-            assertNotNull("Canonical localResource missing for $expectedName", result?.localResource)
-            assertNull("TMDB logoUrl should not override canonical local asset for $expectedName", result?.logoUrl)
         }
     }
 
     @Test
-    fun `CANONICAL ASSETS - localResource preserved when multiple candidates merged`() {
-        // Multiple candidates for Disney (studio + provider)
-        val disneyStudio = TmdbCompany(id = 2, name = "Walt Disney Pictures", logoPath = "/disney.png", originCountry = "US")
-        val disneyProvider = TmdbProvider(id = 337, name = "Disney+", logoPath = "/disney_plus.png")
+    fun `MERGING - Preserves highest priority identity when multiple candidates merged`() {
+        val disneyStudio = TmdbCompany(id = 2, name = "Walt Disney Pictures", logoPath = null, originCountry = "US")
+        val disneyProvider = TmdbProvider(id = 337, name = "Disney+", logoPath = null)
 
         val result = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(disneyStudio),
@@ -248,8 +235,6 @@ class ProductionCompanyRecognitionTest {
         )
 
         assertEquals("Disney", result?.displayName)
-        assertNotNull(result?.localResource)
-        assertNull(result?.logoUrl)
     }
 
     @Test
@@ -268,13 +253,11 @@ class ProductionCompanyRecognitionTest {
         val second = input()
 
         assertEquals(first, second)
-        assertEquals(first?.logoUrl, second?.logoUrl)
-        assertEquals(first?.localResource, second?.localResource)
     }
 
     @Test
     fun `UNRELATED - Unrelated studio does not hijack provider identity`() {
-        val unrelatedStudio = TmdbCompany(id = 999, name = "Unrelated Studio", logoPath = "/unrelated.png", originCountry = "US")
+        val unrelatedStudio = TmdbCompany(id = 999, name = "Unrelated Studio", logoPath = null, originCountry = "US")
 
         val result = ProductionCompanyRecognition.findBestCompany(
             productionCompanies = listOf(unrelatedStudio),
@@ -284,11 +267,7 @@ class ProductionCompanyRecognitionTest {
             mediaType = MediaType.MOVIE
         )
 
-        // Identity should still be Netflix (HIGH confidence)
-        // localResource should be Netflix local resource, logoUrl null
         assertEquals("Netflix Original", result?.displayName)
         assertEquals(BrandConfidence.HIGH, result?.confidence)
-        assertNotNull(result?.localResource)
-        assertNull(result?.logoUrl)
     }
 }

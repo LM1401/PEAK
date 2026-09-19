@@ -17,8 +17,7 @@ import androidx.tv.material3.*
 import com.example.peak.domain.model.Movie
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
+import com.example.peak.domain.model.formatBrandingText
 
 private val HERO_CONTENT_WIDTH = 640.dp
 
@@ -60,50 +59,8 @@ fun HeroSection(
                         // 1. BRAND IDENTITY BADGE
                         val brand = currentMovie.brand
                         if (brand != null && brand.isDisplayable) {
-                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing brand badge for '${brand.displayName}', logo: ${brand.logoUrl != null}")
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (brand.localResource != null) {
-                                    // 1a. PEAK Local Fallback Logo
-                                    androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource(id = brand.localResource),
-                                        contentDescription = brand.displayName,
-                                        modifier = Modifier
-                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
-                                            .wrapContentWidth(),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                } else if (!brand.logoUrl.isNullOrBlank()) {
-                                    // 1b. TMDB Remote Logo
-                                    AsyncImage(
-                                        model = brand.logoUrl,
-                                        contentDescription = brand.displayName,
-                                        modifier = Modifier
-                                            .sizeIn(maxHeight = 36.dp, maxWidth = 200.dp)
-                                            .wrapContentWidth(),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = brand.displayName.uppercase(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 2.sp
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                        } else if (currentMovie.productionCompany.isNotBlank()) {
-                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing legacy badge for '${currentMovie.productionCompany}'")
+                            val brandText = brand.formatPresentationText()
+                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing brand badge '$brandText'")
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -115,7 +72,29 @@ fun HeroSection(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = currentMovie.productionCompany.uppercase(),
+                                    text = brandText.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 2.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        } else if (currentMovie.productionCompany.isNotBlank()) {
+                            val legacyText = formatBrandingText(currentMovie.productionCompany)
+                            Log.d("PEAK_DIAGNOSTIC", "HeroSection: Drawing legacy badge '$legacyText'")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = legacyText.uppercase(),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.9f),
                                     fontWeight = FontWeight.Bold,
@@ -215,5 +194,3 @@ fun HeroSection(
         }
     }
 }
-
-
