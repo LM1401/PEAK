@@ -179,17 +179,16 @@ class HomeViewModel(
         }
     }
 
+    fun onUserNavigate() {
+        hasUserInteracted = true
+    }
+
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         Log.e("PEAK_DIAGNOSTIC", "onMovieFocused: rowId=$rowId, movieId=$movieId, mediaType=$mediaType")
         val currentFocus = _focusState.value
         if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) {
             Log.e("PEAK_DIAGNOSTIC", "  Already focused and enriched. Ignoring.")
             return
-        }
-
-        // Mark as interacted if we are changing focus from an established state
-        if (currentFocus != null) {
-            hasUserInteracted = true
         }
 
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
@@ -212,6 +211,7 @@ class HomeViewModel(
     }
 
     fun onMovieSelected(movie: Movie) {
+        hasUserInteracted = true
         // Selection logic
     }
 }

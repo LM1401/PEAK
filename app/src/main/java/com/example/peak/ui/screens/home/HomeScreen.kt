@@ -68,6 +68,7 @@ fun HomeScreen(
 
     val onVerticalMove: (String, Int) -> Unit = { targetRowId, targetIndex ->
         hasUserMovedFocus = true
+        viewModel.onUserNavigate()
         val targetRow = rows.find { it.id == targetRowId }
         val targetMovie = targetRow?.movies?.getOrNull(targetIndex) ?: targetRow?.movies?.lastOrNull()
         if (targetMovie != null) {
@@ -163,12 +164,6 @@ fun HomeScreen(
                             row = row,
                             focusStateFlow = focusStateFlow,
                             onMovieFocused = { rowId, movieId, mediaType -> 
-                                // Track manual movement to stop auto-following focus
-                                val currentFocus = focusStateFlow.value
-                                if (currentFocus != null && (currentFocus.rowId != rowId || currentFocus.movieId != movieId)) {
-                                    hasUserMovedFocus = true
-                                    startupFocusTarget = null // Ensure no pending auto-focus
-                                }
                                 viewModel.onMovieFocused(rowId, movieId, mediaType) 
                             },
                             onMovieSelected = viewModel::onMovieSelected,
