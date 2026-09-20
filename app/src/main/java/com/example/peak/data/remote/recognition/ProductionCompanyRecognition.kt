@@ -34,7 +34,9 @@ object ProductionCompanyRecognition {
                         displayName = result.definition.getDisplayName(isNetwork = true),
                         tmdbCompanyId = provider.id,
                         type = result.definition.type,
-                        confidence = result.confidence
+                        confidence = result.confidence,
+                        presentationName = result.definition.getPresentationName(isNetwork = true),
+                        presentationStyle = result.definition.getPresentationStyle(isNetwork = true)
                     ),
                     originalIndex = index,
                     sourcePriority = 10,
@@ -53,7 +55,9 @@ object ProductionCompanyRecognition {
                             displayName = result.definition.getDisplayName(isNetwork = true),
                             tmdbCompanyId = network.id,
                             type = BrandIdentityType.NETWORK,
-                            confidence = result.confidence
+                            confidence = result.confidence,
+                            presentationName = result.definition.getPresentationName(isNetwork = true),
+                            presentationStyle = result.definition.getPresentationStyle(isNetwork = true)
                         ),
                         originalIndex = index,
                         sourcePriority = 5,
@@ -73,7 +77,9 @@ object ProductionCompanyRecognition {
                         displayName = result.definition.getDisplayName(isNetwork = false),
                         tmdbCompanyId = company.id,
                         type = result.definition.type,
-                        confidence = result.confidence
+                        confidence = result.confidence,
+                        presentationName = result.definition.getPresentationName(isNetwork = false),
+                        presentationStyle = result.definition.getPresentationStyle(isNetwork = false)
                     ),
                     originalIndex = index,
                     sourcePriority = 0,
@@ -90,7 +96,9 @@ object ProductionCompanyRecognition {
                         key = result.definition.key,
                         displayName = result.definition.getDisplayName(isNetwork = false),
                         type = BrandIdentityType.DISTRIBUTOR,
-                        confidence = BrandConfidence.MEDIUM // Evidence from notes is medium confidence
+                        confidence = BrandConfidence.MEDIUM, // Evidence from notes is medium confidence
+                        presentationName = result.definition.getPresentationName(isNetwork = false),
+                        presentationStyle = result.definition.getPresentationStyle(isNetwork = false)
                     ),
                     originalIndex = index,
                     sourcePriority = -5,
