@@ -15,10 +15,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
@@ -76,8 +79,15 @@ fun MovieRow(
     navFocusRequester: FocusRequester? = null
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val listState = rememberLazyListState()
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
+
+    val rowClipStartPx = remember(density) {
+        with(density) {
+            (HomeConstants.HOME_CONTENT_START_PADDING - 16.dp).toPx()
+        }
+    }
 
     val isFocused by remember(row.id) { 
         focusStateFlow.map { it?.rowId == row.id }.distinctUntilChanged() 
@@ -103,7 +113,7 @@ fun MovieRow(
             }
             if (index != -1) {
                 // 1. Force materialization
-                listState.scrollToItem(index)
+                listState.scrollToItem(index, 0)
 
                 // 2. Wait for composition to stabilize
                 val requester = getRequester(index, row.movies[index])
@@ -152,7 +162,7 @@ fun MovieRow(
 
             // WHOLE-CARD SCROLL ALIGNMENT: Scroll list to align to a deterministic card-aligned offset
             if (index >= 0) {
-                listState.animateScrollToItem(index)
+                listState.animateScrollToItem(index, 0)
             }
 
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
@@ -199,7 +209,12 @@ fun MovieRow(
                 state = listState,
                 modifier = Modifier
                     .wrapContentHeight()
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .drawWithContent {
+                        clipRect(left = rowClipStartPx) {
+                            this@drawWithContent.drawContent()
+                        }
+                    },
                 contentPadding = PaddingValues(
                     start = HomeConstants.HOME_CONTENT_START_PADDING,
                     end = 120.dp,
