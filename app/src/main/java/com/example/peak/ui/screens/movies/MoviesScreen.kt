@@ -5,6 +5,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -132,6 +134,11 @@ fun MoviesScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(top = 220.dp)
+                .drawWithContent {
+                    clipRect(left = HomeConstants.HOME_SIDEBAR_WIDTH.toPx()) {
+                        this@drawWithContent.drawContent()
+                    }
+                }
                 .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {

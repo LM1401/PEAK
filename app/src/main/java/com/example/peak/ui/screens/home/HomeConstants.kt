@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
  * 3. HERO_BOTTOM_ANCHOR = Starting Y position of the content viewport.
  */
 object HomeConstants {
+    val HOME_SIDEBAR_WIDTH = 80.dp
     val HOME_ROW_SLOT_HEIGHT = 320.dp
     val HOME_ROW_SPACING = 18.dp
     val HOME_VIEWPORT_PEEK = 60.dp

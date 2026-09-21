@@ -25,6 +25,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
@@ -39,10 +42,16 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 
+@OptIn(ExperimentalFoundationApi::class)
+private object NoScrollBringIntoViewSpec : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
+
 /**
  * Reusable Movie Row component for TV browsing screens.
  * Optimized for GPU-accelerated expansion and synchronous focus warming.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MovieRow(
     row: Row,
@@ -58,6 +67,7 @@ fun MovieRow(
     onRestorationComplete: () -> Unit = {},
     isNearViewport: Boolean = true,
     onVerticalMove: ((String, Int) -> Unit)? = null,
+    onHorizontalNavigate: (() -> Unit)? = null,
     prevRowId: String? = null,
     prevRowSize: Int = 0,
     nextRowId: String? = null,
@@ -140,6 +150,11 @@ fun MovieRow(
         focused?.let {
             focusManager?.saveFocus(row.id, it.movieId)
 
+            // WHOLE-CARD SCROLL ALIGNMENT: Scroll list to align to a deterministic card-aligned offset
+            if (index >= 0) {
+                listState.animateScrollToItem(index)
+            }
+
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
             // For focused items, we warm the BACKDROP as well.
             ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = true)
@@ -179,50 +194,53 @@ fun MovieRow(
         )
 
         // SINGLE LAZYROW: Prevents structural disposal during placeholder -> content transition.
-        LazyRow(
-            state = listState,
-            modifier = Modifier
-                .wrapContentHeight()
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(
-            start = HomeConstants.HOME_CONTENT_START_PADDING,
-            end = 120.dp,
-            top = 0.dp,
-            bottom = 4.dp
-        ),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (row.isPlaceholder) {
-                // SKELETON SLOT: Stable keys to maintain focus during loading state
-                items(10, key = { index -> "${row.id}_skeleton_slot_$index" }) {
-                    SkeletonMovieCard()
-                }
-            } else {
-                // CONTENT SLOT: Stable Data ID keys to ensure focus survives recomposition and metadata updates
-                itemsIndexed(
-                    items = row.movies,
-                    key = { _, movie -> "${row.id}_${movie.mediaType.name}_${movie.movieId}" }
-                ) { index, movie ->
-                    val focusRequester = getRequester(index, movie)
+        CompositionLocalProvider(LocalBringIntoViewSpec provides NoScrollBringIntoViewSpec) {
+            LazyRow(
+                state = listState,
+                modifier = Modifier
+                    .wrapContentHeight()
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    start = HomeConstants.HOME_CONTENT_START_PADDING,
+                    end = 120.dp,
+                    top = 0.dp,
+                    bottom = 4.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (row.isPlaceholder) {
+                    // SKELETON SLOT: Stable keys to maintain focus during loading state
+                    items(10, key = { index -> "${row.id}_skeleton_slot_$index" }) {
+                        SkeletonMovieCard()
+                    }
+                } else {
+                    // CONTENT SLOT: Stable Data ID keys to ensure focus survives recomposition and metadata updates
+                    itemsIndexed(
+                        items = row.movies,
+                        key = { _, movie -> "${row.id}_${movie.mediaType.name}_${movie.movieId}" }
+                    ) { index, movie ->
+                        val focusRequester = getRequester(index, movie)
 
-                    val prevFocusRequester = if (index > 0) getRequester(index - 1, row.movies[index - 1]) else null
+                        val prevFocusRequester = if (index > 0) getRequester(index - 1, row.movies[index - 1]) else null
 
-                    StableMovieCardWrapper(
-                        movie = movie,
-                        index = index,
-                        progress = progressMap?.get("${movie.mediaType.name}_${movie.movieId}"),
-                        focusRequester = focusRequester,
-                        prevFocusRequester = prevFocusRequester,
-                        onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId, it.mediaType) } },
-                        onMovieSelected = onMovieSelected,
-                        onMovieClick = onMovieClick,
-                        onVerticalMove = onVerticalMove,
-                        prevRowId = prevRowId,
-                        prevRowSize = prevRowSize,
-                        nextRowId = nextRowId,
-                        nextRowSize = nextRowSize,
-                        navFocusRequester = navFocusRequester
-                    )
+                        StableMovieCardWrapper(
+                            movie = movie,
+                            index = index,
+                            progress = progressMap?.get("${movie.mediaType.name}_${movie.movieId}"),
+                            focusRequester = focusRequester,
+                            prevFocusRequester = prevFocusRequester,
+                            onFocus = { m -> m?.let { onMovieFocused(row.id, it.movieId, it.mediaType) } },
+                            onMovieSelected = onMovieSelected,
+                            onMovieClick = onMovieClick,
+                            onVerticalMove = onVerticalMove,
+                            onHorizontalNavigate = onHorizontalNavigate,
+                            prevRowId = prevRowId,
+                            prevRowSize = prevRowSize,
+                            nextRowId = nextRowId,
+                            nextRowSize = nextRowSize,
+                            navFocusRequester = navFocusRequester
+                        )
+                    }
                 }
             }
         }
@@ -244,6 +262,7 @@ private fun StableMovieCardWrapper(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     onVerticalMove: ((String, Int) -> Unit)? = null,
+    onHorizontalNavigate: (() -> Unit)? = null,
     prevRowId: String? = null,
     prevRowSize: Int = 0,
     nextRowId: String? = null,
@@ -272,6 +291,10 @@ private fun StableMovieCardWrapper(
             .onKeyEvent {
                 if (it.type == KeyEventType.KeyDown) {
                     when (it.key) {
+                        Key.DirectionRight, Key.DirectionLeft -> {
+                            onHorizontalNavigate?.invoke()
+                            false
+                        }
                         Key.DirectionDown -> {
                             if (nextRowId != null && onVerticalMove != null) {
                                 onVerticalMove(nextRowId, index.coerceAtMost(nextRowSize - 1))

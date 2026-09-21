@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -76,6 +78,11 @@ fun HomeScreen(
         }
     }
 
+    val onHorizontalNavigate: () -> Unit = {
+        hasUserMovedFocus = true
+        viewModel.onUserNavigate()
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -141,6 +148,11 @@ fun HomeScreen(
                 .padding(top = HomeConstants.HOME_HERO_BOTTOM_ANCHOR)
                 .width(LocalConfiguration.current.screenWidthDp.dp)
                 .height(HomeConstants.HOME_VIEWPORT_HEIGHT)
+                .drawWithContent {
+                    clipRect(left = HomeConstants.HOME_SIDEBAR_WIDTH.toPx()) {
+                        this@drawWithContent.drawContent()
+                    }
+                }
                 .clipToBounds()
                 .focusRequester(contentFocusRequester)
                 .focusProperties {
@@ -181,6 +193,7 @@ fun HomeScreen(
                                 startupFocusTarget = null
                             },
                             onVerticalMove = onVerticalMove,
+                            onHorizontalNavigate = onHorizontalNavigate,
                             prevRowId = rows.getOrNull(index - 1)?.id,
                             prevRowSize = rows.getOrNull(index - 1)?.movies?.size ?: 0,
                             nextRowId = rows.getOrNull(index + 1)?.id,

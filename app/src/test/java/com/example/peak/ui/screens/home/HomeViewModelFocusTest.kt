@@ -252,4 +252,33 @@ class HomeViewModelFocusTest {
         assertEquals("trending", viewModel.focusState.value?.rowId)
         assertEquals("t1", viewModel.focusState.value?.movieId)
     }
+
+    @Test
+    fun test6_horizontalNavigationWithinRow_preservedOnDataUpdate() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val fakeContext = FakeContext()
+        val cwStorage = ContinueWatchingStorage(fakeContext)
+        val cwRepo = ContinueWatchingRepository(cwStorage)
+
+        val viewModel = HomeViewModel(fakeRepo, cwRepo)
+        val trendingList = listOf(createMovie("t1", "Trending 1"), createMovie("t2", "Trending 2"), createMovie("t3", "Trending 3"))
+        fakeRepo.trendingDeferred.complete(Result.success(trendingList))
+        fakeRepo.popularMoviesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("trending", viewModel.focusState.value?.rowId)
+        assertEquals("t1", viewModel.focusState.value?.movieId)
+
+        // User navigates horizontally to t3 (triggering onUserNavigate() from D-pad key event)
+        viewModel.onUserNavigate()
+        viewModel.onMovieFocused("trending", "t3", MediaType.MOVIE)
+        testScheduler.advanceUntilIdle()
+
+        // Verify focus stays on t3
+        assertEquals("trending", viewModel.focusState.value?.rowId)
+        assertEquals("t3", viewModel.focusState.value?.movieId)
+    }
 }

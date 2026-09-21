@@ -109,7 +109,7 @@ class HomeViewModel(
                             }
                         }
                     }
-                } else if (!hasUserInteracted && (_focusState.value?.rowId != potentialFocus.rowId || _focusState.value?.movieId != potentialFocus.movieId)) {
+                } else if (!hasUserInteracted && _focusState.value?.rowId != potentialFocus.rowId) {
                     // Follow Row 0 if it changes (e.g. Continue Watching arrives) before user interaction
                     _focusState.value = potentialFocus
                     if (!firstMovie.isEnriched) {
