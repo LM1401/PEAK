@@ -31,6 +31,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.animateScrollBy
 import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
 private object NoScrollBringIntoViewSpec : BringIntoViewSpec {
@@ -162,7 +164,28 @@ fun MovieRow(
 
             // WHOLE-CARD SCROLL ALIGNMENT: Scroll list to align to a deterministic card-aligned offset
             if (index >= 0) {
-                listState.animateScrollToItem(index, 0)
+                val unfocusedWidthPx = with(density) { 145.dp.toPx() }
+                val layoutInfo = listState.layoutInfo
+                val visibleItems = layoutInfo.visibleItemsInfo
+                val targetItem = visibleItems.find { item -> item.index == index }
+
+                if (targetItem != null) {
+                    var extraWidthPx = 0f
+                    for (item in visibleItems) {
+                        if (item.index < index) {
+                            val extra = item.size - unfocusedWidthPx
+                            if (extra > 0f) {
+                                extraWidthPx += extra
+                            }
+                        }
+                    }
+                    val deltaPx = targetItem.offset - extraWidthPx
+                    if (abs(deltaPx) > 0.5f) {
+                        listState.animateScrollBy(deltaPx)
+                    }
+                } else {
+                    listState.scrollToItem(index, 0)
+                }
             }
 
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
