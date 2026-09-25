@@ -145,7 +145,8 @@ fun MovieCard(
 fun DetailMovieCard(
     movie: Movie, 
     onMovieFocused: (Movie?) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val imageRequest = remember(movie.movieId, movie.mediaType) {
@@ -161,16 +162,15 @@ fun DetailMovieCard(
 
     Card(
         onClick = { onMovieClick(movie) },
-        modifier = Modifier
-            .width(135.dp)
-            .aspectRatio(1.8f / 3f)
-            .padding(6.dp)
+        modifier = modifier
+            .width(120.dp)
+            .height(168.dp)
             .onFocusChanged { state ->
                 if (state.isFocused) {
                     onMovieFocused(movie)
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.03f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(

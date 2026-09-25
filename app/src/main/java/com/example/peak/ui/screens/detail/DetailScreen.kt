@@ -1,20 +1,21 @@
 package com.example.peak.ui.screens.detail
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -25,21 +26,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.peak.data.repository.ContinueWatchingRepository
+import com.example.peak.domain.model.CastMember
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import com.example.peak.domain.model.formatBrandingText
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
-import com.example.peak.data.repository.ContinueWatchingRepository
+import com.example.peak.ui.components.sidebar.Sidebar
+import com.example.peak.ui.components.sidebar.SidebarItemType
 
 /**
- * A Movie Detail Screen for Android TV.
- * Refactored to Option A: movieId is the single source of truth.
+ * PEAK Detail Screen V2 — Precision Forensic Polish.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -49,9 +54,10 @@ fun DetailScreen(
     movieRepository: MovieRepository,
     continueWatchingRepository: ContinueWatchingRepository,
     onPlayClick: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    onSidebarItemSelected: (SidebarItemType) -> Unit = {}
 ) {
-    val viewModel: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+    val viewModel: DetailViewModel = viewModel(
         factory = DetailViewModelFactory(movieRepository, continueWatchingRepository)
     )
     
@@ -66,7 +72,7 @@ fun DetailScreen(
         viewModel.loadMedia(mediaId, mediaType)
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF040B16))) {
         when {
             isLoading && movie == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -85,7 +91,8 @@ fun DetailScreen(
                     resumePosition = resumePosition,
                     totalDuration = totalDuration,
                     onPlayClick = onPlayClick,
-                    onMovieClick = onMovieClick
+                    onMovieClick = onMovieClick,
+                    onSidebarItemSelected = onSidebarItemSelected
                 )
             }
         }
@@ -100,24 +107,16 @@ fun DetailContent(
     resumePosition: Long = 0L,
     totalDuration: Long = 0L,
     onPlayClick: (Movie) -> Unit,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    onSidebarItemSelected: (SidebarItemType) -> Unit = {}
 ) {
     val context = LocalContext.current
-    var focusedMovie by remember { mutableStateOf<Movie?>(null) }
-    var backdropMovie by remember(movie) { mutableStateOf(movie) }
-
-    LaunchedEffect(focusedMovie) {
-        focusedMovie?.let {
-            kotlinx.coroutines.delay(120)
-            backdropMovie = it
-        }
-    }
-
-    val displayMovie = backdropMovie
 
     val playButtonFocusRequester = remember { FocusRequester() }
-    val addToListFocusRequester = remember { FocusRequester() }
-    val rowFocusRequester = remember { FocusRequester() }
+    val myListFocusRequester = remember { FocusRequester() }
+    val trailerFocusRequester = remember { FocusRequester() }
+    val recommendationRowFocusRequester = remember { FocusRequester() }
+    val sidebarFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         playButtonFocusRequester.requestFocus()
@@ -126,14 +125,14 @@ fun DetailContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF040B16))
     ) {
-        // 1. BACKDROP (Fixed behind everything)
+        // 1. FULL-BLEED BACKDROP (High detail alignment)
         AsyncImage(
-            model = remember(displayMovie.movieId, displayMovie.mediaType) {
-                val cacheKey = "${displayMovie.mediaType.name}_${displayMovie.movieId}-bg"
+            model = remember(movie.movieId, movie.mediaType) {
+                val cacheKey = "${movie.mediaType.name}_${movie.movieId}-bg"
                 ImageRequest.Builder(context)
-                    .data(displayMovie.backdropUrl)
+                    .data(movie.backdropUrl)
                     .memoryCacheKey(cacheKey)
                     .diskCacheKey(cacheKey)
                     .crossfade(false)
@@ -142,21 +141,24 @@ fun DetailContent(
             },
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter,
             modifier = Modifier.fillMaxSize()
         )
 
-        // Cinematic Gradients for readability
+        // 2. CINEMATIC GRADIENTS (Precise left-side darkening + right-side artwork visibility)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black.copy(alpha = 0.4f),
+                            Color(0xFF040B16).copy(alpha = 0.96f),
+                            Color(0xFF040B16).copy(alpha = 0.70f),
+                            Color(0xFF040B16).copy(alpha = 0.20f),
                             Color.Transparent
                         ),
-                        endX = 1000f
+                        startX = 0f,
+                        endX = 820f
                     )
                 )
         )
@@ -166,175 +168,405 @@ fun DetailContent(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            Color.Black.copy(alpha = 0.30f),
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.7f),
-                            Color.Black
+                            Color(0xFF040B16).copy(alpha = 0.85f),
+                            Color(0xFF040B16)
                         )
                     )
                 )
         )
 
-        // MAIN CONTENT LAYER
-        Column(modifier = Modifier.fillMaxSize()) {
-            
-            // 2. HERO SECTION (LOCKED / NON-SCROLLING - Top 55%)
+        // 3. MAIN CONTENT LAYER (Anchored at 100dp start, strictly balanced geometry for 540dp canvas)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 100.dp, top = 20.dp, end = 32.dp, bottom = 12.dp)
+        ) {
+            // PRODUCTION BRANDING
+            val rawBrandText = movie.brand?.formatPresentationText()
+                ?: if (movie.productionCompany.isNotBlank()) formatBrandingText(movie.productionCompany) else ""
+            if (rawBrandText.isNotBlank()) {
+                Text(
+                    text = rawBrandText.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.8.sp,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+
+            // LARGE CINEMATIC TITLE OR LOGO ARTWORK
+            if (!movie.titleLogoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = remember(movie.movieId, movie.titleLogoUrl) {
+                        ImageRequest.Builder(context)
+                            .data(movie.titleLogoUrl)
+                            .crossfade(false)
+                            .allowHardware(true)
+                            .build()
+                    },
+                    contentDescription = movie.name,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
+                    modifier = Modifier
+                        .heightIn(max = 60.dp)
+                        .widthIn(max = 440.dp)
+                )
+            } else {
+                Text(
+                    text = movie.name.uppercase(),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontSize = 46.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.2.sp,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 580.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // GENRES
+            if (movie.genres.isNotBlank()) {
+                val genreDisplay = movie.genres.split(", ").joinToString("  •  ")
+                Text(
+                    text = genreDisplay,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // METADATA ROW
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val matchPercent = (movie.rating.toDoubleOrNull()?.times(10))?.toInt()?.coerceIn(50, 99) ?: 92
+                Text(
+                    text = "$matchPercent% Match",
+                    color = Color(0xFF22C55E), // PEAK Green accent
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Text(text = "|", color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
+
+                if (movie.year.isNotBlank()) {
+                    Text(
+                        text = movie.year,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(text = "|", color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
+                }
+
+                if (movie.ageRating.isNotBlank()) {
+                    MetadataBadge(text = movie.ageRating)
+                    Text(text = "|", color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
+                }
+
+                if (movie.duration.isNotBlank()) {
+                    Text(
+                        text = movie.duration,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // SYNOPSIS
+            if (movie.description.isNotBlank()) {
+                Text(
+                    text = movie.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 540.dp)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // CAST + DIRECTOR / CREATOR ROW
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.widthIn(max = 560.dp)
+            ) {
+                val displayCast = movie.castMembers.take(3)
+                if (displayCast.isNotEmpty()) {
+                    displayCast.forEach { actor ->
+                        CastAvatarItem(castMember = actor)
+                    }
+                } else if (movie.cast.isNotBlank()) {
+                    movie.cast.split(", ").take(3).forEach { actorName ->
+                        CastAvatarItem(castMember = CastMember(name = actorName))
+                    }
+                }
+
+                if (movie.director.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(24.dp)
+                            .background(Color.White.copy(alpha = 0.2f))
+                    )
+
+                    Column {
+                        Text(
+                            text = if (movie.mediaType == MediaType.TV) "Creator" else "Director",
+                            fontSize = 10.sp,
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontWeight = FontWeight.Normal
+                        )
+                        Text(
+                            text = movie.director,
+                            fontSize = 12.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // HORIZONTAL ACTION BUTTONS
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val playText = if (resumePosition > 0) {
+                    val remainingMs = totalDuration - resumePosition
+                    if (remainingMs > 60000) {
+                        val remainingMin = remainingMs / 60000
+                        "Resume • ${remainingMin}m left"
+                    } else {
+                        "Resume"
+                    }
+                } else {
+                    "Play"
+                }
+
+                DetailActionButton(
+                    icon = Icons.Default.PlayArrow,
+                    text = playText,
+                    isPrimary = true,
+                    focusRequester = playButtonFocusRequester,
+                    modifier = Modifier.focusProperties {
+                        left = sidebarFocusRequester
+                        right = myListFocusRequester
+                        down = recommendationRowFocusRequester
+                    },
+                    onClick = { onPlayClick(movie) }
+                )
+
+                DetailActionButton(
+                    icon = Icons.Default.Add,
+                    text = "My List",
+                    isPrimary = false,
+                    focusRequester = myListFocusRequester,
+                    modifier = Modifier.focusProperties {
+                        left = playButtonFocusRequester
+                        right = trailerFocusRequester
+                        down = recommendationRowFocusRequester
+                    },
+                    onClick = { /* Add to My List */ }
+                )
+
+                DetailActionButton(
+                    icon = Icons.AutoMirrored.Filled.List,
+                    text = "Trailer",
+                    isPrimary = false,
+                    focusRequester = trailerFocusRequester,
+                    modifier = Modifier.focusProperties {
+                        left = myListFocusRequester
+                        down = recommendationRowFocusRequester
+                    },
+                    onClick = { /* Trailer action */ }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // MORE LIKE THIS SECTION HEADER
+            Text(
+                text = "More Like This",
+                style = MaterialTheme.typography.titleMedium,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // RECOMMENDATION CAROUSEL (115dp x 165dp poster cards with horizontal right chevron)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(
+                    modifier = Modifier
+                        .focusRequester(recommendationRowFocusRequester)
+                        .focusProperties {
+                            up = playButtonFocusRequester
+                            left = sidebarFocusRequester
+                        },
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(end = 48.dp)
+                ) {
+                    items(similarMovies, key = { "${it.mediaType.name}_${it.movieId}" }) { simMovie ->
+                        DetailMovieCard(
+                            movie = simMovie,
+                            onMovieFocused = { /* preserve hero background */ },
+                            onMovieClick = { onMovieClick(it) }
+                        )
+                    }
+                }
+
+                // Subtle right scroll indicator chevron
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "More recommendations",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        // 4. PEAK SIDEBAR OVERLAY
+        Sidebar(
+            selectedItem = SidebarItemType.HOME,
+            onItemSelected = onSidebarItemSelected,
+            onMoveRight = { playButtonFocusRequester.requestFocus() },
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .focusRequester(sidebarFocusRequester)
+                .focusProperties {
+                    right = playButtonFocusRequester
+                }
+        )
+    }
+}
+
+@Composable
+fun CastAvatarItem(castMember: CastMember) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (!castMember.profileUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = castMember.profileUrl,
+                contentDescription = castMember.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+            )
+        } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.55f)
-                    .padding(start = 48.dp, top = 24.dp, end = 48.dp, bottom = 8.dp)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .widthIn(max = 800.dp)
-                ) {
-                    // Title
-                    Text(
-                        text = displayMovie.name,
-                        color = Color.White,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Metadata Row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val matchPercent = (displayMovie.rating.toDoubleOrNull()?.times(10))?.toInt() ?: 92
-                        Text(text = "$matchPercent% Match", color = Color(0xFF46D369), fontWeight = FontWeight.Bold)
-                        Text(text = displayMovie.year, color = Color.White)
-                        MetadataBadge(text = displayMovie.ageRating)
-                        Text(text = displayMovie.duration, color = Color.White)
-                        MetadataBadge(text = "HD 5.1")
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Vertical Buttons - PRIORITY (Moved above description)
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier
-                            .width(300.dp)
-                            .heightIn(min = 140.dp)
-                    ) {
-                        val playText = if (resumePosition > 0) {
-                            val remainingMs = totalDuration - resumePosition
-                            if (remainingMs > 60000) {
-                                val remainingMin = remainingMs / 60000
-                                "Resume • ${remainingMin}m left"
-                            } else {
-                                "Resume"
-                            }
-                        } else {
-                            "Play"
-                        }
-
-                        ActionButton(
-                            icon = Icons.Default.PlayArrow,
-                            text = playText,
-                            isPrimary = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(playButtonFocusRequester),
-                            onClick = { onPlayClick(displayMovie) }
-                        )
-                        ActionButton(
-                            icon = Icons.AutoMirrored.Filled.List,
-                            text = "Audio & Subtitles",
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { /* Audio & Subtitles logic */ }
-                        )
-                        ActionButton(
-                            icon = Icons.Default.Add,
-                            text = "Add to My List",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(addToListFocusRequester)
-                                .focusProperties {
-                                    down = rowFocusRequester
-                                },
-                            onClick = { /* My List logic */ }
-                        )
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // Description (Secondary - Moved below buttons)
-                    Text(
-                        text = displayMovie.description,
-                        color = Color.White.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 14.sp
-                    )
-                }
+                Text(
+                    text = castMember.name.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
+        }
 
-            // 3. SCROLLABLE SECTION (Bottom 45%)
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.45f)
-                    .padding(horizontal = 48.dp),
-                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "More Like This",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+        Text(
+            text = castMember.name,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
-                    Spacer(Modifier.height(12.dp))
-                }
+@Composable
+fun MetadataBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(3.dp))
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
 
-                item {
-                    LazyRow(
-                        modifier = Modifier
-                            .focusRequester(rowFocusRequester)
-                            .focusProperties {
-                                up = addToListFocusRequester
-                            },
-                        contentPadding = PaddingValues(end = 80.dp, bottom = 120.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(similarMovies, key = { "${it.mediaType.name}_${it.movieId}" }) { simMovie ->
-                            DetailMovieCard(
-                                movie = simMovie,
-                                onMovieFocused = { movie ->
-                                    if (movie == null) {
-                                        // Handle focus loss if needed
-                                    } else if (focusedMovie?.movieId != movie.movieId || focusedMovie?.mediaType != movie.mediaType) {
-                                        focusedMovie = movie
-                                    }
-                                },
-                                onMovieClick = { onMovieClick(it) }
-                            )
-                        }
-                    }
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Additional info
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        DetailInfoText(label = "Cast", value = movie.cast)
-                        DetailInfoText(label = "Director", value = movie.director)
-                        DetailInfoText(label = "Genres", value = movie.genres)
-                    }
-
-                    Spacer(modifier = Modifier.height(48.dp))
-                }
-            }
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun DetailActionButton(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() },
+    isPrimary: Boolean = false
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .height(38.dp)
+            .focusRequester(focusRequester),
+        colors = ButtonDefaults.colors(
+            containerColor = if (isPrimary) Color.White else Color.White.copy(alpha = 0.12f),
+            contentColor = if (isPrimary) Color.Black else Color.White,
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black
+        ),
+        scale = ButtonDefaults.scale(focusedScale = 1.05f),
+        shape = ButtonDefaults.shape(RoundedCornerShape(19.dp)),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 5.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -344,17 +576,23 @@ fun DetailContent(
 fun DetailScreenPreview() {
     val mockMovie = Movie(
         movieId = "1",
-        name = "The Gray Man",
-        description = "When the CIA's most skilled mercenary—whose true identity is known to no one—accidentally uncovers dark agency secrets, a psychopathic former colleague puts a bounty on his head, setting off a global manhunt by international assassins.",
+        name = "RESIDENT EVIL",
+        description = "A medical courier finds himself fighting for survival as a night of chaos engulfs Raccoon City.",
         imageUrl = "",
         backdropUrl = "",
-        rating = "9.2",
-        year = "2022",
-        ageRating = "13+",
-        duration = "2h 9m",
-        cast = "Ryan Gosling, Chris Evans, Ana de Armas",
-        director = "Anthony Russo, Joe Russo",
-        genres = "Action, Thriller"
+        rating = "7.3",
+        year = "2026",
+        ageRating = "R",
+        duration = "1h 35m",
+        cast = "Austin Abrams, Paul Walter Hauser, Kali Reis",
+        castMembers = listOf(
+            CastMember("Austin Abrams"),
+            CastMember("Paul Walter Hauser"),
+            CastMember("Kali Reis")
+        ),
+        director = "Johannes Roberts",
+        genres = "Horror, Thriller, Survival",
+        productionCompany = "Sony Pictures"
     )
     MaterialTheme {
         DetailContent(
@@ -362,70 +600,6 @@ fun DetailScreenPreview() {
             similarMovies = listOf(mockMovie, mockMovie, mockMovie),
             onPlayClick = {},
             onMovieClick = {}
-        )
-    }
-}
-
-@Composable
-fun MetadataBadge(text: String) {
-    Box(
-        modifier = Modifier
-            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
-            .padding(horizontal = 4.dp, vertical = 1.dp)
-    ) {
-        Text(text = text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun DetailInfoText(label: String, value: String) {
-    Row {
-        Text(
-            text = "$label: ",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.LightGray
-        )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-fun ActionButton(
-    icon: ImageVector,
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isPrimary: Boolean = false
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(44.dp),
-        colors = ButtonDefaults.colors(
-            containerColor = if (isPrimary) Color.White else Color.Transparent,
-            contentColor = if (isPrimary) Color.Black else Color.White,
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color.Black
-        ),
-        scale = ButtonDefaults.scale(focusedScale = 1.05f),
-        shape = ButtonDefaults.shape(RoundedCornerShape(4.dp)),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = text,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
         )
     }
 }

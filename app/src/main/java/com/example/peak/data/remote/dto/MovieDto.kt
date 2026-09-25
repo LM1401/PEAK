@@ -2,6 +2,7 @@ package com.example.peak.data.remote.dto
 
 import android.util.Log
 import com.example.peak.data.remote.recognition.ProductionCompanyRecognition
+import com.example.peak.domain.model.CastMember
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.google.gson.annotations.SerializedName
@@ -33,7 +34,18 @@ data class TmdbMovie(
     val networks: List<TmdbCompany>?,
     @SerializedName("release_dates") val releaseDates: TmdbReleaseDates?,
     @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?,
-    @SerializedName("watch/providers") val watchProviders: TmdbWatchProviders?
+    @SerializedName("watch/providers") val watchProviders: TmdbWatchProviders?,
+    val images: TmdbImages? = null
+)
+
+data class TmdbImages(
+    val logos: List<TmdbLogo>?
+)
+
+data class TmdbLogo(
+    @SerializedName("file_path") val filePath: String?,
+    @SerializedName("iso_639_1") val iso6391: String?,
+    @SerializedName("aspect_ratio") val aspectRatio: Double?
 )
 
 data class TmdbGenre(
@@ -54,7 +66,8 @@ data class TmdbCredits(
 )
 
 data class TmdbCast(
-    val name: String
+    val name: String,
+    @SerializedName("profile_path") val profilePath: String? = null
 )
 
 data class TmdbCrew(
@@ -123,6 +136,7 @@ fun TmdbMovie.toMovie(mediaType: MediaType = MediaType.MOVIE): Movie {
         description = overview ?: "Experience the latest trending story. Now streaming on PEAK.",
         rating = voteAverage?.let { String.format("%.1f", it) } ?: "",
         year = releaseYear,
+        videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
         isEnriched = false
     )
 }
@@ -137,6 +151,12 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     
     val genreString = genres?.joinToString(", ") { it.name } ?: ""
     val castString = credits?.cast?.take(3)?.joinToString(", ") { it.name } ?: ""
+    val castList = credits?.cast?.take(6)?.map { castItem ->
+        CastMember(
+            name = castItem.name,
+            profileUrl = castItem.profilePath?.let { "https://image.tmdb.org/t/p/w185$it" }
+        )
+    } ?: emptyList()
     
     val directorString = when (mediaType) {
         MediaType.MOVIE -> credits?.crew?.find { it.job == "Director" }?.name ?: ""
@@ -176,14 +196,24 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     )
     Log.e("PEAK_DIAGNOSTIC", "Resolved Brand for $id: '${brandIdentity?.displayName ?: "None"}'")
 
+    val bestLogoPath = images?.logos?.let { logos ->
+        logos.find { it.iso6391 == "en" && !it.filePath.isNullOrBlank() }?.filePath
+            ?: logos.find { it.iso6391 == null && !it.filePath.isNullOrBlank() }?.filePath
+            ?: logos.firstOrNull { !it.filePath.isNullOrBlank() }?.filePath
+    }
+    val titleLogoUrl = bestLogoPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+
     return summary.copy(
         genres = genreString,
         cast = castString,
+        castMembers = castList,
         director = directorString,
         duration = durationString,
         ageRating = certification,
         productionCompany = brandIdentity?.displayName ?: "",
         brand = brandIdentity,
+        titleLogoUrl = titleLogoUrl,
+        videoUrl = summary.videoUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
         isEnriched = true
     )
 }

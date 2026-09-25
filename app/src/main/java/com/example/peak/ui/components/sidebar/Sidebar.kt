@@ -78,17 +78,30 @@ fun Sidebar(
                 // PEAK LOGO
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 12.dp)
                         .height(40.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    Text(
-                        text = "PEAK",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(16.dp)
+                                .background(Color(0xFF00D2FF))
+                        )
+                        Text(
+                            text = "PEAK",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.5.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))

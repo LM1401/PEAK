@@ -9,6 +9,14 @@ enum class MediaType {
 }
 
 /**
+ * Domain model for a cast member with optional avatar image URL.
+ */
+data class CastMember(
+    val name: String,
+    val profileUrl: String? = null
+)
+
+/**
  * Domain model for a Movie or TV Show. 
  * This is what the UI will use to display data.
  */
@@ -24,10 +32,12 @@ data class Movie(
     val year: String = "",
     val duration: String = "",
     val cast: String = "",
+    val castMembers: List<CastMember> = emptyList(),
     val director: String = "",
     val genres: String = "",
     val productionCompany: String = "",
     val brand: BrandIdentity? = null,
+    val titleLogoUrl: String? = null,
     val videoUrl: String? = null,
     val subTitle: String? = null, // e.g. "S3 E4 • Old Friends"
     val info: String? = null,     // e.g. "20m left"

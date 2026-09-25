@@ -156,7 +156,8 @@ fun PEAKApp() {
                     navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}") {
                         popUpTo("home") { inclusive = false }
                     }
-                }
+                },
+                onSidebarItemSelected = onSidebarItemSelected
             )
         }
 
