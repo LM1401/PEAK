@@ -30,6 +30,16 @@ fun HomeBaseLayout(
     showLoadingOverlay: Boolean = false,
     navFocusRequester: FocusRequester = remember { FocusRequester() },
     contentFocusRequester: FocusRequester = remember { FocusRequester() },
+    heroHud: (@Composable BoxScope.() -> Unit)? = {
+        HeroSection(
+            focusedMovieProvider = focusedMovieProvider,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 16.dp)
+                .zIndex(3f)
+                .focusProperties { canFocus = false }
+        )
+    },
     rowsContent: @Composable (Modifier) -> Unit
 ) {
     Box(
@@ -56,14 +66,7 @@ fun HomeBaseLayout(
         }
 
         // LAYER 3 — HERO HUD (zIndex 3)
-        HeroSection(
-            focusedMovieProvider = focusedMovieProvider,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = HomeConstants.HOME_CONTENT_START_PADDING, top = 16.dp) // Premium spacing
-                .zIndex(3f)
-                .focusProperties { canFocus = false }
-        )
+        heroHud?.invoke(this)
 
         // LAYER 4 — SIDEBAR NAVIGATION HUD (zIndex 4)
         // Overlay Sidebar: Does not push content, transparent/gradient background.
