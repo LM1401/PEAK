@@ -9,15 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -108,59 +104,15 @@ fun HeroSection(
                             Spacer(modifier = Modifier.height(4.dp))
                         }
 
-                        // 2. TITLE OR LOGO ARTWORK (Visually stable container)
-                        val context = LocalContext.current
-                        var isLogoError by remember(currentMovie.movieId, currentMovie.titleLogoUrl) {
-                            mutableStateOf(false)
-                        }
-
-                        val hasLogoUrl = !currentMovie.titleLogoUrl.isNullOrBlank()
-                        val isPendingEnrichment = !currentMovie.isEnriched && currentMovie.titleLogoUrl.isNullOrBlank()
-
-                        Box(
-                            modifier = Modifier
-                                .heightIn(min = 52.dp, max = 70.dp)
-                                .widthIn(max = 520.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            when {
-                                hasLogoUrl && !isLogoError -> {
-                                    AsyncImage(
-                                        model = remember(currentMovie.movieId, currentMovie.titleLogoUrl) {
-                                            ImageRequest.Builder(context)
-                                                .data(currentMovie.titleLogoUrl)
-                                                .crossfade(false)
-                                                .allowHardware(true)
-                                                .build()
-                                        },
-                                        contentDescription = currentMovie.name,
-                                        contentScale = ContentScale.Fit,
-                                        alignment = Alignment.CenterStart,
-                                        onError = { isLogoError = true },
-                                        modifier = Modifier
-                                            .heightIn(max = 70.dp)
-                                            .widthIn(max = 520.dp)
-                                    )
-                                }
-                                isPendingEnrichment && !isLogoError -> {
-                                    // Stable placeholder space while lazy enrichment completes in the background.
-                                    // Prevents flashing plain-text titles prior to logo availability.
-                                }
-                                else -> {
-                                    // Render text fallback only when enrichment confirms no logo exists,
-                                    // or if the logo image request fails.
-                                    Text(
-                                        text = currentMovie.name.uppercase(),
-                                        style = MaterialTheme.typography.displayMedium,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Black,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        lineHeight = 52.sp
-                                    )
-                                }
-                            }
-                        }
+                        // 2. TITLE OR LOGO ARTWORK (Unified Cinematic Presentation)
+                        CinematicTitleView(
+                            title = currentMovie.name,
+                            titleLogoUrl = currentMovie.titleLogoUrl,
+                            isEnriched = currentMovie.isEnriched,
+                            maxHeight = 70.dp,
+                            maxWidth = 520.dp,
+                            alignment = Alignment.CenterStart
+                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
 

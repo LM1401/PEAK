@@ -45,7 +45,9 @@ data class TmdbImages(
 data class TmdbLogo(
     @SerializedName("file_path") val filePath: String?,
     @SerializedName("iso_639_1") val iso6391: String?,
-    @SerializedName("aspect_ratio") val aspectRatio: Double?
+    @SerializedName("aspect_ratio") val aspectRatio: Double?,
+    val width: Int? = null,
+    val height: Int? = null
 )
 
 data class TmdbGenre(
@@ -196,12 +198,7 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     )
     Log.e("PEAK_DIAGNOSTIC", "Resolved Brand for $id: '${brandIdentity?.displayName ?: "None"}'")
 
-    val bestLogoPath = images?.logos?.let { logos ->
-        logos.find { it.iso6391 == "en" && !it.filePath.isNullOrBlank() }?.filePath
-            ?: logos.find { it.iso6391 == null && !it.filePath.isNullOrBlank() }?.filePath
-            ?: logos.firstOrNull { !it.filePath.isNullOrBlank() }?.filePath
-    }
-    val titleLogoUrl = bestLogoPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+    val titleLogoUrl = selectBestTitleLogo(images?.logos)
 
     return summary.copy(
         genres = genreString,
@@ -216,4 +213,64 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         videoUrl = summary.videoUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
         isEnriched = true
     )
+}
+
+/**
+ * Deterministically selects the highest-quality, best-proportioned title logo URL from available TMDB logos.
+ * Returns null if no available logo meets the suitability criteria, triggering the PEAK Cinematic Text Fallback.
+ */
+fun selectBestTitleLogo(logos: List<TmdbLogo>?): String? {
+    if (logos.isNullOrEmpty()) return null
+
+    data class ScoredLogo(val logo: TmdbLogo, val score: Int)
+
+    val scoredLogos = logos.mapNotNull { logo ->
+        val filePath = logo.filePath
+        if (filePath.isNullOrBlank()) return@mapNotNull null
+
+        val lang = logo.iso6391
+        val ar = logo.aspectRatio ?: 0.0
+        val width = logo.width ?: 0
+        val height = logo.height ?: 0
+
+        // Disqualify extreme aspect ratios (square/tall < 1.4 or ultra-wide banner > 5.5)
+        if (ar > 0.0 && (ar < 1.4 || ar > 5.5)) return@mapNotNull null
+
+        // Disqualify tiny logos if resolution data is present
+        if (width in 1..199 || height in 1..29) return@mapNotNull null
+
+        var score = 0
+
+        // 1. Language suitability
+        when {
+            lang.equals("en", ignoreCase = true) -> score += 100
+            lang.isNullOrBlank() -> score += 50
+            else -> score -= 150 // Heavily penalize non-English logos
+        }
+
+        // 2. Aspect ratio suitability (Horizontal cinematic title logos)
+        when {
+            ar in 2.2..4.2 -> score += 80
+            ar in 1.8..2.2 -> score += 50
+            ar in 4.2..5.0 -> score += 40
+            ar > 0.0 -> score += 10
+            else -> score += 20 // Unknown aspect ratio
+        }
+
+        // 3. Resolution bonus
+        when {
+            width >= 500 -> score += 30
+            width >= 300 -> score += 15
+        }
+
+        ScoredLogo(logo, score)
+    }
+
+    val winner = scoredLogos.maxByOrNull { it.score }
+    // Minimum score threshold for a suitable logo is 80 (e.g. English logo with acceptable aspect ratio)
+    return if (winner != null && winner.score >= 80) {
+        "https://image.tmdb.org/t/p/w500${winner.logo.filePath}"
+    } else {
+        null
+    }
 }

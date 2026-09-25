@@ -38,6 +38,7 @@ import com.example.peak.domain.model.CastMember
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.model.formatBrandingText
+import com.example.peak.ui.components.CinematicTitleView
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
 import com.example.peak.ui.components.sidebar.Sidebar
@@ -198,36 +199,15 @@ fun DetailContent(
                 Spacer(modifier = Modifier.height(2.dp))
             }
 
-            // LARGE CINEMATIC TITLE OR LOGO ARTWORK
-            if (!movie.titleLogoUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = remember(movie.movieId, movie.titleLogoUrl) {
-                        ImageRequest.Builder(context)
-                            .data(movie.titleLogoUrl)
-                            .crossfade(false)
-                            .allowHardware(true)
-                            .build()
-                    },
-                    contentDescription = movie.name,
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.CenterStart,
-                    modifier = Modifier
-                        .heightIn(max = 60.dp)
-                        .widthIn(max = 440.dp)
-                )
-            } else {
-                Text(
-                    text = movie.name.uppercase(),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontSize = 46.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.2.sp,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 580.dp)
-                )
-            }
+            // LARGE CINEMATIC TITLE OR LOGO ARTWORK (Unified Presentation)
+            CinematicTitleView(
+                title = movie.name,
+                titleLogoUrl = movie.titleLogoUrl,
+                isEnriched = movie.isEnriched,
+                maxHeight = 60.dp,
+                maxWidth = 520.dp,
+                alignment = Alignment.CenterStart
+            )
 
             Spacer(modifier = Modifier.height(4.dp))
 
