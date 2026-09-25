@@ -34,7 +34,7 @@ object BrandCatalog {
             whitelistedCompanyIds = setOf(34),
             namePatterns = listOf(Regex("^sony$"), Regex("sony pictures")),
             presentationName = "Sony Pictures",
-            presentationStyle = BrandPresentationStyle.PRESENTS
+            presentationStyle = BrandPresentationStyle.PRODUCTION
         ),
         BrandDefinition(
             key = "columbia",

@@ -193,7 +193,7 @@ fun DetailContent(
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.75f),
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.8.sp,
+                    letterSpacing = 2.sp,
                     fontSize = 11.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
