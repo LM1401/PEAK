@@ -181,8 +181,6 @@ fun MoviesScreen(
     }
 
     // DISCRETE SECTION-PAGED CINEMATIC CAMERA ALGORITHM
-    val cinematicTargetTopPx = with(density) { 140.dp.toPx() }
-
     LaunchedEffect(currentFocusSection, sectionYPositions.toMap(), viewportHeightPx, columnHeightPx) {
         val targetSection = currentFocusSection ?: "movies_hero"
 
@@ -192,6 +190,17 @@ fun MoviesScreen(
             val measuredY = sectionYPositions[targetSection]
 
             if (measuredY != null && viewportHeightPx > 0f) {
+                // Phase 7: Dynamic mathematical camera anchors.
+                // 140.dp preserves parallax for Hero when Collections is focused.
+                // 28.dp exactly offsets the 28.dp inter-row spacers, completely hiding
+                // the previous row and perfectly framing the active row + metadata + next row.
+                val anchorDp = when (targetSection) {
+                    "movies_collections" -> 140.dp
+                    else -> 28.dp
+                }
+                
+                val cinematicTargetTopPx = with(density) { anchorDp.toPx() }
+                
                 // Section-paged anchoring: Target is computed directly from measured Y, bypassing hysteresis
                 val desiredCameraY = -(measuredY - cinematicTargetTopPx)
 
@@ -421,7 +430,7 @@ fun MoviesScreen(
                     EmptyMoviesPlaceholder()
                 }
 
-                Spacer(modifier = Modifier.height(600.dp))
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
     }
