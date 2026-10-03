@@ -14,6 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
@@ -38,6 +43,8 @@ fun MovieLandscapeRow(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
+    isFocusedRow: Boolean = false,
+    activeMovie: Movie? = null,
     showChevron: Boolean = true,
     navFocusRequester: FocusRequester? = null,
     getRequester: ((String, Int) -> FocusRequester)? = null,
@@ -125,6 +132,18 @@ fun MovieLandscapeRow(
                     }
                 )
             }
+        }
+
+        // Focused Movie Metadata Box (Phase 6 Target Design)
+        AnimatedVisibility(
+            visible = isFocusedRow,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+        ) {
+            FocusedMovieMetadata(
+                movie = activeMovie,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

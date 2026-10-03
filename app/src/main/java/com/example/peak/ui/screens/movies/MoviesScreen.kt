@@ -70,6 +70,8 @@ fun MoviesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusStateFlow = viewModel.focusState
+    val currentFocusState by focusStateFlow.collectAsState()
+    val focusedMovie = currentFocusState?.movie
     val rows by viewModel.rows.collectAsState()
     val loading by viewModel.loading.collectAsState()
 
@@ -178,36 +180,20 @@ fun MoviesScreen(
         }
     }
 
-    // SECTION VIEWPORT FRAMING CAMERA ALGORITHM
-    val topMarginPx = with(density) { 40.dp.toPx() }
-    val bottomMarginPx = with(density) { 40.dp.toPx() }
+    // DISCRETE SECTION-PAGED CINEMATIC CAMERA ALGORITHM
+    val cinematicTargetTopPx = with(density) { 140.dp.toPx() }
 
-    LaunchedEffect(currentFocusSection, sectionYPositions.toMap(), sectionHeights.toMap(), viewportHeightPx, columnHeightPx) {
+    LaunchedEffect(currentFocusSection, sectionYPositions.toMap(), viewportHeightPx, columnHeightPx) {
         val targetSection = currentFocusSection ?: "movies_hero"
 
         val targetOffsetPx = if (targetSection == "movies_hero") {
             0f
         } else {
             val measuredY = sectionYPositions[targetSection]
-            val sectionHeight = sectionHeights[targetSection] ?: 0f
 
             if (measuredY != null && viewportHeightPx > 0f) {
-                val currentCamera = cameraOffsetY.value
-                val sectionTopInViewport = measuredY + currentCamera
-                val sectionBottomInViewport = measuredY + sectionHeight + currentCamera
-                val viewportMaxBottom = viewportHeightPx - bottomMarginPx
-
-                val desiredCameraY = when {
-                    sectionTopInViewport < topMarginPx -> {
-                        -(measuredY - topMarginPx)
-                    }
-                    sectionBottomInViewport > viewportMaxBottom -> {
-                        -(measuredY + sectionHeight - viewportMaxBottom)
-                    }
-                    else -> {
-                        currentCamera
-                    }
-                }
+                // Section-paged anchoring: Target is computed directly from measured Y, bypassing hysteresis
+                val desiredCameraY = -(measuredY - cinematicTargetTopPx)
 
                 val maxScrollPx = maxOf(0f, columnHeightPx - viewportHeightPx)
                 desiredCameraY.coerceIn(-maxScrollPx, 0f)
@@ -236,7 +222,7 @@ fun MoviesScreen(
     HomeBaseLayout(
         selectedSidebarItem = SidebarItemType.MOVIES,
         onSidebarItemSelected = onSidebarItemSelected,
-        focusedMovieProvider = { activeHeroMovie ?: focusStateFlow.collectAsState().value?.movie },
+        focusedMovieProvider = { activeHeroMovie ?: focusedMovie },
         showLoadingOverlay = loading && rows.isEmpty() && uiState.heroState.featuredMovies.isEmpty(),
         navFocusRequester = navFocusRequester,
         contentFocusRequester = contentFocusRequester,
@@ -356,6 +342,8 @@ fun MoviesScreen(
                         getPrevRowRequester = { index -> getPrevRowRequester("movies_trending", index) },
                         getNextRowRequester = { index -> getNextRowRequester("movies_trending", index) },
                         focusMemoryManager = focusMemoryManager,
+                        isFocusedRow = currentFocusSection == "movies_trending",
+                        activeMovie = if (currentFocusSection == "movies_trending") focusedMovie else null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .trackSectionPosition("movies_trending")
@@ -382,6 +370,8 @@ fun MoviesScreen(
                         getPrevRowRequester = { index -> getPrevRowRequester("movies_top10", index) },
                         getNextRowRequester = { index -> getNextRowRequester("movies_top10", index) },
                         focusMemoryManager = focusMemoryManager,
+                        isFocusedRow = currentFocusSection == "movies_top10",
+                        activeMovie = if (currentFocusSection == "movies_top10") focusedMovie else null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .trackSectionPosition("movies_top10")
@@ -418,6 +408,8 @@ fun MoviesScreen(
                             getPrevRowRequester = { idx -> getPrevRowRequester(row.id, idx) },
                             getNextRowRequester = { idx -> getNextRowRequester(row.id, idx) },
                             focusMemoryManager = focusMemoryManager,
+                            isFocusedRow = currentFocusSection == row.id,
+                            activeMovie = if (currentFocusSection == row.id) focusedMovie else null,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .trackSectionPosition(row.id)

@@ -16,6 +16,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -42,6 +47,8 @@ fun Top10Row(
     onMovieSelected: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     modifier: Modifier = Modifier,
+    isFocusedRow: Boolean = false,
+    activeMovie: Movie? = null,
     rowId: String = "movies_top10",
     navFocusRequester: FocusRequester? = null,
     getRequester: ((String, Int) -> FocusRequester)? = null,
@@ -142,6 +149,18 @@ fun Top10Row(
                     }
                 )
             }
+        }
+
+        // Focused Movie Metadata Box (Phase 6 Target Design)
+        AnimatedVisibility(
+            visible = isFocusedRow,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+        ) {
+            FocusedMovieMetadata(
+                movie = activeMovie,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
