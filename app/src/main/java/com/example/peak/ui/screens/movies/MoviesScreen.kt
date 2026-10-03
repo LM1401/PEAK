@@ -37,6 +37,7 @@ import com.example.peak.ui.screens.movies.components.MovieLandscapeRow
 import com.example.peak.ui.screens.movies.components.Top10Row
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Ordered sequence of rendered sections on the Movies Screen.
@@ -181,43 +182,49 @@ fun MoviesScreen(
     }
 
     // DISCRETE SECTION-PAGED CINEMATIC CAMERA ALGORITHM
-    LaunchedEffect(currentFocusSection, sectionYPositions.toMap(), viewportHeightPx, columnHeightPx) {
-        val targetSection = currentFocusSection ?: "movies_hero"
+    val cinematicTargetTopPx = with(density) { 140.dp.toPx() }
+    val catalogTargetTopPx = with(density) { 28.dp.toPx() }
 
-        val targetOffsetPx = if (targetSection == "movies_hero") {
-            0f
-        } else {
-            val measuredY = sectionYPositions[targetSection]
+    LaunchedEffect(Unit) {
+        val scope = this
+        snapshotFlow {
+            val targetSection = currentFocusSection ?: "movies_hero"
+            val targetY = sectionYPositions[targetSection]
+            val vHeight = viewportHeightPx
+            val cHeight = columnHeightPx
 
-            if (measuredY != null && viewportHeightPx > 0f) {
-                // Phase 7: Dynamic mathematical camera anchors.
-                // 140.dp preserves parallax for Hero when Collections is focused.
-                // 28.dp exactly offsets the 28.dp inter-row spacers, completely hiding
-                // the previous row and perfectly framing the active row + metadata + next row.
-                val anchorDp = when (targetSection) {
-                    "movies_collections" -> 140.dp
-                    else -> 28.dp
+            if (targetSection == "movies_hero") {
+                0f
+            } else if (targetY != null && vHeight > 0f) {
+                // Dynamic anchors based on section type
+                val anchorPx = if (targetSection == "movies_collections") {
+                    cinematicTargetTopPx
+                } else {
+                    catalogTargetTopPx
                 }
                 
-                val cinematicTargetTopPx = with(density) { anchorDp.toPx() }
-                
-                // Section-paged anchoring: Target is computed directly from measured Y, bypassing hysteresis
-                val desiredCameraY = -(measuredY - cinematicTargetTopPx)
-
-                val maxScrollPx = maxOf(0f, columnHeightPx - viewportHeightPx)
+                // Section-paged anchoring: Target is computed directly from measured Y
+                val desiredCameraY = -(targetY - anchorPx)
+                val maxScrollPx = maxOf(0f, cHeight - vHeight)
                 desiredCameraY.coerceIn(-maxScrollPx, 0f)
             } else {
-                cameraOffsetY.value
+                null // Keep current offset if we can't calculate yet
+            }
+        }.collect { targetOffsetPx ->
+            if (targetOffsetPx != null) {
+                // launch a new coroutine so we don't block collect or cancel on next emission
+                // Animatable handles its own internal cancellation and velocity preservation perfectly
+                scope.launch {
+                    cameraOffsetY.animateTo(
+                        targetValue = targetOffsetPx,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                }
             }
         }
-
-        cameraOffsetY.animateTo(
-            targetValue = targetOffsetPx,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        )
     }
 
     fun Modifier.trackSectionPosition(sectionId: String): Modifier = this.onGloballyPositioned { coordinates ->
@@ -430,7 +437,7 @@ fun MoviesScreen(
                     EmptyMoviesPlaceholder()
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(600.dp))
             }
         }
     }
