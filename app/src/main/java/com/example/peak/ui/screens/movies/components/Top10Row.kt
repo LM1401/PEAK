@@ -127,27 +127,32 @@ fun Top10Row(
                 val upRequester = getPrevRowRequester?.invoke(index)
                 val downRequester = getNextRowRequester?.invoke(index)
 
-                Top10Card(
-                    rankedMovie = rankedMovie,
-                    focusRequester = cardRequester,
-                    modifier = Modifier.focusProperties {
-                        left = if (index == 0) (navFocusRequester ?: left) else (prevCardRequester ?: left)
-                        right = nextCardRequester ?: right
-                        if (upRequester != null) up = upRequester
-                        if (downRequester != null) down = downRequester
-                    },
-                    onFocus = { focusedMovie ->
-                        focusMemoryManager?.saveFocus(rowId, index.toString())
-                        coroutineScope.launch {
-                            listState.animateScrollToItem(index)
+                Box(
+                    modifier = Modifier.height(MoviesConstants.LANDSCAPE_CARD_HEIGHT),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Top10Card(
+                        rankedMovie = rankedMovie,
+                        focusRequester = cardRequester,
+                        modifier = Modifier.focusProperties {
+                            left = if (index == 0) (navFocusRequester ?: left) else (prevCardRequester ?: left)
+                            right = nextCardRequester ?: right
+                            if (upRequester != null) up = upRequester
+                            if (downRequester != null) down = downRequester
+                        },
+                        onFocus = { focusedMovie ->
+                            focusMemoryManager?.saveFocus(rowId, index.toString())
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(index)
+                            }
+                            onMovieFocused(rowId, focusedMovie)
+                        },
+                        onClick = { clickedMovie ->
+                            onMovieSelected(clickedMovie)
+                            onMovieClick(clickedMovie)
                         }
-                        onMovieFocused(rowId, focusedMovie)
-                    },
-                    onClick = { clickedMovie ->
-                        onMovieSelected(clickedMovie)
-                        onMovieClick(clickedMovie)
-                    }
-                )
+                    )
+                }
             }
         }
 

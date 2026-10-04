@@ -183,7 +183,7 @@ fun MoviesScreen(
 
     // DISCRETE SECTION-PAGED CINEMATIC CAMERA ALGORITHM
     val cinematicTargetTopPx = with(density) { 140.dp.toPx() }
-    val catalogTargetTopPx = with(density) { 28.dp.toPx() }
+    val catalogTargetTopPx = with(density) { 24.dp.toPx() }
 
     LaunchedEffect(Unit) {
         val scope = this
@@ -337,7 +337,7 @@ fun MoviesScreen(
                         .trackSectionPosition("movies_collections")
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // 3. TRENDING MOVIES LANDSCAPE ROW (PHASE 4)
                 val trendingItems = uiState.trendingState.items
@@ -365,7 +365,7 @@ fun MoviesScreen(
                             .trackSectionPosition("movies_trending")
                     )
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
 
                 // 4. TOP 10 IN THE UK TODAY ROW (PHASE 5)
@@ -393,7 +393,7 @@ fun MoviesScreen(
                             .trackSectionPosition("movies_top10")
                     )
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
 
                 // 5. LOWER CATALOGUE LANDSCAPE ROWS (PHASE 6)
@@ -405,7 +405,7 @@ fun MoviesScreen(
                 lowerRows.forEachIndexed { index, row ->
                     key(row.id) {
                         if (index > 0) {
-                            Spacer(modifier = Modifier.height(28.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
 
                         MovieLandscapeRow(
