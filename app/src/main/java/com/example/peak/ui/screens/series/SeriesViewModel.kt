@@ -75,9 +75,9 @@ class SeriesViewModel(
 
         // 3. TERTIARY: Genres
         viewModelScope.launch {
-            repository.getSeries(TvListType.GENRE, 18).onSuccess { updateRow("series_drama", "Drama", it) }
-            repository.getSeries(TvListType.GENRE, 35).onSuccess { updateRow("series_comedy", "Comedy", it) }
-            repository.getSeries(TvListType.GENRE, 10765).onSuccess { updateRow("series_scifi", "Sci-Fi & Fantasy", it) }
+            repository.getSeries(TvListType.GENRE, "18").onSuccess { updateRow("series_drama", "Drama", it) }
+            repository.getSeries(TvListType.GENRE, "35").onSuccess { updateRow("series_comedy", "Comedy", it) }
+            repository.getSeries(TvListType.GENRE, "10765").onSuccess { updateRow("series_scifi", "Sci-Fi & Fantasy", it) }
         }
     }
 

@@ -26,8 +26,11 @@ interface MovieRepository {
     suspend fun getTrendingMovies(): Result<List<Movie>>
     suspend fun getTrendingSeries(): Result<List<Movie>>
     
-    suspend fun getMovies(type: MovieListType, genreId: Int? = null): Result<List<Movie>>
-    suspend fun getSeries(type: TvListType, genreId: Int? = null): Result<List<Movie>>
+    suspend fun getMovies(type: MovieListType, genreId: String? = null): Result<List<Movie>>
+    suspend fun getSeries(type: TvListType, genreId: String? = null): Result<List<Movie>>
     
+    suspend fun searchMulti(query: String): Result<List<Movie>>
+    suspend fun discoverMedia(genreIds: String): Result<List<Movie>>
+
     suspend fun getMediaById(id: String, type: MediaType): Result<Movie>
 }

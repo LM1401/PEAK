@@ -25,7 +25,6 @@ import com.example.peak.ui.screens.detail.DetailScreen
 import com.example.peak.ui.screens.home.HomeScreen
 import com.example.peak.ui.screens.player.PlayerScreen
 import com.example.peak.ui.theme.PEAKTheme
-import com.example.peak.ui.search.toMovie
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -182,14 +181,57 @@ fun PEAKApp() {
         }
 
         composable("search") {
-            val searchRepository = PeakDependencyProvider.getSearchRepository()
             val searchViewModel: com.example.peak.ui.search.SearchViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.peak.ui.search.SearchViewModelFactory(searchRepository, movieRepository)
+                factory = com.example.peak.ui.search.SearchViewModelFactory(movieRepository)
             )
             com.example.peak.ui.search.SearchScreen(
                 viewModel = searchViewModel,
+                onSidebarItemSelected = onSidebarItemSelected,
                 onItemClick = { item ->
-                    navController.navigate("detail/${item.id}/${item.type.name}")
+                    navController.navigate("detail/${item.movieId}/${item.mediaType.name}")
+                },
+                onDiscoveryClick = { title, genreIds ->
+                    navController.navigate("discovery_results/$title/$genreIds")
+                },
+                onLearnMoreClick = {
+                    navController.navigate("all_genres")
+                }
+            )
+        }
+
+        composable(
+            route = "discovery_results/{title}/{genreIds}",
+            arguments = listOf(
+                navArgument("title") { type = NavType.StringType },
+                navArgument("genreIds") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val title = backStackEntry.arguments?.getString("title") ?: "Results"
+            val genreIds = backStackEntry.arguments?.getString("genreIds") ?: ""
+            
+            val viewModel: com.example.peak.ui.search.DiscoveryResultsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.search.DiscoveryResultsViewModelFactory(movieRepository)
+            )
+            
+            // Load the results once when navigating
+            LaunchedEffect(title, genreIds) {
+                viewModel.loadDiscoveryResults(title, genreIds)
+            }
+            
+            com.example.peak.ui.search.DiscoveryResultsScreen(
+                viewModel = viewModel,
+                onSidebarItemSelected = onSidebarItemSelected,
+                onItemClick = { item ->
+                    navController.navigate("detail/${item.movieId}/${item.mediaType.name}")
+                }
+            )
+        }
+
+        composable("all_genres") {
+            com.example.peak.ui.search.AllGenresScreen(
+                onSidebarItemSelected = onSidebarItemSelected,
+                onGenreClick = { title, genreIds ->
+                    navController.navigate("discovery_results/$title/$genreIds")
                 }
             )
         }

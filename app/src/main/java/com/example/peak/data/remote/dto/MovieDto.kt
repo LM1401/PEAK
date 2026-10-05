@@ -35,7 +35,8 @@ data class TmdbMovie(
     @SerializedName("release_dates") val releaseDates: TmdbReleaseDates?,
     @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?,
     @SerializedName("watch/providers") val watchProviders: TmdbWatchProviders?,
-    val images: TmdbImages? = null
+    val images: TmdbImages? = null,
+    @SerializedName("media_type") val mediaType: String? = null
 )
 
 data class TmdbImages(
@@ -120,16 +121,25 @@ data class TmdbProvider(
  * Extension function to map Remote DTO to Domain Model.
  * This is used for summary data (trending lists).
  */
-fun TmdbMovie.toMovie(mediaType: MediaType = MediaType.MOVIE): Movie {
+fun TmdbMovie.toMovie(defaultMediaType: MediaType = MediaType.MOVIE): Movie? {
+    // If mediaType field is present (from search/multi), filter out anything not movie/tv
+    val resolvedMediaType = when (this.mediaType) {
+        "movie" -> MediaType.MOVIE
+        "tv" -> MediaType.TV
+        "person" -> return null // Explicitly ignore person results
+        null -> defaultMediaType
+        else -> return null
+    }
+
     val displayName = title ?: name ?: "Unknown Title"
-    val releaseYear = when (mediaType) {
+    val releaseYear = when (resolvedMediaType) {
         MediaType.MOVIE -> releaseDate?.take(4)
         MediaType.TV -> firstAirDate?.take(4)
     } ?: ""
 
     return Movie(
         movieId = id.toString(),
-        mediaType = mediaType,
+        mediaType = resolvedMediaType,
         name = displayName,
         imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
             ?: "https://via.placeholder.com/1280x720?text=$displayName",
@@ -149,7 +159,7 @@ fun TmdbMovie.toMovie(mediaType: MediaType = MediaType.MOVIE): Movie {
 fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     Log.e("PEAK_DIAGNOSTIC", "Enriching movie ID: $id ($title/$name)")
     Log.e("PEAK_DIAGNOSTIC", "Raw Production Companies: ${productionCompanies?.joinToString { "${it.name}(${it.id})" }}")
-    val summary = toMovie(mediaType)
+    val summary = toMovie(mediaType) ?: return Movie(movieId = id.toString(), mediaType = mediaType, name = "Unknown", imageUrl = "", backdropUrl = "", description = "", rating = "", year = "", videoUrl = "", isEnriched = false)
     
     val genreString = genres?.joinToString(", ") { it.name } ?: ""
     val castString = credits?.cast?.take(3)?.joinToString(", ") { it.name } ?: ""

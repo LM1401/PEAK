@@ -10,6 +10,8 @@ import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -61,7 +63,61 @@ class MovieRepositoryImpl(
         return getSeries(TvListType.TRENDING)
     }
 
-    override suspend fun getMovies(type: MovieListType, genreId: Int?): Result<List<Movie>> {
+    override suspend fun searchMulti(query: String): Result<List<Movie>> {
+        val result = SafeApiCall.execute("MovieRepository") {
+            api.searchMulti(query)
+        }
+        return when {
+            result.data != null -> {
+                val movies = result.data.results.mapNotNull { it.toMovie() }
+                updateDetailsCache(movies)
+                Result.success(movies)
+            }
+            else -> Result.success(emptyList())
+        }
+    }
+
+    override suspend fun discoverMedia(genreIds: String): Result<List<Movie>> {
+        val key = "DISCOVER_$genreIds"
+        
+        categoryCache[key]?.let { cached ->
+            if (!isExpired(categoryTimestamps[key] ?: 0L)) return Result.success(cached)
+        }
+
+        return getListMutex(key).withLock {
+            categoryCache[key]?.let { cached ->
+                if (!isExpired(categoryTimestamps[key] ?: 0L)) return@withLock Result.success(cached)
+            }
+
+            // Execute movie and tv discovery concurrently
+            return coroutineScope {
+                val moviesDeferred = async(kotlinx.coroutines.Dispatchers.IO) {
+                    SafeApiCall.execute("MovieRepository") { api.discoverMovies(genreIds) }
+                }
+                val tvDeferred = async(kotlinx.coroutines.Dispatchers.IO) {
+                    SafeApiCall.execute("MovieRepository") { api.discoverSeries(genreIds) }
+                }
+
+                val moviesResult = moviesDeferred.await()
+                val tvResult = tvDeferred.await()
+
+                val allItems = mutableListOf<Movie>()
+                moviesResult.data?.results?.mapNotNull { it.toMovie(MediaType.MOVIE) }?.let { movies -> allItems.addAll(movies) }
+                tvResult.data?.results?.mapNotNull { it.toMovie(MediaType.TV) }?.let { tvs -> allItems.addAll(tvs) }
+
+                // Sort combined results by rating descending to ensure the highest-quality content rises to the top
+                val sorted = allItems.sortedByDescending { it.rating.toDoubleOrNull() ?: 0.0 }
+
+                categoryCache[key] = sorted
+                categoryTimestamps[key] = System.currentTimeMillis()
+                updateDetailsCache(sorted)
+
+                Result.success(sorted)
+            }
+        }
+    }
+
+    override suspend fun getMovies(type: MovieListType, genreId: String?): Result<List<Movie>> {
         val key = if (type == MovieListType.GENRE) "MOVIE_GENRE_$genreId" else "MOVIE_${type.name}"
         
         categoryCache[key]?.let { cached ->
@@ -79,13 +135,13 @@ class MovieRepositoryImpl(
                     MovieListType.POPULAR -> api.getPopularMovies()
                     MovieListType.NOW_PLAYING -> api.getNowPlayingMovies()
                     MovieListType.TOP_RATED -> api.getTopRatedMovies()
-                    MovieListType.GENRE -> api.discoverMovies(genreId.toString())
+                    MovieListType.GENRE -> api.discoverMovies(genreId ?: "")
                 }
             }
 
             return@withLock when {
                 result.data != null -> {
-                    val movies = result.data.results.map { it.toMovie(MediaType.MOVIE) }
+                    val movies = result.data.results.mapNotNull { it.toMovie(MediaType.MOVIE) }
                     categoryCache[key] = movies
                     categoryTimestamps[key] = System.currentTimeMillis()
                     updateDetailsCache(movies)
@@ -97,7 +153,7 @@ class MovieRepositoryImpl(
         }
     }
 
-    override suspend fun getSeries(type: TvListType, genreId: Int?): Result<List<Movie>> {
+    override suspend fun getSeries(type: TvListType, genreId: String?): Result<List<Movie>> {
         val key = if (type == TvListType.GENRE) "TV_GENRE_$genreId" else "TV_${type.name}"
         
         categoryCache[key]?.let { cached ->
@@ -115,13 +171,13 @@ class MovieRepositoryImpl(
                     TvListType.POPULAR -> api.getPopularSeries()
                     TvListType.TOP_RATED -> api.getTopRatedSeries()
                     TvListType.ON_THE_AIR -> api.getOnTheAirSeries()
-                    TvListType.GENRE -> api.discoverSeries(genreId.toString())
+                    TvListType.GENRE -> api.discoverSeries(genreId ?: "")
                 }
             }
 
             return@withLock when {
                 result.data != null -> {
-                    val series = result.data.results.map { it.toMovie(MediaType.TV) }
+                    val series = result.data.results.mapNotNull { it.toMovie(MediaType.TV) }
                     categoryCache[key] = series
                     categoryTimestamps[key] = System.currentTimeMillis()
                     updateDetailsCache(series)

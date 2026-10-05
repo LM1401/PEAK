@@ -1,7 +1,7 @@
 package com.example.peak.data.search
 
 import android.util.Log
-import com.example.peak.ui.search.SearchItem
+import com.example.peak.domain.repository.MovieRepository
 
 /**
  * Provides and caches global popular content for the empty search state.
@@ -15,7 +15,7 @@ object SearchDefaultsProvider {
      * Returns a list of globally popular movie/TV titles.
      * Uses cache if available, otherwise triggers a fresh fetch.
      */
-    suspend fun getPopularSuggestions(repository: SearchRepository): List<String> {
+    suspend fun getPopularSuggestions(repository: MovieRepository): List<String> {
         if (cachedPopularTitles.isNotEmpty()) {
             Log.d(TAG, "Returning cached popular suggestions")
             return cachedPopularTitles
@@ -23,10 +23,10 @@ object SearchDefaultsProvider {
 
         return try {
             Log.d(TAG, "Fetching fresh popular suggestions for empty state")
-            val trending = repository.getTrending()
+            val trending = repository.getTrendingMovies().getOrNull() ?: emptyList()
             cachedPopularTitles = trending
                 .asSequence()
-                .map { it.title }
+                .map { it.name }
                 .distinct()
                 .take(10)
                 .toList()

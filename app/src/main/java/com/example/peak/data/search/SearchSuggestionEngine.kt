@@ -1,6 +1,6 @@
 package com.example.peak.data.search
 
-import com.example.peak.ui.search.SearchItem
+import com.example.peak.domain.model.Movie
 
 /**
  * Autocomplete-style suggestion engine.
@@ -8,17 +8,17 @@ import com.example.peak.ui.search.SearchItem
  */
 object SearchSuggestionEngine {
 
-    fun generateSuggestions(items: List<SearchItem>, query: String): List<String> {
+    fun generateSuggestions(items: List<Movie>, query: String): List<String> {
         val normalizedQuery = query.lowercase().trim()
         if (normalizedQuery.isEmpty()) return emptyList()
 
         return items.asSequence()
             .map { item ->
-                item to calculateAutocompleteScore(item.title.lowercase(), normalizedQuery, item.popularity)
+                item to calculateAutocompleteScore(item.name.lowercase(), normalizedQuery, item.rating.toDoubleOrNull() ?: 0.0)
             }
             .filter { it.second > 0 }
             .sortedByDescending { it.second }
-            .map { it.first.title }
+            .map { it.first.name }
             .distinct()
             .take(6) // Only show top 6 suggestions for TV space
             .toList()

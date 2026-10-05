@@ -164,11 +164,11 @@ class MoviesViewModel(
 
         // 4. QUATERNARY: Genre Rows (Action, Comedy, Sci-Fi, Horror, Thriller)
         viewModelScope.launch {
-            repository.getMovies(MovieListType.GENRE, 28).onSuccess { updateRow("movies_action", "Action", it) }
-            repository.getMovies(MovieListType.GENRE, 35).onSuccess { updateRow("movies_comedy", "Comedy", it) }
-            repository.getMovies(MovieListType.GENRE, 878).onSuccess { updateRow("movies_scifi", "Sci-Fi & Fantasy", it) }
-            repository.getMovies(MovieListType.GENRE, 27).onSuccess { updateRow("movies_horror", "Horror", it) }
-            repository.getMovies(MovieListType.GENRE, 53).onSuccess { updateRow("movies_thriller", "Thriller", it) }
+            repository.getMovies(MovieListType.GENRE, "28").onSuccess { updateRow("movies_action", "Action", it) }
+            repository.getMovies(MovieListType.GENRE, "35").onSuccess { updateRow("movies_comedy", "Comedy", it) }
+            repository.getMovies(MovieListType.GENRE, "878").onSuccess { updateRow("movies_scifi", "Sci-Fi & Fantasy", it) }
+            repository.getMovies(MovieListType.GENRE, "27").onSuccess { updateRow("movies_horror", "Horror", it) }
+            repository.getMovies(MovieListType.GENRE, "53").onSuccess { updateRow("movies_thriller", "Thriller", it) }
         }
     }
 

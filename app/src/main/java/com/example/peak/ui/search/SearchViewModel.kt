@@ -4,8 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.peak.data.search.SearchRepository
-import com.example.peak.domain.model.MediaType
+import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -14,7 +13,6 @@ import kotlinx.coroutines.launch
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(
-    private val repository: SearchRepository,
     private val movieRepository: MovieRepository
 ) : ViewModel() {
 
@@ -48,7 +46,7 @@ class SearchViewModel(
 
     private fun loadDefaultSuggestions() {
         viewModelScope.launch {
-            val defaults = com.example.peak.data.search.SearchDefaultsProvider.getPopularSuggestions(repository)
+            val defaults = com.example.peak.data.search.SearchDefaultsProvider.getPopularSuggestions(movieRepository)
             _uiState.update { it.copy(suggestions = defaults) }
         }
     }
@@ -58,13 +56,10 @@ class SearchViewModel(
         _uiState.update { it.copy(query = newQuery) }
     }
 
-    /**
-     * PREDICTIVE PRELOADING: Prefetch movie details when a search result is focused.
-     * This ensures that if the user clicks, the Detail screen has data immediately.
-     */
-    fun onItemFocused(item: SearchItem) {
+    fun onItemFocused(item: Movie) {
+        // Pre-fetch details if necessary
         viewModelScope.launch {
-            movieRepository.getMediaById(item.id, item.type)
+            movieRepository.getMediaById(item.movieId, item.mediaType)
         }
     }
 
@@ -74,11 +69,15 @@ class SearchViewModel(
             Log.d(TAG, "Loading trending...")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val trending = repository.getTrending()
-                _uiState.update { 
-                    it.copy(trendingResults = trending, isLoading = false) 
+                val result = movieRepository.getTrendingMovies() // We can use movies for recommended
+                if (result.isSuccess) {
+                    _uiState.update { 
+                        it.copy(trendingResults = result.getOrNull() ?: emptyList(), isLoading = false) 
+                    }
+                    trendingLoaded = true
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
                 }
-                trendingLoaded = true
             } catch (e: Exception) {
                 Log.e(TAG, "Trending load failed", e)
                 _uiState.update { it.copy(isLoading = false) }
@@ -95,21 +94,20 @@ class SearchViewModel(
             Log.d(TAG, "Searching for: $normalizedQuery")
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val rawResults = repository.search(normalizedQuery)
-                
-                // 1. Generate Autocomplete Suggestions (Fast Response Feel)
-                val suggestions = com.example.peak.data.search.SearchSuggestionEngine
-                    .generateSuggestions(rawResults, normalizedQuery)
-                
-                // 2. Apply Deep Ranking for Grid
-                val rankedResults = rankResults(rawResults, normalizedQuery)
-                
-                _uiState.update { 
-                    it.copy(
-                        results = rankedResults,
-                        suggestions = suggestions,
-                        isLoading = false 
-                    )
+                val result = movieRepository.searchMulti(normalizedQuery)
+                if (result.isSuccess) {
+                    val rawResults = result.getOrNull() ?: emptyList()
+                    val suggestions = com.example.peak.data.search.SearchSuggestionEngine.generateSuggestions(rawResults, normalizedQuery)
+                    val rankedResults = rankResults(rawResults, normalizedQuery)
+                    _uiState.update { 
+                        it.copy(
+                            results = rankedResults,
+                            suggestions = suggestions,
+                            isLoading = false 
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = "Search error") }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Search failed", e)
@@ -118,12 +116,12 @@ class SearchViewModel(
         }
     }
 
-    private fun rankResults(items: List<SearchItem>, query: String): List<SearchItem> {
+    private fun rankResults(items: List<Movie>, query: String): List<Movie> {
         if (query.isEmpty()) return items
 
         return items.sortedByDescending { item ->
-            val title = item.title.lowercase()
-            var score = item.popularity * 0.1
+            val title = item.name.lowercase()
+            var score = 0.0
 
             if (title == query) {
                 score += 10000.0
@@ -135,7 +133,7 @@ class SearchViewModel(
                 score += 500.0
             }
 
-            if (item.type == MediaType.MOVIE) {
+            if (item.mediaType == com.example.peak.domain.model.MediaType.MOVIE) {
                 score += 100.0
             }
 
@@ -145,13 +143,12 @@ class SearchViewModel(
 }
 
 class SearchViewModelFactory(
-    private val repository: SearchRepository,
     private val movieRepository: MovieRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SearchViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return SearchViewModel(repository, movieRepository) as T
+            return SearchViewModel(movieRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

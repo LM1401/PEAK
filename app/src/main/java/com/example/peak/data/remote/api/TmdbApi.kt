@@ -45,6 +45,11 @@ interface TmdbApi {
         @Query("with_genres") genreId: String
     ): TmdbResponse
 
+    @GET("search/multi")
+    suspend fun searchMulti(
+        @Query("query") query: String
+    ): TmdbResponse
+
     // TV CATEGORIES
     @GET("tv/popular")
     suspend fun getPopularSeries(): TmdbResponse
