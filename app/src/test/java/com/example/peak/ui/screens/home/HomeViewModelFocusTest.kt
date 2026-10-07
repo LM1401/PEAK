@@ -80,19 +80,21 @@ class HomeViewModelFocusTest {
 
         override suspend fun getTrendingMovies(): Result<List<Movie>> = trendingDeferred.await()
         override suspend fun getTrendingSeries(): Result<List<Movie>> = Result.success(emptyList())
-        override suspend fun getMovies(type: MovieListType, genreId: Int?): Result<List<Movie>> {
+        override suspend fun getMovies(type: MovieListType, genreId: String?): Result<List<Movie>> {
             return when (type) {
                 MovieListType.POPULAR -> popularMoviesDeferred.await()
                 MovieListType.TOP_RATED -> topRatedMoviesDeferred.await()
                 else -> Result.success(emptyList())
             }
         }
-        override suspend fun getSeries(type: TvListType, genreId: Int?): Result<List<Movie>> {
+        override suspend fun getSeries(type: TvListType, genreId: String?): Result<List<Movie>> {
             return when (type) {
                 TvListType.POPULAR -> popularSeriesDeferred.await()
                 else -> Result.success(emptyList())
             }
         }
+        override suspend fun searchMulti(query: String): Result<List<Movie>> = Result.success(emptyList())
+        override suspend fun discoverMedia(genreIds: String): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
             val movie = createMovie(id, "Enriched $id", type)
             return Result.success(movie)

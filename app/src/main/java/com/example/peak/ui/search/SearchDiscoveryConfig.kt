@@ -40,6 +40,9 @@ object SearchDiscoveryConfig {
         DiscoveryCategory("scifi", "Science Fiction", "878", R.drawable.ic_cat_scifi),
         DiscoveryCategory("thriller", "Thriller", "53", R.drawable.ic_cat_thriller),
         DiscoveryCategory("war", "War", "10752", R.drawable.ic_cat_war),
-        DiscoveryCategory("western", "Western", "37", R.drawable.ic_cat_western)
+        DiscoveryCategory("western", "Western", "37", R.drawable.ic_cat_western),
+        DiscoveryCategory("biopic", "Biopic", "36,18", R.drawable.ic_cat_biopic),
+        DiscoveryCategory("creature_feature", "Creature Feature", "27|878", R.drawable.ic_cat_creature_feature),
+        DiscoveryCategory("superhero", "Superhero", "28,878", R.drawable.ic_cat_superhero)
     )
 }

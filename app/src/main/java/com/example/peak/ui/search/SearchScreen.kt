@@ -36,6 +36,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
@@ -361,53 +363,67 @@ fun SearchScreen(
 fun DiscoveryButton(
     category: SearchDiscoveryConfig.DiscoveryCategory,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 72.dp,
+    horizontalPadding: Dp = 24.dp
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color(0xFF0F0F13),
-            focusedContainerColor = Color(0xFF1F1F25)
+            containerColor = Color(0xFF0A101D),
+            focusedContainerColor = Color(0xFF16203A)
         ),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, Color.Gray.copy(alpha=0.3f))),
-            focusedBorder = Border(BorderStroke(2.dp, Color.White))
+            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))),
+            focusedBorder = Border(BorderStroke(2.dp, Color.White.copy(alpha = 0.9f)))
+        ),
+        glow = ClickableSurfaceDefaults.glow(
+            focusedGlow = Glow(
+                elevationColor = Color.Black.copy(alpha = 0.5f),
+                elevation = 16.dp
+            )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = horizontalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (category.iconRes != null) {
                 Box(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(iconSize),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = category.iconRes),
                         contentDescription = category.label,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(iconSize)
                     )
                 }
+                Spacer(modifier = Modifier.width(16.dp))
             } else {
                 Box(
                     modifier = Modifier
                         .size(24.dp)
                         .background(Color.Red.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                 )
+                Spacer(modifier = Modifier.width(16.dp))
             }
-            Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = category.label.uppercase(),
                 color = Color.White,
-                style = MaterialTheme.typography.labelMedium,
-                letterSpacing = 1.sp
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.75.sp,
+                maxLines = 2,
+                lineHeight = 18.sp,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
         }
     }
