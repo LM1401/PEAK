@@ -1,5 +1,6 @@
 package com.example.peak.ui.search
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -381,12 +383,25 @@ fun DiscoveryButton(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Placeholder Icon (In a real app, you'd map standard Icons here based on the ID)
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .background(Color.Red.copy(alpha=0.2f), RoundedCornerShape(4.dp))
-            )
+            if (category.iconRes != null) {
+                Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = category.iconRes),
+                        contentDescription = category.label,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(Color.Red.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                )
+            }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = category.label.uppercase(),

@@ -1,11 +1,15 @@
 package com.example.peak.ui.search
 
+import androidx.annotation.DrawableRes
+import com.example.peak.R
+
 object SearchDiscoveryConfig {
 
     data class DiscoveryCategory(
         val id: String,
         val label: String,
-        val tmdbGenreIds: String
+        val tmdbGenreIds: String,
+        @param:DrawableRes val iconRes: Int? = null
     )
 
     // The primary 6 buttons on the Search Screen
@@ -20,23 +24,22 @@ object SearchDiscoveryConfig {
 
     // The extended list shown when clicking "Learn More"
     val allCategories = listOf(
-        DiscoveryCategory("action", "Action", "28"),
-        DiscoveryCategory("adventure", "Adventure", "12"),
-        DiscoveryCategory("animation", "Animation", "16"),
-        DiscoveryCategory("comedy", "Comedy", "35"),
-        DiscoveryCategory("crime", "Crime", "80"),
-        DiscoveryCategory("documentary", "Documentary", "99"),
-        DiscoveryCategory("drama", "Drama", "18"),
-        DiscoveryCategory("family", "Family", "10751"),
-        DiscoveryCategory("fantasy", "Fantasy", "14"),
-        DiscoveryCategory("history", "History", "36"),
-        DiscoveryCategory("horror", "Horror", "27"),
-        DiscoveryCategory("music", "Music", "10402"),
-        DiscoveryCategory("mystery", "Mystery", "9648"),
-        DiscoveryCategory("romance", "Romance", "10749"),
-        DiscoveryCategory("scifi", "Science Fiction", "878"),
-        DiscoveryCategory("thriller", "Thriller", "53"),
-        DiscoveryCategory("war", "War", "10752"),
-        DiscoveryCategory("western", "Western", "37")
+        DiscoveryCategory("action", "Action", "28", R.drawable.ic_cat_action),
+        DiscoveryCategory("adventure", "Adventure", "12", R.drawable.ic_cat_adventure),
+        DiscoveryCategory("animation", "Animation", "16", R.drawable.ic_cat_animation),
+        DiscoveryCategory("comedy", "Comedy", "35", R.drawable.ic_cat_comedy),
+        DiscoveryCategory("crime", "Crime", "80", R.drawable.ic_cat_crime),
+        DiscoveryCategory("documentary", "Documentary", "99", R.drawable.ic_cat_documentary),
+        DiscoveryCategory("drama", "Drama", "18", R.drawable.ic_cat_drama),
+        DiscoveryCategory("family", "Family", "10751", R.drawable.ic_cat_family),
+        DiscoveryCategory("fantasy", "Fantasy", "14", R.drawable.ic_cat_fantasy),
+        DiscoveryCategory("history", "History", "36", R.drawable.ic_cat_history),
+        DiscoveryCategory("horror", "Horror", "27", R.drawable.ic_cat_horror),
+        DiscoveryCategory("mystery", "Mystery", "9648", R.drawable.ic_cat_mystery),
+        DiscoveryCategory("romance", "Romance", "10749", R.drawable.ic_cat_romance),
+        DiscoveryCategory("scifi", "Science Fiction", "878", R.drawable.ic_cat_scifi),
+        DiscoveryCategory("thriller", "Thriller", "53", R.drawable.ic_cat_thriller),
+        DiscoveryCategory("war", "War", "10752", R.drawable.ic_cat_war),
+        DiscoveryCategory("western", "Western", "37", R.drawable.ic_cat_western)
     )
 }
