@@ -34,8 +34,8 @@ fun DiscoveryResultsScreen(
 
     var isInitialFocusRequested by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        if (!isInitialFocusRequested) {
+    LaunchedEffect(uiState.isLoading, uiState.results) {
+        if (!uiState.isLoading && uiState.results.isNotEmpty() && !isInitialFocusRequested) {
             try {
                 gridFocusRequester.requestFocus()
                 isInitialFocusRequested = true
