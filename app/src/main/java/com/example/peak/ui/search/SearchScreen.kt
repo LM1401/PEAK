@@ -364,8 +364,8 @@ fun DiscoveryButton(
     category: SearchDiscoveryConfig.DiscoveryCategory,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Dp = 72.dp,
-    horizontalPadding: Dp = 24.dp
+    iconSize: Dp = 96.dp,
+    horizontalPadding: Dp = 20.dp
 ) {
     Surface(
         onClick = onClick,

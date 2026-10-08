@@ -129,8 +129,8 @@ fun AllGenresScreen(
                                 DiscoveryButton(
                                     category = category,
                                     onClick = { onGenreClick(category.label, category.tmdbGenreIds) },
-                                    iconSize = 72.dp,
-                                    horizontalPadding = 24.dp,
+                                    iconSize = 96.dp,
+                                    horizontalPadding = 20.dp,
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(128.dp)
