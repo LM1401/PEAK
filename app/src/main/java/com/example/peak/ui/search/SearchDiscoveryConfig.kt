@@ -12,16 +12,6 @@ object SearchDiscoveryConfig {
         @param:DrawableRes val iconRes: Int? = null
     )
 
-    // The primary 6 buttons on the Search Screen
-    val mainCategories = listOf(
-        DiscoveryCategory("adrenaline", "I'm craving adrenaline", "28|12"),
-        DiscoveryCategory("fantasy", "Fantasy adventure", "14|12"),
-        DiscoveryCategory("soundtracks", "Memorable soundtracks", "10402"),
-        DiscoveryCategory("vacations", "Virtual vacations", "12|99"),
-        DiscoveryCategory("thrillers", "Psychological thrillers", "53|9648"),
-        DiscoveryCategory("comedies", "Feel-good comedies", "35|10751")
-    )
-
     // The extended list shown when clicking "Learn More"
     val allCategories = listOf(
         DiscoveryCategory("action", "Action", "28", R.drawable.ic_cat_action),
@@ -44,5 +34,15 @@ object SearchDiscoveryConfig {
         DiscoveryCategory("biopic", "Biopic", "36,18", R.drawable.ic_cat_biopic),
         DiscoveryCategory("creature_feature", "Creature Feature", "27|878", R.drawable.ic_cat_creature_feature),
         DiscoveryCategory("superhero", "Superhero", "28,878", R.drawable.ic_cat_superhero)
+    )
+
+    // The primary 6 buttons on the Search Screen
+    val mainCategories = listOf(
+        allCategories.first { it.id == "horror" },
+        allCategories.first { it.id == "scifi" },
+        allCategories.first { it.id == "comedy" },
+        allCategories.first { it.id == "action" },
+        allCategories.first { it.id == "thriller" },
+        allCategories.first { it.id == "mystery" }
     )
 }

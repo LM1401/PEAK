@@ -51,6 +51,7 @@ import com.example.peak.ui.focus.rememberMovieRowFocusManager
 import com.example.peak.ui.screens.home.HomeConstants
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -66,17 +67,22 @@ fun SearchScreen(
     
     val navFocusRequester = remember { FocusRequester() }
     val searchInputFocusRequester = remember { FocusRequester() }
+    val learnMoreRequester = remember { FocusRequester() }
+    val recommendedFirstRequester = remember { FocusRequester() }
+    val resultsGridRequester = remember { FocusRequester() }
+    val genreFocusRequesters = remember {
+        SearchDiscoveryConfig.mainCategories.associate { it.id to FocusRequester() }
+    }
     val focusMemoryManager = rememberFocusMemoryManager()
     val focusRegistry = rememberMovieRowFocusManager()
 
     val lifecycleOwner = LocalLifecycleOwner.current
+    var restoreTrigger by remember { mutableIntStateOf(0) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                try {
-                    searchInputFocusRequester.requestFocus()
-                } catch (e: Exception) {}
+                restoreTrigger++
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -85,14 +91,55 @@ fun SearchScreen(
         }
     }
 
+    LaunchedEffect(restoreTrigger) {
+        if (restoreTrigger > 0) {
+            val rememberedKey = focusMemoryManager.getRememberedId("search_screen")
+            val targetRequester = when {
+                rememberedKey == "search_input" -> searchInputFocusRequester
+                rememberedKey == "learn_more" -> learnMoreRequester
+                rememberedKey == "search_recommended" -> recommendedFirstRequester
+                rememberedKey == "results_grid" -> resultsGridRequester
+                rememberedKey?.startsWith("genre_") == true -> {
+                    val genreId = rememberedKey.removePrefix("genre_")
+                    genreFocusRequesters[genreId]
+                }
+                else -> null
+            } ?: searchInputFocusRequester
+
+            try {
+                targetRequester.requestFocus()
+            } catch (e: Exception) {
+                yield()
+                try {
+                    targetRequester.requestFocus()
+                } catch (e2: Exception) {
+                    try { searchInputFocusRequester.requestFocus() } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
     var isSearchFocused by remember { mutableStateOf(false) }
+
+    val rememberedKey = focusMemoryManager.getRememberedId("search_screen")
+    val dynamicContentFocusRequester = when {
+        rememberedKey == "search_input" -> searchInputFocusRequester
+        rememberedKey == "learn_more" -> learnMoreRequester
+        rememberedKey == "search_recommended" -> recommendedFirstRequester
+        rememberedKey == "results_grid" -> resultsGridRequester
+        rememberedKey?.startsWith("genre_") == true -> {
+            val genreId = rememberedKey.removePrefix("genre_")
+            genreFocusRequesters[genreId]
+        }
+        else -> null
+    } ?: searchInputFocusRequester
 
     HomeBaseLayout(
         selectedSidebarItem = SidebarItemType.SEARCH,
         onSidebarItemSelected = onSidebarItemSelected,
         focusedMovieProvider = { null },
         navFocusRequester = navFocusRequester,
-        contentFocusRequester = searchInputFocusRequester,
+        contentFocusRequester = dynamicContentFocusRequester,
         heroHud = null
     ) { modifier ->
         Column(
@@ -123,9 +170,6 @@ fun SearchScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // SEARCH INPUT BAR
-            val discoveryFirstRequester = remember { FocusRequester() }
-            val resultsGridRequester = remember { FocusRequester() }
-            
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
@@ -154,10 +198,15 @@ fun SearchScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(searchInputFocusRequester)
-                        .onFocusChanged { isSearchFocused = it.hasFocus }
+                        .onFocusChanged {
+                            isSearchFocused = it.hasFocus
+                            if (it.hasFocus) {
+                                focusMemoryManager.saveFocus("search_screen", "search_input")
+                            }
+                        }
                         .focusProperties {
                             left = navFocusRequester
-                            down = if (uiState.query.isBlank()) discoveryFirstRequester else resultsGridRequester
+                            down = if (uiState.query.isBlank()) (genreFocusRequesters["horror"] ?: FocusRequester.Default) else resultsGridRequester
                         },
                     decorationBox = { innerTextField ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -205,36 +254,47 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // DISCOVERY BUTTON GRID (2x3)
-                val learnMoreRequester = remember { FocusRequester() }
-                
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     val row1 = SearchDiscoveryConfig.mainCategories.take(3)
                     val row2 = SearchDiscoveryConfig.mainCategories.drop(3).take(3)
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         row1.forEachIndexed { index, cat ->
+                            val catRequester = genreFocusRequesters[cat.id] ?: remember { FocusRequester() }
                             DiscoveryButton(
                                 category = cat,
                                 onClick = { onDiscoveryClick(cat.label, cat.tmdbGenreIds) },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(56.dp)
+                                    .focusRequester(catRequester)
+                                    .onFocusChanged {
+                                        if (it.hasFocus) {
+                                            focusMemoryManager.saveFocus("search_screen", "genre_${cat.id}")
+                                        }
+                                    }
                                     .focusProperties {
                                         if (index == 0) left = navFocusRequester
                                     }
-                                    .let { if (index == 0) it.focusRequester(discoveryFirstRequester) else it }
                             )
                         }
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         row2.forEachIndexed { index, cat ->
+                            val catRequester = genreFocusRequesters[cat.id] ?: remember { FocusRequester() }
                             DiscoveryButton(
                                 category = cat,
                                 onClick = { onDiscoveryClick(cat.label, cat.tmdbGenreIds) },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(56.dp)
+                                    .focusRequester(catRequester)
+                                    .onFocusChanged {
+                                        if (it.hasFocus) {
+                                            focusMemoryManager.saveFocus("search_screen", "genre_${cat.id}")
+                                        }
+                                    }
                                     .focusProperties {
                                         if (index == 0) left = navFocusRequester
                                         down = learnMoreRequester
@@ -247,14 +307,17 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // LEARN MORE BUTTON
-                val recommendedFirstRequester = remember { FocusRequester() }
-                
                 Surface(
                     onClick = onLearnMoreClick,
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
                         .height(48.dp)
                         .focusRequester(learnMoreRequester)
+                        .onFocusChanged {
+                            if (it.hasFocus) {
+                                focusMemoryManager.saveFocus("search_screen", "learn_more")
+                            }
+                        }
                         .focusProperties {
                             left = navFocusRequester
                             down = recommendedFirstRequester
@@ -283,7 +346,10 @@ fun SearchScreen(
                         rowId = "search_recommended",
                         title = "RECOMMENDED SERIES & FILMS",
                         movies = uiState.trendingResults,
-                        onMovieFocused = { _, movie -> viewModel.onItemFocused(movie) },
+                        onMovieFocused = { _, movie ->
+                            focusMemoryManager.saveFocus("search_screen", "search_recommended")
+                            viewModel.onItemFocused(movie)
+                        },
                         onMovieSelected = onItemClick,
                         onMovieClick = onItemClick,
                         navFocusRequester = navFocusRequester,
@@ -336,6 +402,11 @@ fun SearchScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .focusRequester(resultsGridRequester)
+                            .onFocusChanged {
+                                if (it.hasFocus) {
+                                    focusMemoryManager.saveFocus("search_screen", "results_grid")
+                                }
+                            }
                             .focusProperties {
                                 left = navFocusRequester
                                 up = searchInputFocusRequester
