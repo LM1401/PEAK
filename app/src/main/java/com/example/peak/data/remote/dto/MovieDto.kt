@@ -11,7 +11,8 @@ import com.google.gson.annotations.SerializedName
  * Data Transfer Objects (DTOs) representing the response from TMDB API.
  */
 data class TmdbResponse(
-    val results: List<TmdbMovie>
+    val results: List<TmdbMovie>,
+    @SerializedName("total_pages") val totalPages: Int? = null
 )
 
 data class TmdbMovie(

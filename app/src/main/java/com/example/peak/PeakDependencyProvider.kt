@@ -29,4 +29,11 @@ object PeakDependencyProvider {
             ).also { continueWatchingRepository = it }
         }
     }
+
+    fun getRandomSelectionRepository(context: Context): com.example.peak.domain.repository.RandomSelectionRepository {
+        return com.example.peak.data.repository.RandomSelectionRepositoryImpl(
+            RetrofitInstance.api,
+            getContinueWatchingRepository(context)
+        )
+    }
 }

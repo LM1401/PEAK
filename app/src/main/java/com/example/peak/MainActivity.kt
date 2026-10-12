@@ -65,6 +65,9 @@ fun PEAKApp() {
             SidebarItemType.TV -> navController.navigate("series") {
                 launchSingleTop = true
             }
+            SidebarItemType.RANDOM -> navController.navigate("random") {
+                launchSingleTop = true
+            }
             SidebarItemType.SEARCH -> navController.navigate("search") {
                 launchSingleTop = true
             }
@@ -128,6 +131,22 @@ fun PEAKApp() {
             com.example.peak.ui.settings.SettingsScreen(
                 viewModel = settingsViewModel,
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("random") {
+            val randomViewModel: com.example.peak.ui.screens.random.RandomViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.random.RandomViewModelFactory(
+                    PeakDependencyProvider.getRandomSelectionRepository(context),
+                    movieRepository
+                )
+            )
+            com.example.peak.ui.screens.random.RandomScreen(
+                viewModel = randomViewModel,
+                onSidebarItemSelected = onSidebarItemSelected,
+                onMovieClick = { movie ->
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
+                }
             )
         }
 

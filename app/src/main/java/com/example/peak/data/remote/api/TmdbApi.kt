@@ -5,6 +5,7 @@ import com.example.peak.data.remote.dto.TmdbResponse
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.QueryMap
 
 /**
  * Retrofit interface for TMDB API.
@@ -63,5 +64,17 @@ interface TmdbApi {
     @GET("discover/tv")
     suspend fun discoverSeries(
         @Query("with_genres") genreId: String
+    ): TmdbResponse
+
+    @GET("discover/movie")
+    suspend fun discoverAdvancedMovies(
+        @QueryMap filters: Map<String, String>,
+        @Query("page") page: Int
+    ): TmdbResponse
+
+    @GET("discover/tv")
+    suspend fun discoverAdvancedSeries(
+        @QueryMap filters: Map<String, String>,
+        @Query("page") page: Int
     ): TmdbResponse
 }
