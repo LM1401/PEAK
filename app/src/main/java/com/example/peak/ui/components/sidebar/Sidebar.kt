@@ -11,6 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -31,6 +34,10 @@ fun Sidebar(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
+    val focusRequesters = remember {
+        SidebarItemType.entries.associateWith { FocusRequester() }
+    }
+
     val railWidth by animateDpAsState(
         targetValue = if (isExpanded) 280.dp else 80.dp,
         animationSpec = tween(durationMillis = 250),
@@ -50,6 +57,7 @@ fun Sidebar(
         modifier = modifier
             .fillMaxHeight()
             .width(railWidth)
+            .focusRestorer(fallback = focusRequesters[selectedItem] ?: FocusRequester.Default)
             .onFocusChanged {
                 isExpanded = it.hasFocus
             }
@@ -74,7 +82,7 @@ fun Sidebar(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 48.dp),
+                    .padding(vertical = 24.dp),
                 horizontalAlignment = Alignment.Start
             ) {
                 // PEAK LOGO
@@ -106,7 +114,7 @@ fun Sidebar(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // SIDEBAR ITEMS
                 val scrollState = rememberScrollState()
@@ -115,24 +123,23 @@ fun Sidebar(
                         .weight(1f)
                         .padding(horizontal = 12.dp)
                         .verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     SidebarItemType.entries.forEach { itemType ->
                         if (itemType != SidebarItemType.PROFILE && itemType != SidebarItemType.SETTINGS) {
                             SidebarItem(
                                 itemType = itemType,
-                                isSelected = selectedItem == itemType,
                                 isExpanded = isExpanded,
-                                onClick = { onItemSelected(itemType) }
+                                onClick = { onItemSelected(itemType) },
+                                modifier = Modifier.focusRequester(focusRequesters[itemType]!!)
                             )
                         } else if (itemType == SidebarItemType.PROFILE) {
                             // Specialized Profile Item at top
                             SidebarProfileItem(
-                                isSelected = selectedItem == itemType,
                                 isExpanded = isExpanded,
-                                onClick = { onItemSelected(itemType) }
+                                onClick = { onItemSelected(itemType) },
+                                modifier = Modifier.focusRequester(focusRequesters[itemType]!!)
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
@@ -141,9 +148,9 @@ fun Sidebar(
                 Box(modifier = Modifier.padding(horizontal = 12.dp)) {
                     SidebarItem(
                         itemType = SidebarItemType.SETTINGS,
-                        isSelected = selectedItem == SidebarItemType.SETTINGS,
                         isExpanded = isExpanded,
-                        onClick = { onItemSelected(SidebarItemType.SETTINGS) }
+                        onClick = { onItemSelected(SidebarItemType.SETTINGS) },
+                        modifier = Modifier.focusRequester(focusRequesters[SidebarItemType.SETTINGS]!!)
                     )
                 }
             }
@@ -154,9 +161,9 @@ fun Sidebar(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SidebarProfileItem(
-    isSelected: Boolean,
     isExpanded: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -165,7 +172,7 @@ private fun SidebarProfileItem(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.1f)
         ),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = ClickableSurfaceDefaults.shape(RectangleShape)
     ) {
         Row(

@@ -92,14 +92,23 @@ fun HomeScreen(
                         restorationTarget = currentFocus
                     }
                 } else {
-                    contentFocusRequester.requestFocus()
                     isInitialFocusRequested = true
+                    if (rows.isNotEmpty()) {
+                        try { contentFocusRequester.requestFocus() } catch (_: Exception) {}
+                    }
                 }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Handle initial focus when rows are loaded asynchronously
+    LaunchedEffect(rows.isNotEmpty()) {
+        if (rows.isNotEmpty() && isInitialFocusRequested && !hasUserMovedFocus) {
+            try { contentFocusRequester.requestFocus() } catch (_: Exception) {}
         }
     }
 

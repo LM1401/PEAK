@@ -16,7 +16,6 @@ import androidx.tv.material3.*
 @Composable
 fun SidebarItem(
     itemType: SidebarItemType,
-    isSelected: Boolean,
     isExpanded: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -25,10 +24,10 @@ fun SidebarItem(
         onClick = onClick,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-            contentColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
-            focusedContentColor = Color.White,
-            focusedContainerColor = Color.White.copy(alpha = 0.2f)
+            containerColor = Color.Transparent,
+            contentColor = Color.White.copy(alpha = 0.6f),
+            focusedContainerColor = Color.White.copy(alpha = 0.2f),
+            focusedContentColor = Color.White
         ),
         modifier = modifier.fillMaxWidth(),
         shape = ClickableSurfaceDefaults.shape(RectangleShape)
@@ -56,7 +55,7 @@ fun SidebarItem(
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                         softWrap = false,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
