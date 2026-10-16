@@ -131,29 +131,35 @@ class HomeViewModel(
         _uiState.update { it.copy(loading = true) }
 
         // PROGRESSIVE LOADING: Launch independent tasks to maximize parallel network work
-        
-        // 1. PRIMARY: Trending
         viewModelScope.launch {
-            repository.getTrendingMovies().onSuccess { movies ->
-                updateRow("trending", "Trending Now", movies)
+            // 1. PRIMARY: Trending
+            val trendingJob = launch {
+                repository.getTrendingMovies().onSuccess { movies ->
+                    updateRow("trending", "Trending Now", movies)
+                }
             }
-        }
 
-        // 2. SECONDARY: Popular/Top Rated (Independent Background Requests)
-        viewModelScope.launch {
-            repository.getMovies(MovieListType.POPULAR).onSuccess { movies ->
-                updateRow("popular_movies", "Popular Movies", movies)
+            // 2. SECONDARY: Popular/Top Rated (Independent Background Requests)
+            val popularMoviesJob = launch {
+                repository.getMovies(MovieListType.POPULAR).onSuccess { movies ->
+                    updateRow("popular_movies", "Popular Movies", movies)
+                }
             }
-        }
-        viewModelScope.launch {
-            repository.getSeries(TvListType.POPULAR).onSuccess { series ->
-                updateRow("popular_series", "Popular Series", series)
+            
+            val popularSeriesJob = launch {
+                repository.getSeries(TvListType.POPULAR).onSuccess { series ->
+                    updateRow("popular_series", "Popular Series", series)
+                }
             }
-        }
-        viewModelScope.launch {
-            repository.getMovies(MovieListType.TOP_RATED).onSuccess { movies ->
-                updateRow("top_rated_movies", "Top Rated Movies", movies)
+            
+            val topRatedJob = launch {
+                repository.getMovies(MovieListType.TOP_RATED).onSuccess { movies ->
+                    updateRow("top_rated_movies", "Top Rated Movies", movies)
+                }
             }
+            
+            kotlinx.coroutines.joinAll(trendingJob, popularMoviesJob, popularSeriesJob, topRatedJob)
+            _uiState.update { it.copy(loading = false) }
         }
     }
 

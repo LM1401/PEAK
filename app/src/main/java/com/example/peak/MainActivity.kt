@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.tv.material3.*
@@ -65,7 +66,8 @@ fun PEAKApp() {
             SidebarItemType.TV -> navController.navigate("series") {
                 launchSingleTop = true
             }
-            SidebarItemType.RANDOM -> navController.navigate("random") {
+            SidebarItemType.RANDOM -> navController.navigate("random_flow") {
+                popUpTo("home") { inclusive = false }
                 launchSingleTop = true
             }
             SidebarItemType.SEARCH -> navController.navigate("search") {
@@ -134,20 +136,51 @@ fun PEAKApp() {
             )
         }
 
-        composable("random") {
-            val randomViewModel: com.example.peak.ui.screens.random.RandomViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.example.peak.ui.screens.random.RandomViewModelFactory(
-                    PeakDependencyProvider.getRandomSelectionRepository(context),
-                    movieRepository
-                )
-            )
-            com.example.peak.ui.screens.random.RandomScreen(
-                viewModel = randomViewModel,
-                onSidebarItemSelected = onSidebarItemSelected,
-                onMovieClick = { movie ->
-                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
+        navigation(route = "random_flow", startDestination = "random_config") {
+            composable("random_config") { backStackEntry ->
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("random_flow")
                 }
-            )
+                val randomViewModel: com.example.peak.ui.screens.random.RandomViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    parentEntry,
+                    factory = com.example.peak.ui.screens.random.RandomViewModelFactory(
+                        PeakDependencyProvider.getRandomSelectionRepository(context),
+                        movieRepository
+                    )
+                )
+                com.example.peak.ui.screens.random.RandomConfigScreen(
+                    viewModel = randomViewModel,
+                    onSidebarItemSelected = onSidebarItemSelected,
+                    onNavigateToResults = {
+                        navController.navigate("random_results") {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            
+            composable("random_results") { backStackEntry ->
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("random_flow")
+                }
+                val randomViewModel: com.example.peak.ui.screens.random.RandomViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    parentEntry,
+                    factory = com.example.peak.ui.screens.random.RandomViewModelFactory(
+                        PeakDependencyProvider.getRandomSelectionRepository(context),
+                        movieRepository
+                    )
+                )
+                com.example.peak.ui.screens.random.RandomResultsScreen(
+                    viewModel = randomViewModel,
+                    onSidebarItemSelected = onSidebarItemSelected,
+                    onMovieClick = { movie ->
+                        navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
+                    },
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
 
         composable(

@@ -146,7 +146,8 @@ fun DetailMovieCard(
     movie: Movie, 
     onMovieFocused: (Movie?) -> Unit,
     onMovieClick: (Movie) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusedBorderColor: Color = Color.White
 ) {
     val context = LocalContext.current
     val imageRequest = remember(movie.movieId, movie.mediaType) {
@@ -174,13 +175,13 @@ fun DetailMovieCard(
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(
-                border = BorderStroke(2.dp, Color.White),
+                border = BorderStroke(2.dp, focusedBorderColor),
                 inset = 0.dp
             )
         ),
         glow = CardDefaults.glow(
             focusedGlow = Glow(
-                elevationColor = Color.White.copy(alpha = 0.1f),
+                elevationColor = focusedBorderColor.copy(alpha = 0.3f),
                 elevation = 8.dp
             )
         )
