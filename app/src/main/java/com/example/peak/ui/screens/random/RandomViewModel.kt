@@ -34,16 +34,41 @@ class RandomViewModel(
         _uiState.update { 
             it.copy(request = it.request.copy(
                 includeMovies = movies,
-                includeTvShows = tvShows,
-                moviesRequested = if (movies) it.request.moviesRequested else 0,
-                tvRequested = if (tvShows) it.request.tvRequested else 0
+                includeTvShows = tvShows
             ))
         }
+        recalculateQuantities()
     }
 
-    fun setCustomMix(movies: Int, tvShows: Int) {
+    fun setQuantity(quantity: Int) {
+        _uiState.update { it.copy(selectedQuantity = quantity) }
+        recalculateQuantities()
+    }
+
+    private fun recalculateQuantities() {
+        val state = _uiState.value
+        val quantity = state.selectedQuantity
+        val movies = state.request.includeMovies
+        val tvShows = state.request.includeTvShows
+
+        val (movieReq, tvReq) = when {
+            movies && tvShows -> {
+                val m = quantity / 2 + quantity % 2
+                val t = quantity / 2
+                Pair(m, t)
+            }
+            movies -> Pair(quantity, 0)
+            tvShows -> Pair(0, quantity)
+            else -> Pair(quantity, 0) // fallback
+        }
+
         _uiState.update {
-            it.copy(request = it.request.copy(moviesRequested = movies, tvRequested = tvShows))
+            it.copy(
+                request = it.request.copy(
+                    moviesRequested = movieReq,
+                    tvRequested = tvReq
+                )
+            )
         }
     }
 
