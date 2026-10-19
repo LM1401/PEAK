@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -53,6 +56,7 @@ fun PEAKApp() {
 
     val movieRepository = remember { PeakDependencyProvider.getMovieRepository() }
     val continueWatchingRepository = remember { PeakDependencyProvider.getContinueWatchingRepository(context) }
+    val watchlistRepository = remember { PeakDependencyProvider.getWatchlistRepository(context) }
 
     val onSidebarItemSelected: (SidebarItemType) -> Unit = { item ->
         when (item) {
@@ -76,8 +80,8 @@ fun PEAKApp() {
             SidebarItemType.SETTINGS -> navController.navigate("settings") {
                 launchSingleTop = true
             }
-            SidebarItemType.MY_LIST -> {
-                // navController.navigate("mylist")
+            SidebarItemType.MY_LIST -> navController.navigate("watchlist") {
+                launchSingleTop = true
             }
             SidebarItemType.PROFILE -> {
                 // navController.navigate("profile")
@@ -128,6 +132,22 @@ fun PEAKApp() {
             )
         }
 
+        composable("watchlist") {
+            val watchlistViewModel: com.example.peak.ui.screens.watchlist.WatchlistViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.watchlist.WatchlistViewModelFactory(watchlistRepository)
+            )
+            com.example.peak.ui.screens.watchlist.WatchlistScreen(
+                viewModel = watchlistViewModel,
+                onSidebarItemSelected = onSidebarItemSelected,
+                onMovieClick = { movie ->
+                    navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
+                },
+                onPlayClick = { movie ->
+                    navController.navigate("player/${movie.movieId}/${movie.mediaType.name}")
+                }
+            )
+        }
+
         composable("settings") {
             val settingsViewModel: com.example.peak.ui.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
             com.example.peak.ui.settings.SettingsScreen(
@@ -137,7 +157,13 @@ fun PEAKApp() {
         }
 
         navigation(route = "random_flow", startDestination = "random_config") {
-            composable("random_config") { backStackEntry ->
+            composable(
+                route = "random_config",
+                enterTransition = { fadeIn(tween(350)) },
+                exitTransition = { fadeOut(tween(350)) },
+                popEnterTransition = { fadeIn(tween(350)) },
+                popExitTransition = { fadeOut(tween(350)) }
+            ) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("random_flow")
                 }
@@ -159,7 +185,13 @@ fun PEAKApp() {
                 )
             }
             
-            composable("random_results") { backStackEntry ->
+            composable(
+                route = "random_results",
+                enterTransition = { fadeIn(tween(350)) },
+                exitTransition = { fadeOut(tween(350)) },
+                popEnterTransition = { fadeIn(tween(350)) },
+                popExitTransition = { fadeOut(tween(350)) }
+            ) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("random_flow")
                 }

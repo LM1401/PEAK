@@ -1,5 +1,10 @@
 package com.example.peak.ui.screens.random
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -68,196 +73,205 @@ fun RandomConfigScreen(
         heroHud = null // No hero HUD on config screen
     ) { modifier ->
         
-        if (showLoadingOverlay) {
-            // Cinematic Loading Experience
-            Box(
-                modifier = modifier.fillMaxSize().padding(start = HomeConstants.HOME_CONTENT_START_PADDING),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.Center
+        AnimatedContent(
+            targetState = showLoadingOverlay,
+            transitionSpec = {
+                fadeIn(tween(350)) togetherWith fadeOut(tween(350))
+            },
+            label = "RandomConfigLoadingCrossfade",
+            modifier = modifier.fillMaxSize()
+        ) { isLoading ->
+            if (isLoading) {
+                // Cinematic Loading Experience
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(start = HomeConstants.HOME_CONTENT_START_PADDING),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Text(
-                        text = "R A N D O M",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.5f),
-                        letterSpacing = 4.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Finding\nyour picks...",
-                        style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Searching for the best movies and TV shows\nbased on your preferences.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    // Simple progress bar mock
-                    Box(
-                        modifier = Modifier
-                            .width(300.dp)
-                            .height(4.dp)
-                            .background(Color.White.copy(alpha = 0.1f), MaterialTheme.shapes.small)
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.6f)
-                                .height(4.dp)
-                                .background(Color(0xFF00D2FF), MaterialTheme.shapes.small)
-                        )
-                    }
-                }
-            }
-        } else {
-            // Config Screen
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(
-                        start = HomeConstants.HOME_CONTENT_START_PADDING,
-                        top = 28.dp,
-                        end = 48.dp,
-                        bottom = 16.dp
-                    ),
-                contentAlignment = Alignment.TopStart
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = "R A N D O M",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.5f),
-                        letterSpacing = 4.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Column {
                         Text(
-                            text = "Find something",
+                            text = "R A N D O M",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.5f),
+                            letterSpacing = 4.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Finding\nyour picks...",
                             style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
-                        Row {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Searching for the best movies and TV shows\nbased on your preferences.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        // Simple progress bar mock
+                        Box(
+                            modifier = Modifier
+                                .width(300.dp)
+                                .height(4.dp)
+                                .background(Color.White.copy(alpha = 0.1f), MaterialTheme.shapes.small)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.6f)
+                                    .height(4.dp)
+                                    .background(Color(0xFF00D2FF), MaterialTheme.shapes.small)
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Config Screen
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            start = HomeConstants.HOME_CONTENT_START_PADDING,
+                            top = 28.dp,
+                            end = 48.dp,
+                            bottom = 16.dp
+                        ),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = "R A N D O M",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.5f),
+                            letterSpacing = 4.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Column {
                             Text(
-                                text = "amazing ",
+                                text = "Find something",
                                 style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
-                            Text(
-                                text = "to watch",
-                                style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFF00D2FF)
-                            )
+                            Row {
+                                Text(
+                                    text = "amazing ",
+                                    style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "to watch",
+                                    style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF00D2FF)
+                                )
+                            }
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Get a random selection of movies and TV shows\nbased on your preferences.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(32.dp))
-                    
-                    // Controls Row 1: Content Type
-                    Text(
-                        text = "WHAT WOULD YOU LIKE?",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        val isMovies = uiState.request.includeMovies && !uiState.request.includeTvShows
-                        val isTvShows = !uiState.request.includeMovies && uiState.request.includeTvShows
-                        val isBoth = uiState.request.includeMovies && uiState.request.includeTvShows
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Get a random selection of movies and TV shows\nbased on your preferences.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(32.dp))
+                        
+                        // Controls Row 1: Content Type
+                        Text(
+                            text = "WHAT WOULD YOU LIKE?",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            val isMovies = uiState.request.includeMovies && !uiState.request.includeTvShows
+                            val isTvShows = !uiState.request.includeMovies && uiState.request.includeTvShows
+                            val isBoth = uiState.request.includeMovies && uiState.request.includeTvShows
 
-                        ConfigSelectableChip(
-                            text = "Movies",
-                            icon = Icons.Default.PlayArrow,
-                            selected = isMovies,
-                            onClick = { 
-                                viewModel.setMediaTypes(movies = true, tvShows = false)
-                            },
-                            modifier = Modifier.focusRequester(contentFocusRequester)
-                        )
-                        ConfigSelectableChip(
-                            text = "TV Shows",
-                            icon = Icons.AutoMirrored.Filled.List,
-                            selected = isTvShows,
-                            onClick = { 
-                                viewModel.setMediaTypes(movies = false, tvShows = true)
-                            }
-                        )
-                        ConfigSelectableChip(
-                            text = "Both",
-                            icon = CasinoDiceIcon,
-                            selected = isBoth,
-                            onClick = { 
-                                viewModel.setMediaTypes(movies = true, tvShows = true)
-                            }
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    // Controls Row 2: Quantity
-                    Text(
-                        text = "NUMBER OF PICKS",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        val quantities = listOf(1, 3, 5, 10)
-                        for (q in quantities) {
-                            ConfigSelectableNumberChip(
-                                number = q,
-                                selected = uiState.selectedQuantity == q,
+                            ConfigSelectableChip(
+                                text = "Movies",
+                                icon = Icons.Default.PlayArrow,
+                                selected = isMovies,
                                 onClick = { 
-                                    viewModel.setQuantity(q)
+                                    viewModel.setMediaTypes(movies = true, tvShows = false)
+                                },
+                                modifier = Modifier.focusRequester(contentFocusRequester)
+                            )
+                            ConfigSelectableChip(
+                                text = "TV Shows",
+                                icon = Icons.AutoMirrored.Filled.List,
+                                selected = isTvShows,
+                                onClick = { 
+                                    viewModel.setMediaTypes(movies = false, tvShows = true)
+                                }
+                            )
+                            ConfigSelectableChip(
+                                text = "Both",
+                                icon = CasinoDiceIcon,
+                                selected = isBoth,
+                                onClick = { 
+                                    viewModel.setMediaTypes(movies = true, tvShows = true)
                                 }
                             )
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(32.dp))
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        // Controls Row 2: Quantity
+                        Text(
+                            text = "NUMBER OF PICKS",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            val quantities = listOf(1, 3, 5, 10)
+                            for (q in quantities) {
+                                ConfigSelectableNumberChip(
+                                    number = q,
+                                    selected = uiState.selectedQuantity == q,
+                                    onClick = { 
+                                        viewModel.setQuantity(q)
+                                    }
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(32.dp))
 
-                    Button(
-                        onClick = { 
-                            isGenerating = true
-                            viewModel.generateSelection(skipReveal = false)
-                        },
-                        modifier = Modifier.width(420.dp).height(56.dp),
-                        colors = ButtonDefaults.colors(
-                            containerColor = Color(0xFF00D2FF),
-                            focusedContainerColor = Color.White,
-                            contentColor = Color(0xFF040B16),
-                            focusedContentColor = Color(0xFF040B16)
-                        ),
-                        shape = ButtonDefaults.shape(shape = MaterialTheme.shapes.medium),
-                        contentPadding = PaddingValues(horizontal = 32.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxHeight()
+                        Button(
+                            onClick = { 
+                                isGenerating = true
+                                viewModel.generateSelection(skipReveal = false)
+                            },
+                            modifier = Modifier.width(420.dp).height(56.dp),
+                            colors = ButtonDefaults.colors(
+                                containerColor = Color(0xFF00D2FF),
+                                focusedContainerColor = Color.White,
+                                contentColor = Color(0xFF040B16),
+                                focusedContentColor = Color(0xFF040B16)
+                            ),
+                            shape = ButtonDefaults.shape(shape = MaterialTheme.shapes.medium),
+                            contentPadding = PaddingValues(horizontal = 32.dp)
                         ) {
-                            Icon(imageVector = CasinoDiceIcon, contentDescription = null, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Generate Picks", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxHeight()
+                            ) {
+                                Icon(imageVector = CasinoDiceIcon, contentDescription = null, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Generate Picks", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+                            }
                         }
                     }
                 }

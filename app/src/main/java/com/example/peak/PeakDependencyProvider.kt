@@ -15,6 +15,7 @@ object PeakDependencyProvider {
 
     private var movieRepository: MovieRepository? = null
     private var continueWatchingRepository: ContinueWatchingRepository? = null
+    private var watchlistRepository: com.example.peak.data.repository.WatchlistRepository? = null
 
     fun getMovieRepository(): MovieRepository {
         return movieRepository ?: synchronized(this) {
@@ -27,6 +28,14 @@ object PeakDependencyProvider {
             continueWatchingRepository ?: ContinueWatchingRepository(
                 ContinueWatchingStorage(context.applicationContext)
             ).also { continueWatchingRepository = it }
+        }
+    }
+
+    fun getWatchlistRepository(context: Context): com.example.peak.data.repository.WatchlistRepository {
+        return watchlistRepository ?: synchronized(this) {
+            watchlistRepository ?: com.example.peak.data.repository.WatchlistRepository(
+                com.example.peak.data.watchlist.WatchlistStorage(context.applicationContext)
+            ).also { watchlistRepository = it }
         }
     }
 

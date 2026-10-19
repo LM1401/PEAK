@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,8 +59,10 @@ fun DetailScreen(
     onMovieClick: (Movie) -> Unit,
     onSidebarItemSelected: (SidebarItemType) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val watchlistRepository = remember { com.example.peak.PeakDependencyProvider.getWatchlistRepository(context) }
     val viewModel: DetailViewModel = viewModel(
-        factory = DetailViewModelFactory(movieRepository, continueWatchingRepository)
+        factory = DetailViewModelFactory(movieRepository, continueWatchingRepository, watchlistRepository)
     )
     
     val movie by viewModel.movie.collectAsState()
@@ -68,6 +71,7 @@ fun DetailScreen(
     val error by viewModel.error.collectAsState()
     val resumePosition by viewModel.resumePosition.collectAsState()
     val totalDuration by viewModel.totalDuration.collectAsState()
+    val isInWatchlist by viewModel.isInWatchlist.collectAsState()
 
     LaunchedEffect(mediaId, mediaType) {
         viewModel.loadMedia(mediaId, mediaType)
@@ -91,6 +95,8 @@ fun DetailScreen(
                     similarMovies = similarMovies,
                     resumePosition = resumePosition,
                     totalDuration = totalDuration,
+                    isInWatchlist = isInWatchlist,
+                    onToggleWatchlist = { viewModel.toggleWatchlist() },
                     onPlayClick = onPlayClick,
                     onMovieClick = onMovieClick,
                     onSidebarItemSelected = onSidebarItemSelected
@@ -107,6 +113,8 @@ fun DetailContent(
     similarMovies: List<Movie>,
     resumePosition: Long = 0L,
     totalDuration: Long = 0L,
+    isInWatchlist: Boolean = false,
+    onToggleWatchlist: () -> Unit = {},
     onPlayClick: (Movie) -> Unit,
     onMovieClick: (Movie) -> Unit,
     onSidebarItemSelected: (SidebarItemType) -> Unit = {}
@@ -358,8 +366,8 @@ fun DetailContent(
                 )
 
                 DetailActionButton(
-                    icon = Icons.Default.Add,
-                    text = "My List",
+                    icon = if (isInWatchlist) Icons.Default.Check else Icons.Default.Add,
+                    text = if (isInWatchlist) "In Watchlist" else "My List",
                     isPrimary = false,
                     focusRequester = myListFocusRequester,
                     modifier = Modifier.focusProperties {
@@ -367,7 +375,7 @@ fun DetailContent(
                         right = trailerFocusRequester
                         down = recommendationRowFocusRequester
                     },
-                    onClick = { /* Add to My List */ }
+                    onClick = onToggleWatchlist
                 )
 
                 DetailActionButton(

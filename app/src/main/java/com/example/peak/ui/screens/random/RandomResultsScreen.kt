@@ -8,7 +8,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -306,21 +308,33 @@ private fun ResultActions(
             Text("Pick Another", fontWeight = FontWeight.Bold)
         }
         
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+        val watchlistRepo = remember { com.example.peak.PeakDependencyProvider.getWatchlistRepository(context) }
+        var isAdded by remember(focusedMovie?.movieId) { mutableStateOf(false) }
+
         Button(
-            onClick = { /* Watchlist Stub */ },
-            enabled = false,
+            onClick = {
+                focusedMovie?.let { movie ->
+                    coroutineScope.launch {
+                        watchlistRepo.addTitleToWatchlist(movie = movie)
+                        isAdded = true
+                    }
+                }
+            },
+            enabled = focusedMovie != null,
             colors = ButtonDefaults.colors(
-                containerColor = Color.White.copy(alpha = 0.05f),
-                focusedContainerColor = Color.White.copy(alpha = 0.2f),
-                contentColor = Color.White.copy(alpha = 0.5f),
-                focusedContentColor = Color.White
+                containerColor = Color.White.copy(alpha = 0.1f),
+                focusedContainerColor = Color.White,
+                contentColor = Color.White,
+                focusedContentColor = Color(0xFF040B16)
             ),
             shape = ButtonDefaults.shape(shape = MaterialTheme.shapes.medium),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(imageVector = if (isAdded) Icons.Default.Check else Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add to List")
+            Text(if (isAdded) "In Watchlist" else "Add to Watchlist")
         }
     }
 }

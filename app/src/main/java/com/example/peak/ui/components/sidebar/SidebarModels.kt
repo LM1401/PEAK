@@ -2,7 +2,6 @@ package com.example.peak.ui.components.sidebar
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -13,6 +12,27 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+
+val BookmarkIcon: ImageVector
+    get() = ImageVector.Builder(
+        name = "Bookmark",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(17.0f, 3.0f)
+            lineTo(7.0f, 3.0f)
+            curveTo(5.9f, 3.0f, 5.0f, 3.9f, 5.0f, 5.0f)
+            lineTo(5.0f, 21.0f)
+            lineTo(12.0f, 18.0f)
+            lineTo(19.0f, 21.0f)
+            lineTo(19.0f, 5.0f)
+            curveTo(19.0f, 3.9f, 18.1f, 3.0f, 17.0f, 3.0f)
+            close()
+        }
+    }.build()
 
 val CasinoDiceIcon: ImageVector
     get() = ImageVector.Builder(
@@ -75,7 +95,7 @@ enum class SidebarItemType(
     SEARCH("Search", Icons.Default.Search),
     MOVIES("Movies", Icons.Default.PlayArrow),
     TV("TV Shows", Icons.AutoMirrored.Filled.List),
-    MY_LIST("My List", Icons.Default.Add),
+    MY_LIST("Watchlist", BookmarkIcon),
     RANDOM("Random", CasinoDiceIcon),
     SETTINGS("Settings", Icons.Default.Settings)
 }
