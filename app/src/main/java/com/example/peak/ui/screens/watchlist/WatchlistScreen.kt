@@ -272,7 +272,7 @@ private fun WatchlistHeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(210.dp),
+            .wrapContentHeight(),
         contentAlignment = Alignment.TopStart
     ) {
         if (movie != null) {
@@ -291,7 +291,7 @@ private fun WatchlistHeroSection(
                     alignment = Alignment.CenterStart
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Metadata row
                 Row(
@@ -323,7 +323,7 @@ private fun WatchlistHeroSection(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Synopsis
                 Text(
@@ -336,7 +336,7 @@ private fun WatchlistHeroSection(
                     modifier = Modifier.fillMaxWidth(0.9f)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Hero Action Buttons
                 Row(

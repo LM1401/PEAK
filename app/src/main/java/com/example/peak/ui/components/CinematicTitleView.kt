@@ -43,45 +43,37 @@ fun CinematicTitleView(
     var isLogoError by remember(title, titleLogoUrl) { mutableStateOf(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
-    val isPendingEnrichment = !isEnriched && !hasLogoUrl
 
     Box(
         modifier = modifier
-            .heightIn(min = 52.dp, max = maxHeight)
+            .heightIn(min = 48.dp, max = maxHeight)
             .widthIn(max = maxWidth),
         contentAlignment = alignment
     ) {
-        when {
-            hasLogoUrl && !isLogoError -> {
-                AsyncImage(
-                    model = remember(title, titleLogoUrl) {
-                        ImageRequest.Builder(context)
-                            .data(titleLogoUrl)
-                            .crossfade(false)
-                            .allowHardware(true)
-                            .build()
-                    },
-                    contentDescription = title,
-                    contentScale = ContentScale.Fit,
-                    alignment = alignment,
-                    onError = { isLogoError = true },
-                    modifier = Modifier
-                        .heightIn(max = maxHeight)
-                        .widthIn(max = maxWidth)
-                )
-            }
-            isPendingEnrichment && !isLogoError -> {
-                // Stable placeholder space while lazy enrichment completes in the background.
-                // Prevents flashing plain-text titles prior to logo availability.
-            }
-            else -> {
-                // PEAK CINEMATIC TEXT FALLBACK
-                CinematicTextFallback(
-                    title = title,
-                    maxHeight = maxHeight,
-                    maxWidth = maxWidth
-                )
-            }
+        if (hasLogoUrl && !isLogoError) {
+            AsyncImage(
+                model = remember(title, titleLogoUrl) {
+                    ImageRequest.Builder(context)
+                        .data(titleLogoUrl)
+                        .crossfade(false)
+                        .allowHardware(true)
+                        .build()
+                },
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                alignment = alignment,
+                onError = { isLogoError = true },
+                modifier = Modifier
+                    .heightIn(max = maxHeight)
+                    .widthIn(max = maxWidth)
+            )
+        } else {
+            // PEAK CINEMATIC TEXT FALLBACK
+            CinematicTextFallback(
+                title = title,
+                maxHeight = maxHeight,
+                maxWidth = maxWidth
+            )
         }
     }
 }

@@ -16,8 +16,10 @@ import java.util.UUID
  * Local persistence layer for Watchlists using SharedPreferences + Gson.
  * Survives application restarts and supports multi-list title management.
  */
-open class WatchlistStorage(context: Context) {
+open class WatchlistStorage @JvmOverloads constructor(
+    context: Context,
     private val prefs: SharedPreferences? = try { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) } catch (e: Exception) { null }
+) {
     private val gson = Gson()
     private val listType = object : TypeToken<List<Watchlist>>() {}.type
 
@@ -28,7 +30,8 @@ open class WatchlistStorage(context: Context) {
     }
 
     /**
-     * Retrieves all persisted watchlists. Seeds default lists if empty on first run.
+     * Retrieves all persisted watchlists. Seeds an empty default watchlist if empty on first run.
+     * Also migrates legacy pre-populated sample lists/movies without affecting genuine user entries.
      */
     open fun getAllWatchlists(): List<Watchlist> {
         return try {
@@ -39,22 +42,28 @@ open class WatchlistStorage(context: Context) {
                 seeded
             } else {
                 val loaded: List<Watchlist> = gson.fromJson(json, listType) ?: emptyList()
-                if (loaded.none { it.id == DEFAULT_WATCHLIST_ID }) {
+                val sanitized = sanitizeWatchlists(loaded)
+
+                val hasDefault = sanitized.any { it.id == DEFAULT_WATCHLIST_ID }
+                val finalWatchlists = if (!hasDefault) {
                     val defaultList = Watchlist(
                         id = DEFAULT_WATCHLIST_ID,
                         name = "My Watchlist",
                         isDefault = true,
-                        items = seedSampleMovies()
+                        items = emptyList()
                     )
-                    val updated = listOf(defaultList) + loaded
-                    prefs?.edit()?.putString(KEY_WATCHLISTS, gson.toJson(updated))?.apply()
-                    updated
+                    listOf(defaultList) + sanitized
                 } else {
-                    loaded
+                    sanitized
                 }
+
+                if (finalWatchlists != loaded) {
+                    prefs?.edit()?.putString(KEY_WATCHLISTS, gson.toJson(finalWatchlists))?.apply()
+                }
+                finalWatchlists
             }
         } catch (e: Exception) {
-            Log.e("WATCHLIST_STORAGE", "getAllWatchlists failed, returning seeded default", e)
+            Log.e("WATCHLIST_STORAGE", "getAllWatchlists failed, returning clean default", e)
             seedInitialWatchlists()
         }
     }
@@ -73,39 +82,60 @@ open class WatchlistStorage(context: Context) {
     private fun String?.isNull_or_blank(): Boolean = this == null || this.trim().isEmpty()
 
     /**
-     * Seeds initial design-accurate sample data on first installation.
+     * Seeds initial empty default watchlist on first installation.
      */
     private fun seedInitialWatchlists(): List<Watchlist> {
-        val sampleMovies = seedSampleMovies()
         val defaultList = Watchlist(
             id = DEFAULT_WATCHLIST_ID,
             name = "My Watchlist",
             isDefault = true,
-            items = sampleMovies.take(12)
+            items = emptyList()
         )
+        return listOf(defaultList)
+    }
 
-        val partnerList = Watchlist(
-            id = "partner_list",
-            name = "Me & My Partner",
-            isDefault = false,
-            items = seedPartnerMovies()
-        )
+    /**
+     * Target migration to remove legacy seeded sample entries while strictly preserving user-added content.
+     */
+    private fun sanitizeWatchlists(loaded: List<Watchlist>): List<Watchlist> {
+        val seededListIds = setOf("partner_list", "horror_night_list", "scifi_list")
 
-        val horrorList = Watchlist(
-            id = "horror_night_list",
-            name = "Horror Night",
-            isDefault = false,
-            items = seedHorrorMovies()
-        )
+        return loaded.mapNotNull { list ->
+            val cleanedItems = list.items.filterNot { isSeededSampleMovie(it) }
 
-        val scifiList = Watchlist(
-            id = "scifi_list",
-            name = "Sci-Fi Favourites",
-            isDefault = false,
-            items = sampleMovies.take(8)
-        )
+            // If an auto-seeded sample list has no genuine user items left, drop the list
+            if (list.id in seededListIds && cleanedItems.isEmpty()) {
+                null
+            } else {
+                list.copy(items = cleanedItems)
+            }
+        }
+    }
 
-        return listOf(defaultList, partnerList, horrorList, scifiList)
+    /**
+     * Checks if a movie matches an exact known legacy seeded sample entry fingerprint.
+     * Uses strict equality across all original hardcoded sample fields to avoid deleting
+     * genuine user-added entries or entries with user-modified metadata.
+     */
+    private fun isSeededSampleMovie(movie: Movie): Boolean {
+        return legacySeedMovies.any { seed ->
+            seed.movieId == movie.movieId &&
+                    seed.mediaType == movie.mediaType &&
+                    seed.name == movie.name &&
+                    seed.imageUrl == movie.imageUrl &&
+                    seed.backdropUrl == movie.backdropUrl &&
+                    seed.description == movie.description &&
+                    seed.cast == movie.cast &&
+                    seed.director == movie.director &&
+                    seed.year == movie.year &&
+                    seed.duration == movie.duration &&
+                    seed.genres == movie.genres &&
+                    seed.rating == movie.rating
+        }
+    }
+
+    private val legacySeedMovies: List<Movie> by lazy {
+        seedSampleMovies() + seedPartnerMovies() + seedHorrorMovies()
     }
 
     private fun seedSampleMovies(): List<Movie> {

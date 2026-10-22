@@ -25,9 +25,14 @@ import com.example.peak.ui.image.PeakImageLoader
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import com.example.peak.ui.components.sidebar.BookmarkIcon
+
 /**
  * Large, cinematic Movie Card for the Home Screen.
- * Optimized for performance: asynchronous loading with stable placeholders.
+ * Optimized for performance: asynchronous loading with stable placeholders and robust fallbacks.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -81,40 +86,47 @@ fun MovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. BASE PLACEHOLDER
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
-                ShimmerBox()
-            }
-
-            // 2. IMAGE SWAP (Synchronised with local focus for zero-lag response)
             val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
             val posterKey = cacheKey
             val backdropKey = "${cacheKey}_backdrop"
             val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
+            val activeUrl = if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl
 
-            val imageRequest = remember<ImageRequest>(
-                movie.movieId,
-                movie.mediaType,
-                movie.imageUrl,
-                movie.backdropUrl,
-                isLocalFocused
-            ) {
-                ImageRequest.Builder(context)
-                    .data(if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl)
-                    .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
-                    .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
-                    .crossfade(200)
-                    .allowHardware(true)
-                    .build()
+            var isImageError by remember(movie.movieId, movie.mediaType, activeUrl) { mutableStateOf(false) }
+
+            if (activeUrl.isBlank() || isImageError) {
+                // Visual fallback for missing, invalid or failed image requests
+                CardFallbackContent(movie = movie)
+            } else {
+                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
+                    ShimmerBox()
+                }
+
+                val imageRequest = remember<ImageRequest>(
+                    movie.movieId,
+                    movie.mediaType,
+                    movie.imageUrl,
+                    movie.backdropUrl,
+                    isLocalFocused
+                ) {
+                    ImageRequest.Builder(context)
+                        .data(activeUrl)
+                        .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
+                        .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
+                        .crossfade(200)
+                        .allowHardware(true)
+                        .build()
+                }
+
+                AsyncImage(
+                    model = imageRequest,
+                    imageLoader = imageLoader,
+                    contentDescription = movie.name,
+                    contentScale = ContentScale.Crop,
+                    onError = { isImageError = true },
+                    modifier = Modifier.fillMaxSize()
+                )
             }
-
-            AsyncImage(
-                model = imageRequest,
-                imageLoader = imageLoader,
-                contentDescription = movie.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
 
             // 3. PROGRESS BAR OVERLAY (At the very bottom)
             if (progress != null && progress > 0f) {
@@ -150,7 +162,9 @@ fun DetailMovieCard(
     focusedBorderColor: Color = Color.White
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(movie.movieId, movie.mediaType) {
+    var isImageError by remember(movie.movieId, movie.mediaType, movie.imageUrl) { mutableStateOf(false) }
+
+    val imageRequest = remember(movie.movieId, movie.mediaType, movie.imageUrl) {
         val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
         ImageRequest.Builder(context)
             .data(movie.imageUrl)
@@ -187,18 +201,71 @@ fun DetailMovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // BASE PLACEHOLDER
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
-                ShimmerBox()
-            }
+            if (movie.imageUrl.isBlank() || isImageError) {
+                CardFallbackContent(movie = movie)
+            } else {
+                Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A1A))) {
+                    ShimmerBox()
+                }
 
-            AsyncImage(
-                model = imageRequest,
-                imageLoader = PeakImageLoader.getInstance(context),
-                contentDescription = movie.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                AsyncImage(
+                    model = imageRequest,
+                    imageLoader = PeakImageLoader.getInstance(context),
+                    contentDescription = movie.name,
+                    contentScale = ContentScale.Crop,
+                    onError = { isImageError = true },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Clean PEAK visual fallback for cards missing poster artwork.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CardFallbackContent(movie: Movie) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                )
             )
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = BookmarkIcon,
+                contentDescription = null,
+                tint = Color(0xFF00D2FF).copy(alpha = 0.8f),
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = movie.name,
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+            if (movie.year.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = movie.year,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
         }
     }
 }
