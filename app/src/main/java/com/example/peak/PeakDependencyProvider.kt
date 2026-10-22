@@ -45,4 +45,32 @@ object PeakDependencyProvider {
             getContinueWatchingRepository(context)
         )
     }
+
+    private var settingsRepository: com.example.peak.data.repository.SettingsRepository? = null
+
+    fun getSettingsRepository(context: Context): com.example.peak.data.repository.SettingsRepository {
+        return settingsRepository ?: synchronized(this) {
+            settingsRepository ?: com.example.peak.data.repository.SettingsRepository(
+                com.example.peak.data.settings.SettingsStorage(context.applicationContext)
+            ).also { settingsRepository = it }
+        }
+    }
+
+    private var addonRepository: com.example.peak.data.repository.AddonRepository? = null
+
+    fun getAddonRepository(context: Context): com.example.peak.data.repository.AddonRepository {
+        return addonRepository ?: synchronized(this) {
+            addonRepository ?: com.example.peak.data.repository.AddonRepository(
+                com.example.peak.data.addon.AddonStorage(context.applicationContext)
+            ).also { addonRepository = it }
+        }
+    }
+
+    private var addonApiClient: com.example.peak.data.addon.AddonApiClient? = null
+
+    fun getAddonApiClient(): com.example.peak.data.addon.AddonApiClient {
+        return addonApiClient ?: synchronized(this) {
+            addonApiClient ?: com.example.peak.data.addon.AddonApiClient().also { addonApiClient = it }
+        }
+    }
 }

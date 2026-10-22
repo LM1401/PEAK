@@ -149,7 +149,10 @@ fun PEAKApp() {
         }
 
         composable("settings") {
-            val settingsViewModel: com.example.peak.ui.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val settingsRepository = remember { PeakDependencyProvider.getSettingsRepository(context) }
+            val settingsViewModel: com.example.peak.ui.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.settings.SettingsViewModelFactory(settingsRepository)
+            )
             com.example.peak.ui.settings.SettingsScreen(
                 viewModel = settingsViewModel,
                 onBackClick = { navController.popBackStack() }

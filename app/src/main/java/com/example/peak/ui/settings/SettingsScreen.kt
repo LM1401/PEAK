@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 
@@ -27,6 +28,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -51,7 +53,7 @@ fun SettingsScreen(
                     SettingsRow(
                         item = item,
                         onToggle = { viewModel.onToggleItem(item.id) },
-                        onAction = { viewModel.onActionItem(item.id) }
+                        onAction = { viewModel.onActionItem(item.id, context) }
                     )
                 }
             }
