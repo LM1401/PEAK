@@ -73,4 +73,12 @@ object PeakDependencyProvider {
             addonApiClient ?: com.example.peak.data.addon.AddonApiClient().also { addonApiClient = it }
         }
     }
+
+    private var addonStreamApiClient: com.example.peak.data.addon.AddonStreamApiClient? = null
+
+    fun getAddonStreamApiClient(): com.example.peak.data.addon.AddonStreamApiClient {
+        return addonStreamApiClient ?: synchronized(this) {
+            addonStreamApiClient ?: com.example.peak.data.addon.AddonStreamApiClient().also { addonStreamApiClient = it }
+        }
+    }
 }
