@@ -248,7 +248,7 @@ fun PEAKApp() {
                 movieRepository = movieRepository,
                 continueWatchingRepository = continueWatchingRepository,
                 onPlayClick = { movie ->
-                    navController.navigate("player/${movie.movieId}/${movie.mediaType.name}")
+                    navController.navigate("stream_selection/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onMovieClick = { movie ->
                     // Replace current detail instead of stacking
@@ -257,6 +257,34 @@ fun PEAKApp() {
                     }
                 },
                 onSidebarItemSelected = onSidebarItemSelected
+            )
+        }
+
+        composable(
+            route = "stream_selection/{mediaId}/{mediaType}",
+            arguments = listOf(
+                navArgument("mediaId") { type = NavType.StringType },
+                navArgument("mediaType") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val mediaId = backStackEntry.arguments?.getString("mediaId") ?: ""
+            val mediaTypeStr = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+            val mediaType = try { MediaType.valueOf(mediaTypeStr) } catch (e: Exception) { MediaType.MOVIE }
+
+            val addonRepository = remember { PeakDependencyProvider.getAddonRepository(context) }
+            val streamViewModel: com.example.peak.ui.screens.stream_selection.StreamSelectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.stream_selection.StreamSelectionViewModelFactory(
+                    movieRepository,
+                    addonRepository
+                )
+            )
+
+            com.example.peak.ui.screens.stream_selection.StreamSelectionScreen(
+                mediaId = mediaId,
+                mediaType = mediaType,
+                viewModel = streamViewModel,
+                onNavigateToAddons = { navController.navigate("addons") },
+                onBackClick = { navController.popBackStack() }
             )
         }
 
