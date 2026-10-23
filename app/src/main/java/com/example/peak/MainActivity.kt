@@ -143,7 +143,7 @@ fun PEAKApp() {
                     navController.navigate("detail/${movie.movieId}/${movie.mediaType.name}")
                 },
                 onPlayClick = { movie ->
-                    navController.navigate("player/${movie.movieId}/${movie.mediaType.name}")
+                    navController.navigate("stream_selection/${movie.movieId}/${movie.mediaType.name}")
                 }
             )
         }
@@ -272,6 +272,7 @@ fun PEAKApp() {
             val mediaType = try { MediaType.valueOf(mediaTypeStr) } catch (e: Exception) { MediaType.MOVIE }
 
             val addonRepository = remember { PeakDependencyProvider.getAddonRepository(context) }
+            val streamHandoffManager = remember { PeakDependencyProvider.getStreamHandoffManager() }
             val streamViewModel: com.example.peak.ui.screens.stream_selection.StreamSelectionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = com.example.peak.ui.screens.stream_selection.StreamSelectionViewModelFactory(
                     movieRepository,
@@ -283,6 +284,10 @@ fun PEAKApp() {
                 mediaId = mediaId,
                 mediaType = mediaType,
                 viewModel = streamViewModel,
+                onStreamSelected = { stream ->
+                    streamHandoffManager.setStream(mediaId, mediaType, stream)
+                    navController.navigate("player/$mediaId/${mediaType.name}")
+                },
                 onNavigateToAddons = { navController.navigate("addons") },
                 onBackClick = { navController.popBackStack() }
             )

@@ -82,4 +82,8 @@ object PeakDependencyProvider {
             addonStreamApiClient ?: com.example.peak.data.addon.AddonStreamApiClient().also { addonStreamApiClient = it }
         }
     }
+
+    fun getStreamHandoffManager(): com.example.peak.player.StreamHandoffManager {
+        return com.example.peak.player.StreamHandoffManager
+    }
 }

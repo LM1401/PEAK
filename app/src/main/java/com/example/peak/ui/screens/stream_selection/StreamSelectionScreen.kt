@@ -45,6 +45,7 @@ fun StreamSelectionScreen(
     season: Int? = null,
     episode: Int? = null,
     viewModel: StreamSelectionViewModel,
+    onStreamSelected: (AddonStream) -> Unit = {},
     onNavigateToAddons: () -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -271,7 +272,10 @@ fun StreamSelectionScreen(
                                             providerName = providerResult.addonName,
                                             isSelected = uiState.selectedStream == stream,
                                             focusRequester = if (isFirst) initialFocusRequester else remember { FocusRequester() },
-                                            onClick = { viewModel.selectStream(stream) }
+                                            onClick = {
+                                                viewModel.selectStream(stream)
+                                                onStreamSelected(stream)
+                                            }
                                         )
                                     }
                                 }

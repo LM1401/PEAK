@@ -7,15 +7,19 @@ import com.example.peak.data.repository.ContinueWatchingRepository
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
+import com.example.peak.player.StreamHandoffManager
+import com.example.peak.player.StreamPlayability
+import com.example.peak.player.classifyPlayability
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
  * ViewModel for managing playback state and persisting progress.
  */
-class PlayerViewModel(
+class PlayerViewModel @JvmOverloads constructor(
     private val repository: ContinueWatchingRepository,
-    private val movieRepository: MovieRepository
+    private val movieRepository: MovieRepository,
+    private val streamHandoffManager: StreamHandoffManager = StreamHandoffManager
 ) : ViewModel() {
 
     // Authoritative Playback Session State
@@ -23,8 +27,10 @@ class PlayerViewModel(
         val mediaId: String,
         val mediaType: MediaType,
         val videoUrl: String,
+        val headers: Map<String, String> = emptyMap(),
         val resumePosition: Long,
-        val token: Int
+        val token: Int,
+        val title: String? = null
     )
 
     private val _playbackSession = MutableStateFlow<PlaybackSession?>(null)
@@ -33,6 +39,9 @@ class PlayerViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     // SESSION MANAGEMENT
     private var currentSessionToken = 0
 
@@ -40,6 +49,11 @@ class PlayerViewModel(
     private var lastSavedPosition: Long = -1L
     private var lastSaveTimestamp: Long = 0L
     private val periodicSaveIntervalMs = 5000L
+
+    fun setPlaybackError(message: String) {
+        _errorMessage.value = message
+        _isLoading.value = false
+    }
 
     /**
      * Initializes a deterministic playback session.
@@ -50,30 +64,63 @@ class PlayerViewModel(
         // Reset state and increment session token
         currentSessionToken++
         _playbackSession.value = null
+        _errorMessage.value = null
         _isLoading.value = true
         lastSavedPosition = -1L
         lastSaveTimestamp = 0L
 
         viewModelScope.launch {
             val tokenAtStart = currentSessionToken
-            
-            // 1. Fetch metadata (includes videoUrl)
-            val movieResult = movieRepository.getMediaById(id, type)
-            // 2. Resolve resume position for this exact identity
             val resumePos = repository.getResumePosition(id, type)
 
-            if (tokenAtStart != currentSessionToken) return@launch // Stale load
+            if (tokenAtStart != currentSessionToken) return@launch
+
+            // 1. Check if active handoff stream is present from stream selection
+            val handoffStream = streamHandoffManager.getAndClearStream(id, type)
+            if (handoffStream != null) {
+                when (val playability = handoffStream.classifyPlayability()) {
+                    is StreamPlayability.Playable -> {
+                        _playbackSession.value = PlaybackSession(
+                            mediaId = id,
+                            mediaType = type,
+                            videoUrl = playability.url,
+                            headers = playability.headers,
+                            resumePosition = resumePos,
+                            token = tokenAtStart,
+                            title = playability.streamTitle ?: playability.streamName
+                        )
+                        _isLoading.value = false
+                    }
+                    is StreamPlayability.Unsupported -> {
+                        _errorMessage.value = playability.reason
+                        _isLoading.value = false
+                    }
+                }
+                return@launch
+            }
+
+            // 2. Fallback for non-handoff entry
+            val movieResult = movieRepository.getMediaById(id, type)
+            if (tokenAtStart != currentSessionToken) return@launch
 
             movieResult.onSuccess { movieDetails ->
-                val url = movieDetails.videoUrl
-                if (url != null) {
-                    _playbackSession.value = PlaybackSession(id, type, url, resumePos, tokenAtStart)
+                val fallbackUrl = movieDetails.videoUrl
+                if (!fallbackUrl.isNullOrBlank() && (fallbackUrl.startsWith("http://", true) || fallbackUrl.startsWith("https://", true))) {
+                    _playbackSession.value = PlaybackSession(
+                        mediaId = id,
+                        mediaType = type,
+                        videoUrl = fallbackUrl,
+                        resumePosition = resumePos,
+                        token = tokenAtStart,
+                        title = movieDetails.name
+                    )
                     _isLoading.value = false
                 } else {
+                    _errorMessage.value = "No playable video stream selected."
                     _isLoading.value = false
-                    // Handle missing URL if needed
                 }
-            }.onFailure {
+            }.onFailure { ex ->
+                _errorMessage.value = ex.message ?: "Failed to load media details."
                 _isLoading.value = false
             }
         }
@@ -161,14 +208,15 @@ class PlayerViewModel(
     }
 }
 
-class PlayerViewModelFactory(
+class PlayerViewModelFactory @JvmOverloads constructor(
     private val repository: ContinueWatchingRepository,
-    private val movieRepository: MovieRepository
+    private val movieRepository: MovieRepository,
+    private val streamHandoffManager: StreamHandoffManager = StreamHandoffManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PlayerViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PlayerViewModel(repository, movieRepository) as T
+            return PlayerViewModel(repository, movieRepository, streamHandoffManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
