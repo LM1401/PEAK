@@ -23,6 +23,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
+import com.example.peak.ui.image.PeakImageLoader
+
 /**
  * Unified PEAK Cinematic Title Presentation View.
  * Renders official TMDB title logos when available and suitable, or falls back to
@@ -40,7 +42,9 @@ fun CinematicTitleView(
     alignment: Alignment = Alignment.CenterStart
 ) {
     val context = LocalContext.current
-    var isLogoError by remember(title, titleLogoUrl) { mutableStateOf(false) }
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
+    var isLogoError by remember(titleLogoUrl) { mutableStateOf(false) }
+    var isLogoLoaded by remember(titleLogoUrl) { mutableStateOf(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
@@ -51,17 +55,26 @@ fun CinematicTitleView(
         contentAlignment = alignment
     ) {
         if (hasLogoUrl && !isLogoError) {
+            if (!isLogoLoaded) {
+                CinematicTextFallback(
+                    title = title,
+                    maxHeight = maxHeight,
+                    maxWidth = maxWidth
+                )
+            }
             AsyncImage(
-                model = remember(title, titleLogoUrl) {
+                model = remember(titleLogoUrl) {
                     ImageRequest.Builder(context)
                         .data(titleLogoUrl)
-                        .crossfade(false)
+                        .crossfade(150)
                         .allowHardware(true)
                         .build()
                 },
+                imageLoader = imageLoader,
                 contentDescription = title,
                 contentScale = ContentScale.Fit,
                 alignment = alignment,
+                onSuccess = { isLogoLoaded = true },
                 onError = { isLogoError = true },
                 modifier = Modifier
                     .heightIn(max = maxHeight)

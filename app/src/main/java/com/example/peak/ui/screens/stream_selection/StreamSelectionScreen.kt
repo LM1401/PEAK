@@ -65,6 +65,7 @@ fun StreamSelectionScreen(
     }
 
     val movie = uiState.movie
+    val imageLoader = remember { com.example.peak.ui.image.PeakImageLoader.getInstance(context) }
 
     Box(
         modifier = Modifier
@@ -73,12 +74,18 @@ fun StreamSelectionScreen(
     ) {
         // 1. FULL-BLEED BACKDROP
         if (movie != null && movie.backdropUrl.isNotBlank()) {
+            val cacheKey = "${movie.mediaType.name}_${movie.movieId}_backdrop"
             AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(movie.backdropUrl)
-                    .crossfade(false)
-                    .allowHardware(true)
-                    .build(),
+                model = remember(movie.movieId, movie.mediaType, movie.backdropUrl) {
+                    ImageRequest.Builder(context)
+                        .data(movie.backdropUrl)
+                        .memoryCacheKey(cacheKey)
+                        .diskCacheKey(cacheKey)
+                        .crossfade(false)
+                        .allowHardware(true)
+                        .build()
+                },
+                imageLoader = imageLoader,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopCenter,
@@ -264,7 +271,7 @@ fun StreamSelectionScreen(
 
                                     items(
                                         items = providerResult.streams,
-                                        key = { stream -> "${providerResult.addonId}_${stream.url}_${stream.name}_${stream.title}" }
+                                        key = { stream -> "${providerResult.addonId}_${providerResult.streams.indexOf(stream)}_${stream.url ?: ""}_${stream.name ?: ""}_${stream.title ?: ""}" }
                                     ) { stream ->
                                         val isFirst = providerIndex == 0 && providerResult.streams.first() == stream
                                         StreamItemCard(

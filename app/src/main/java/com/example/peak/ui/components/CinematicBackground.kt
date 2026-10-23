@@ -15,6 +15,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 
+import com.example.peak.ui.image.PeakImageLoader
+
 /**
  * A full-screen cinematic background component for Android TV.
  * Optimized for zero-lag replacement during D-pad navigation.
@@ -25,9 +27,11 @@ fun CinematicBackground(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     val movie = focusedMovieProvider()
     val backdropUrl = movie?.backdropUrl
     val movieId = movie?.movieId
+    val mediaType = movie?.mediaType
 
     // 1. Scale Animation (Slow zoom effect)
     val infiniteTransition = rememberInfiniteTransition(label = "CinematicZoom")
@@ -48,17 +52,19 @@ fun CinematicBackground(
     ) {
         // 2. HARD REPLACEMENT RENDERING
         key(movieId) {
-            if (backdropUrl != null) {
+            if (backdropUrl != null && movieId != null && mediaType != null) {
+                val cacheKey = "${mediaType.name}_${movieId}_backdrop"
                 AsyncImage(
-                    model = remember(movieId) {
+                    model = remember(movieId, mediaType, backdropUrl) {
                         ImageRequest.Builder(context)
                             .data(backdropUrl)
-                            .memoryCacheKey("${movieId}_backdrop")
-                            .diskCacheKey("${movieId}_backdrop")
+                            .memoryCacheKey(cacheKey)
+                            .diskCacheKey(cacheKey)
                             .crossfade(false)
                             .allowHardware(true)
                             .build()
                     },
+                    imageLoader = imageLoader,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()

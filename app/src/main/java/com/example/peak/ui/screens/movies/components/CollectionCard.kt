@@ -28,6 +28,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.peak.ui.screens.movies.CollectionItem
 
+import com.example.peak.ui.image.PeakImageLoader
+
 /**
  * Cinematic Brand Collection Discovery Tile (Phase 3 Target Design).
  * Renders landscape 2:1 brand discovery cards for Disney, Pixar, Marvel, Star Wars,
@@ -43,6 +45,7 @@ fun CollectionCard(
     onFocus: ((CollectionItem) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val imageLoader = remember { PeakImageLoader.getInstance(context) }
     var isFocused by remember { mutableStateOf(false) }
 
     val scale by animateFloatAsState(
@@ -102,10 +105,14 @@ fun CollectionCard(
             // Optional image/backdrop overlay if provided
             if (!item.backdropUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(item.backdropUrl)
-                        .crossfade(true)
-                        .build(),
+                    model = remember(item.backdropUrl) {
+                        ImageRequest.Builder(context)
+                            .data(item.backdropUrl)
+                            .crossfade(true)
+                            .allowHardware(true)
+                            .build()
+                    },
+                    imageLoader = imageLoader,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -121,10 +128,14 @@ fun CollectionCard(
             // Brand Logo / Presentation
             if (!item.logoUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(item.logoUrl)
-                        .crossfade(true)
-                        .build(),
+                    model = remember(item.logoUrl) {
+                        ImageRequest.Builder(context)
+                            .data(item.logoUrl)
+                            .crossfade(true)
+                            .allowHardware(true)
+                            .build()
+                    },
+                    imageLoader = imageLoader,
                     contentDescription = item.name,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier

@@ -146,8 +146,10 @@ fun MovieLandscapeCard(
                             ImageRequest.Builder(context)
                                 .data(movie.titleLogoUrl)
                                 .crossfade(true)
+                                .allowHardware(true)
                                 .build()
                         },
+                        imageLoader = imageLoader,
                         contentDescription = movie.name,
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.BottomStart,

@@ -137,9 +137,10 @@ fun DetailContent(
             .background(Color(0xFF040B16))
     ) {
         // 1. FULL-BLEED BACKDROP (High detail alignment)
+        val imageLoader = remember { com.example.peak.ui.image.PeakImageLoader.getInstance(context) }
         AsyncImage(
-            model = remember(movie.movieId, movie.mediaType) {
-                val cacheKey = "${movie.mediaType.name}_${movie.movieId}-bg"
+            model = remember(movie.movieId, movie.mediaType, movie.backdropUrl) {
+                val cacheKey = "${movie.mediaType.name}_${movie.movieId}_backdrop"
                 ImageRequest.Builder(context)
                     .data(movie.backdropUrl)
                     .memoryCacheKey(cacheKey)
@@ -148,6 +149,7 @@ fun DetailContent(
                     .allowHardware(true)
                     .build()
             },
+            imageLoader = imageLoader,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopCenter,
@@ -458,13 +460,22 @@ fun DetailContent(
 
 @Composable
 fun CastAvatarItem(castMember: CastMember) {
+    val context = LocalContext.current
+    val imageLoader = remember { com.example.peak.ui.image.PeakImageLoader.getInstance(context) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         if (!castMember.profileUrl.isNullOrBlank()) {
             AsyncImage(
-                model = castMember.profileUrl,
+                model = remember(castMember.profileUrl) {
+                    ImageRequest.Builder(context)
+                        .data(castMember.profileUrl)
+                        .crossfade(true)
+                        .allowHardware(true)
+                        .build()
+                },
+                imageLoader = imageLoader,
                 contentDescription = castMember.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

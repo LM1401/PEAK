@@ -188,11 +188,13 @@ fun RandomResultsScreen(
 
             if (focusedMovie != null) {
                 val context = LocalContext.current
+                val imageLoader = remember { com.example.peak.ui.image.PeakImageLoader.getInstance(context) }
                 val bottomImageRequest = remember(focusedMovie?.movieId, focusedMovie?.imageUrl) {
                     focusedMovie?.imageUrl?.let { url ->
                         ImageRequest.Builder(context)
                             .data(url)
                             .crossfade(true)
+                            .allowHardware(true)
                             .build()
                     }
                 }
@@ -204,6 +206,7 @@ fun RandomResultsScreen(
                     Row(modifier = Modifier.weight(1f).padding(end = 32.dp), verticalAlignment = Alignment.Bottom) {
                         AsyncImage(
                             model = bottomImageRequest,
+                            imageLoader = imageLoader,
                             contentDescription = null,
                             modifier = Modifier.width(60.dp).height(90.dp).clip(RoundedCornerShape(4.dp)),
                             contentScale = ContentScale.Crop
