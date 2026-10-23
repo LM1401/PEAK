@@ -37,7 +37,13 @@ data class TmdbMovie(
     @SerializedName("content_ratings") val contentRatings: TmdbContentRatings?,
     @SerializedName("watch/providers") val watchProviders: TmdbWatchProviders?,
     val images: TmdbImages? = null,
-    @SerializedName("media_type") val mediaType: String? = null
+    @SerializedName("media_type") val mediaType: String? = null,
+    @SerializedName("external_ids") val externalIds: TmdbExternalIds? = null,
+    @SerializedName("imdb_id") val imdbId: String? = null
+)
+
+data class TmdbExternalIds(
+    @SerializedName("imdb_id") val imdbId: String? = null
 )
 
 data class TmdbImages(
@@ -208,6 +214,8 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     Log.e("PEAK_DIAGNOSTIC", "Resolved Brand for $id: '${brandIdentity?.displayName ?: "None"}'")
 
     val titleLogoUrl = selectBestTitleLogo(images?.logos)
+    val resolvedImdbId = externalIds?.imdbId?.takeIf { it.isNotBlank() }
+        ?: imdbId?.takeIf { it.isNotBlank() }
 
     return summary.copy(
         genres = genreString,
@@ -220,7 +228,8 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         brand = brandIdentity,
         titleLogoUrl = titleLogoUrl,
         videoUrl = summary.videoUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        isEnriched = true
+        isEnriched = true,
+        imdbId = resolvedImdbId
     )
 }
 

@@ -6,6 +6,7 @@ import android.util.Log
 import com.example.peak.domain.model.Addon
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -19,7 +20,8 @@ open class AddonStorage @JvmOverloads constructor(
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     } catch (e: Exception) {
         null
-    }
+    },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val gson = Gson()
     private val addonListType = object : TypeToken<List<Addon>>() {}.type
@@ -67,7 +69,7 @@ open class AddonStorage @JvmOverloads constructor(
         }
     }
 
-    open suspend fun saveAllAddons(addons: List<Addon>) = withContext(Dispatchers.IO) {
+    open suspend fun saveAllAddons(addons: List<Addon>) = withContext(ioDispatcher) {
         try {
             prefs?.edit()?.putString(KEY_INSTALLED_ADDONS, gson.toJson(addons))?.apply()
         } catch (e: Exception) {
@@ -75,7 +77,7 @@ open class AddonStorage @JvmOverloads constructor(
         }
     }
 
-    open suspend fun addAddon(addon: Addon): List<Addon> = withContext(Dispatchers.IO) {
+    open suspend fun addAddon(addon: Addon): List<Addon> = withContext(ioDispatcher) {
         try {
             val current = getAllAddons().toMutableList()
             val normalizedTarget = normalizeAddonUrl(addon.transportUrl)
@@ -99,7 +101,7 @@ open class AddonStorage @JvmOverloads constructor(
         }
     }
 
-    open suspend fun removeAddon(id: String): List<Addon> = withContext(Dispatchers.IO) {
+    open suspend fun removeAddon(id: String): List<Addon> = withContext(ioDispatcher) {
         try {
             val current = getAllAddons().toMutableList()
             val removed = current.removeAll { it.id == id }

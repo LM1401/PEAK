@@ -25,6 +25,7 @@ import androidx.tv.material3.*
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    onNavigateToAddons: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -53,7 +54,13 @@ fun SettingsScreen(
                     SettingsRow(
                         item = item,
                         onToggle = { viewModel.onToggleItem(item.id) },
-                        onAction = { viewModel.onActionItem(item.id, context) }
+                        onAction = {
+                            if (item.id == "addons") {
+                                onNavigateToAddons()
+                            } else {
+                                viewModel.onActionItem(item.id, context)
+                            }
+                        }
                     )
                 }
             }

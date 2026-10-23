@@ -99,6 +99,9 @@ class HomeViewModelFocusTest {
             val movie = createMovie(id, "Enriched $id", type)
             return Result.success(movie)
         }
+        override suspend fun getImdbId(id: String, type: MediaType): Result<String> {
+            return Result.success("tt$id")
+        }
     }
 
     private fun createMovie(id: String, name: String, type: MediaType = MediaType.MOVIE): Movie {

@@ -222,4 +222,26 @@ class MovieRepositoryImpl(
             }
         }
     }
+
+    override suspend fun getImdbId(id: String, type: MediaType): Result<String> {
+        val trimmedId = id.trim()
+        if (trimmedId.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Media ID cannot be blank"))
+        }
+
+        val mediaResult = getMediaById(trimmedId, type)
+        return mediaResult.fold(
+            onSuccess = { movie ->
+                val imdb = movie.imdbId?.trim()
+                if (!imdb.isNullOrEmpty()) {
+                    Result.success(imdb)
+                } else {
+                    Result.failure(NoSuchElementException("No valid IMDb ID found for media ID $trimmedId"))
+                }
+            },
+            onFailure = { error ->
+                Result.failure(error)
+            }
+        )
+    }
 }

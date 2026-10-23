@@ -9,6 +9,16 @@ data class AddonStreamResponse(
 )
 
 /**
+ * Result wrapper pairing an add-on's identity with its returned streams or isolated failure.
+ */
+data class AddonStreamProviderResult(
+    val addonId: String,
+    val addonName: String,
+    val streams: List<AddonStream> = emptyList(),
+    val error: Throwable? = null
+)
+
+/**
  * Individual stream result entry returned by an add-on.
  * May contain direct video URLs, torrent hashes, or external player links.
  */

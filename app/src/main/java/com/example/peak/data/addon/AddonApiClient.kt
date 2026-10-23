@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -27,13 +28,14 @@ class AddonApiClient(
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
         .followRedirects(true)
-        .build()
+        .build(),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val gson: Gson = GsonBuilder()
         .registerTypeAdapter(AddonResource::class.java, AddonResourceDeserializer())
         .create()
 
-    suspend fun fetchManifest(manifestUrl: String): Result<AddonManifest> = withContext(Dispatchers.IO) {
+    suspend fun fetchManifest(manifestUrl: String): Result<AddonManifest> = withContext(ioDispatcher) {
         val normalizedUrl = AddonStorage.normalizeAddonUrl(manifestUrl)
         if (normalizedUrl.isEmpty()) {
             return@withContext Result.failure(IllegalArgumentException("Manifest URL cannot be blank"))

@@ -155,6 +155,19 @@ fun PEAKApp() {
             )
             com.example.peak.ui.settings.SettingsScreen(
                 viewModel = settingsViewModel,
+                onNavigateToAddons = { navController.navigate("addons") },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable("addons") {
+            val addonRepository = remember { PeakDependencyProvider.getAddonRepository(context) }
+            val addonApiClient = remember { PeakDependencyProvider.getAddonApiClient() }
+            val addonViewModel: com.example.peak.ui.screens.addons.AddonViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.example.peak.ui.screens.addons.AddonViewModelFactory(addonRepository, addonApiClient)
+            )
+            com.example.peak.ui.screens.addons.AddonManagementScreen(
+                viewModel = addonViewModel,
                 onBackClick = { navController.popBackStack() }
             )
         }

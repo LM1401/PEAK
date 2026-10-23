@@ -41,7 +41,8 @@ data class Movie(
     val videoUrl: String? = null,
     val subTitle: String? = null, // e.g. "S3 E4 • Old Friends"
     val info: String? = null,     // e.g. "20m left"
-    val isEnriched: Boolean = false
+    val isEnriched: Boolean = false,
+    val imdbId: String? = null
 )
 
 data class Row(

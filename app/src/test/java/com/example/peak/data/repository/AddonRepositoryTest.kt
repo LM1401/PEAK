@@ -3,8 +3,11 @@ package com.example.peak.data.repository
 import android.content.ContextWrapper
 import android.content.SharedPreferences
 import com.example.peak.data.addon.AddonStorage
+import com.example.peak.data.addon.AddonStreamApiClient
 import com.example.peak.domain.model.Addon
 import com.example.peak.domain.model.AddonManifest
+import com.example.peak.domain.model.AddonResource
+import com.example.peak.domain.model.MediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -12,11 +15,15 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,8 +40,8 @@ class AddonRepositoryTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         fakePrefs = AddonFakeSharedPreferences()
-        storage = AddonStorage(AddonDummyContext(), fakePrefs)
-        repository = AddonRepository(storage)
+        storage = AddonStorage(AddonDummyContext(), fakePrefs, testDispatcher)
+        repository = AddonRepository(storage = storage, ioDispatcher = testDispatcher)
     }
 
     @After
@@ -72,7 +79,7 @@ class AddonRepositoryTest {
         assertEquals("Cinemeta", storage.getAllAddons().first().name)
 
         // Recreate storage instance to verify persistence
-        val recreatedStorage = AddonStorage(AddonDummyContext(), fakePrefs)
+        val recreatedStorage = AddonStorage(AddonDummyContext(), fakePrefs, testDispatcher)
         assertEquals(1, recreatedStorage.getAllAddons().size)
 
         // Remove add-on
@@ -175,7 +182,7 @@ class AddonRepositoryTest {
             }
             .build()
 
-        val apiClient = com.example.peak.data.addon.AddonApiClient(mockClient)
+        val apiClient = com.example.peak.data.addon.AddonApiClient(mockClient, testDispatcher)
         val result = repository.fetchAndInstallManifest(addonId, apiClient)
 
         assertTrue(result.isSuccess)
@@ -202,13 +209,158 @@ class AddonRepositoryTest {
             }
             .build()
 
-        val apiClient = com.example.peak.data.addon.AddonApiClient(mockClient)
+        val apiClient = com.example.peak.data.addon.AddonApiClient(mockClient, testDispatcher)
         val result = repository.fetchAndInstallManifest(addonId, apiClient)
 
         assertTrue(result.isFailure)
         val intactAddon = repository.addons.value.first()
         assertEquals("Original Name", intactAddon.name)
         assertEquals("https://failing.addon.org/manifest.json", intactAddon.transportUrl)
+    }
+
+    @Test
+    fun getStreams_enabledVsDisabledAddons() = runTest {
+        val streamJson = """{"streams": [{"name": "HD", "url": "https://stream.org/video.mp4"}]}"""
+        val mockClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(streamJson.toResponseBody("application/json".toMediaTypeOrNull()))
+                    .build()
+            }
+            .build()
+
+        val streamClient = AddonStreamApiClient(mockClient, testDispatcher)
+        val customRepo = AddonRepository(storage, streamClient, testDispatcher)
+
+        val enabledManifest = AddonManifest(
+            id = "org.enabled", version = "1.0.0", name = "Enabled Addon",
+            resources = listOf(AddonResource(name = "stream", types = listOf("movie")))
+        )
+        val disabledManifest = AddonManifest(
+            id = "org.disabled", version = "1.0.0", name = "Disabled Addon",
+            resources = listOf(AddonResource(name = "stream", types = listOf("movie")))
+        )
+
+        val addon1 = customRepo.addAddon("https://enabled.addon.org/manifest.json").getOrThrow()
+        customRepo.updateAddonManifest(addon1.id, enabledManifest)
+
+        val addon2 = customRepo.addAddon("https://disabled.addon.org/manifest.json").getOrThrow()
+        customRepo.updateAddonManifest(addon2.id, disabledManifest)
+        customRepo.toggleAddon(addon2.id, false)
+
+        val result = customRepo.getStreams(MediaType.MOVIE, "tt0111161")
+        assertTrue(result.isSuccess)
+
+        val providerResults = result.getOrThrow()
+        assertEquals(1, providerResults.size)
+        assertEquals("Enabled Addon", providerResults.first().addonName)
+        assertEquals(1, providerResults.first().streams.size)
+        assertEquals("https://stream.org/video.mp4", providerResults.first().streams.first().url)
+    }
+
+    @Test
+    fun getStreams_seriesExplicitSeasonEpisodeValidation() = runTest {
+        val customRepo = AddonRepository(storage, AddonStreamApiClient(), testDispatcher)
+
+        val result1 = customRepo.getStreams(MediaType.TV, "tt0944947", season = null, episode = null)
+        assertTrue(result1.isFailure)
+        assertTrue(result1.exceptionOrNull() is IllegalArgumentException)
+
+        val result2 = customRepo.getStreams(MediaType.TV, "tt0944947", season = 0, episode = 1)
+        assertTrue(result2.isFailure)
+        assertTrue(result2.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    fun getStreams_preservesConfiguredUrlPaths() = runTest {
+        var requestedUrl = ""
+        val mockClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                requestedUrl = chain.request().url.toString()
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body("""{"streams":[]}""".toResponseBody("application/json".toMediaTypeOrNull()))
+                    .build()
+            }
+            .build()
+
+        val streamClient = AddonStreamApiClient(mockClient, testDispatcher)
+        val customRepo = AddonRepository(storage, streamClient, testDispatcher)
+
+        val manifest = AddonManifest(
+            id = "org.torrentio", version = "1.0.0", name = "Torrentio",
+            resources = listOf(AddonResource(name = "stream", types = listOf("movie")))
+        )
+        val addon = customRepo.addAddon("https://torrentio.strem.fun/providers=yts,sort=quality/manifest.json").getOrThrow()
+        customRepo.updateAddonManifest(addon.id, manifest)
+
+        val result = customRepo.getStreams(MediaType.MOVIE, "tt0111161")
+        assertTrue(result.isSuccess)
+        assertEquals("https://torrentio.strem.fun/providers=yts,sort=quality/stream/movie/tt0111161.json", requestedUrl)
+    }
+
+    @Test
+    fun getStreams_concurrentProvidersPartialFailure() = runTest {
+        val streamJson = """{"streams": [{"name": "GoodStream", "url": "https://stream.org/v.mp4"}]}"""
+        val mockClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val url = chain.request().url.toString()
+                if (url.contains("failing")) {
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(500)
+                        .message("Internal Server Error")
+                        .body("Server Error".toResponseBody("text/plain".toMediaTypeOrNull()))
+                        .build()
+                } else {
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(streamJson.toResponseBody("application/json".toMediaTypeOrNull()))
+                        .build()
+                }
+            }
+            .build()
+
+        val streamClient = AddonStreamApiClient(mockClient, testDispatcher)
+        val customRepo = AddonRepository(storage, streamClient, testDispatcher)
+
+        val manifest = AddonManifest(
+            id = "org.provider", version = "1.0.0", name = "Provider",
+            resources = listOf(AddonResource(name = "stream", types = listOf("movie")))
+        )
+
+        val addonSuccess = customRepo.addAddon("https://success.addon.org/manifest.json").getOrThrow()
+        customRepo.updateAddonManifest(addonSuccess.id, manifest.copy(name = "Success Provider"))
+
+        val addonFailing = customRepo.addAddon("https://failing.addon.org/manifest.json").getOrThrow()
+        customRepo.updateAddonManifest(addonFailing.id, manifest.copy(name = "Failing Provider"))
+
+        val result = customRepo.getStreams(MediaType.MOVIE, "tt0111161")
+        assertTrue(result.isSuccess)
+
+        val providerResults = result.getOrThrow()
+        assertEquals(2, providerResults.size)
+
+        val successRes = providerResults.find { it.addonName == "Success Provider" }
+        assertNotNull(successRes)
+        assertEquals(1, successRes!!.streams.size)
+        assertNull(successRes.error)
+
+        val failingRes = providerResults.find { it.addonName == "Failing Provider" }
+        assertNotNull(failingRes)
+        assertTrue(failingRes!!.streams.isEmpty())
+        assertNotNull(failingRes.error)
     }
 }
 

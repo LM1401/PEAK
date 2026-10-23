@@ -34,6 +34,12 @@ class SettingsViewModel(
                 isEnabled = settingsRepository.debugModeEnabled.value
             ),
             SettingsItem(
+                id = "addons",
+                title = "Add-ons",
+                subtitle = "Manage installed Stremio add-ons and stream providers",
+                type = SettingsItemType.ACTION
+            ),
+            SettingsItem(
                 id = "clear_cache",
                 title = "Clear cache",
                 subtitle = "Free up space by removing cached images and data",

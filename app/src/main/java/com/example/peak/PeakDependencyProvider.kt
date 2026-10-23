@@ -61,7 +61,8 @@ object PeakDependencyProvider {
     fun getAddonRepository(context: Context): com.example.peak.data.repository.AddonRepository {
         return addonRepository ?: synchronized(this) {
             addonRepository ?: com.example.peak.data.repository.AddonRepository(
-                com.example.peak.data.addon.AddonStorage(context.applicationContext)
+                storage = com.example.peak.data.addon.AddonStorage(context.applicationContext),
+                streamApiClient = getAddonStreamApiClient()
             ).also { addonRepository = it }
         }
     }
