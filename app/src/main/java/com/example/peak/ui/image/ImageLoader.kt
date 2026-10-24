@@ -48,10 +48,19 @@ object PeakImageLoader {
      * Helper to build a standard, cached ImageRequest.
      * Ensures memory and disk cache policies are explicitly enabled.
      */
-    fun buildRequest(context: Context, url: String?): ImageRequest {
+    fun buildRequest(
+        context: Context,
+        url: String?,
+        memoryCacheKey: String? = null,
+        diskCacheKey: String? = null
+    ): ImageRequest {
         val safeUrl = url?.takeIf { it.isNotBlank() } ?: ""
         return ImageRequest.Builder(context)
             .data(safeUrl)
+            .apply {
+                if (!memoryCacheKey.isNullOrBlank()) memoryCacheKey(memoryCacheKey)
+                if (!diskCacheKey.isNullOrBlank()) diskCacheKey(diskCacheKey)
+            }
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .crossfade(false)

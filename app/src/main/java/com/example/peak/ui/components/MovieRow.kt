@@ -151,6 +151,7 @@ fun MovieRow(
     }
 
     var isRowFocusedInternal by remember { mutableStateOf(false) }
+    var prevFocusedMovie by remember { mutableStateOf<Movie?>(null) }
 
     // Persist focus and trigger DIRECT WARMING on focus change
     LaunchedEffect(isFocused, focusedMovieId) {
@@ -190,6 +191,10 @@ fun MovieRow(
 
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
             // For focused items, we warm the BACKDROP as well.
+            if (prevFocusedMovie != null && prevFocusedMovie?.movieId != it.movieId) {
+                ImageWarmingManager.cancelWarming(prevFocusedMovie!!, cancelBackdropOnly = true)
+            }
+            prevFocusedMovie = it
             ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = true)
 
             // Predictive pre-decoding for neighbors - Posters only

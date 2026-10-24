@@ -197,6 +197,15 @@ class HomeViewModel(
             return
         }
 
+        // Instant cache hit: Bypass 300ms debounce if enriched media is already in repository cache
+        val repoCached = repository.getCachedMedia(movieId, mediaType)
+        if (repoCached != null) {
+            focusDebounceJob?.cancel()
+            _focusState.value = FocusState(rowId, movieId, mediaType, repoCached)
+            updateRowMovie(rowId, repoCached)
+            return
+        }
+
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
         
         if (cachedMovie != null) {

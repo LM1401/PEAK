@@ -17,9 +17,14 @@ import com.example.peak.domain.model.Movie
 
 import com.example.peak.ui.image.PeakImageLoader
 
+private data class BackdropState(
+    val key: String,
+    val url: String
+)
+
 /**
  * A full-screen cinematic background component for Android TV.
- * Optimized for zero-lag replacement during D-pad navigation.
+ * Optimized for zero-lag replacement and smooth backdrop retention during D-pad navigation.
  */
 @Composable
 fun CinematicBackground(
@@ -33,7 +38,25 @@ fun CinematicBackground(
     val movieId = movie?.movieId
     val mediaType = movie?.mediaType
 
-    // 1. Scale Animation (Slow zoom effect)
+    val activeKey = if (movieId != null && mediaType != null && !backdropUrl.isNullOrBlank()) {
+        "${mediaType.name}_${movieId}_backdrop"
+    } else null
+
+    var displayedBackdrop by remember { mutableStateOf<BackdropState?>(null) }
+    var pendingBackdrop by remember { mutableStateOf<BackdropState?>(null) }
+
+    LaunchedEffect(activeKey, backdropUrl) {
+        if (activeKey != null && !backdropUrl.isNullOrBlank()) {
+            if (displayedBackdrop?.key != activeKey) {
+                pendingBackdrop = BackdropState(activeKey, backdropUrl)
+            }
+        } else {
+            pendingBackdrop = null
+            displayedBackdrop = null
+        }
+    }
+
+    // Scale Animation (Slow zoom effect)
     val infiniteTransition = rememberInfiniteTransition(label = "CinematicZoom")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
@@ -50,41 +73,75 @@ fun CinematicBackground(
             .fillMaxSize()
             .background(Color(0xFF02060C)) // Deep Navy Base
     ) {
-        // 2. HARD REPLACEMENT RENDERING
-        key(movieId) {
-            if (backdropUrl != null && movieId != null && mediaType != null) {
-                val cacheKey = "${mediaType.name}_${movieId}_backdrop"
-                AsyncImage(
-                    model = remember(movieId, mediaType, backdropUrl) {
-                        ImageRequest.Builder(context)
-                            .data(backdropUrl)
-                            .memoryCacheKey(cacheKey)
-                            .diskCacheKey(cacheKey)
-                            .crossfade(false)
-                            .allowHardware(true)
-                            .build()
+        // LAYER 1: Currently Confirmed Backdrop or Navy Gradient Fallback
+        val current = displayedBackdrop
+        if (current != null) {
+            AsyncImage(
+                model = remember(current.key, current.url) {
+                    ImageRequest.Builder(context)
+                        .data(current.url)
+                        .memoryCacheKey(current.key)
+                        .diskCacheKey(current.key)
+                        .crossfade(false)
+                        .allowHardware(true)
+                        .build()
+                },
+                imageLoader = imageLoader,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
                     },
-                    imageLoader = imageLoader,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        },
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color(0xFF0B1729), Color(0xFF02060C))
-                            )
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFF0B1729), Color(0xFF02060C))
                         )
-                )
-            }
+                    )
+            )
+        }
+
+        // LAYER 2: Pending Incoming Backdrop (Fades over Layer 1 when loaded)
+        val pending = pendingBackdrop
+        if (pending != null && pending.key != current?.key) {
+            AsyncImage(
+                model = remember(pending.key, pending.url) {
+                    ImageRequest.Builder(context)
+                        .data(pending.url)
+                        .memoryCacheKey(pending.key)
+                        .diskCacheKey(pending.key)
+                        .crossfade(200)
+                        .allowHardware(true)
+                        .build()
+                },
+                imageLoader = imageLoader,
+                contentDescription = null,
+                onSuccess = {
+                    if (pendingBackdrop?.key == pending.key) {
+                        displayedBackdrop = pending
+                        pendingBackdrop = null
+                    }
+                },
+                onError = {
+                    if (pendingBackdrop?.key == pending.key) {
+                        pendingBackdrop = null
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    },
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }

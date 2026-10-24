@@ -189,16 +189,20 @@ class MovieRepositoryImpl(
         }
     }
 
+    override fun getCachedMedia(id: String, type: MediaType): Movie? {
+        val cacheKey = getCacheKey(id, type)
+        return movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }
+    }
+
     override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
         val cacheKey = getCacheKey(id, type)
-        
-        movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }?.let {
+        getCachedMedia(id, type)?.let {
             Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id")
             return Result.success(it)
         }
 
         return detailMutex.withLock {
-            movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }?.let {
+            getCachedMedia(id, type)?.let {
                 return@withLock Result.success(it)
             }
 

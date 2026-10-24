@@ -86,15 +86,13 @@ fun MovieCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
-            val posterKey = cacheKey
-            val backdropKey = "${cacheKey}_backdrop"
+            val posterKey = "${movie.mediaType.name}_${movie.movieId}"
+            val backdropKey = "${posterKey}_backdrop"
             val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
-            val activeUrl = if (isUsingBackdrop) movie.backdropUrl else movie.imageUrl
 
-            var isImageError by remember(movie.movieId, movie.mediaType, activeUrl) { mutableStateOf(false) }
+            var isImageError by remember(movie.movieId, movie.mediaType, movie.imageUrl) { mutableStateOf(false) }
 
-            if (activeUrl.isBlank() || isImageError) {
+            if (movie.imageUrl.isBlank() || isImageError) {
                 // Visual fallback for missing, invalid or failed image requests
                 CardFallbackContent(movie = movie)
             } else {
@@ -102,30 +100,58 @@ fun MovieCard(
                     ShimmerBox()
                 }
 
-                val imageRequest = remember<ImageRequest>(
+                val posterRequest = remember<ImageRequest>(
                     movie.movieId,
                     movie.mediaType,
-                    movie.imageUrl,
-                    movie.backdropUrl,
-                    isLocalFocused
+                    movie.imageUrl
                 ) {
                     ImageRequest.Builder(context)
-                        .data(activeUrl)
-                        .memoryCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
-                        .diskCacheKey(if (isUsingBackdrop) backdropKey else posterKey)
+                        .data(movie.imageUrl)
+                        .memoryCacheKey(posterKey)
+                        .diskCacheKey(posterKey)
                         .crossfade(200)
                         .allowHardware(true)
                         .build()
                 }
 
+                // Base Layer: Poster
                 AsyncImage(
-                    model = imageRequest,
+                    model = posterRequest,
                     imageLoader = imageLoader,
                     contentDescription = movie.name,
                     contentScale = ContentScale.Crop,
                     onError = { isImageError = true },
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // Top Layer: Backdrop (only when focused)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isUsingBackdrop,
+                    enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(200)),
+                    exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(200)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val backdropRequest = remember<ImageRequest>(
+                        movie.movieId,
+                        movie.mediaType,
+                        movie.backdropUrl
+                    ) {
+                        ImageRequest.Builder(context)
+                            .data(movie.backdropUrl)
+                            .memoryCacheKey(backdropKey)
+                            .diskCacheKey(backdropKey)
+                            .crossfade(200)
+                            .allowHardware(true)
+                            .build()
+                    }
+                    AsyncImage(
+                        model = backdropRequest,
+                        imageLoader = imageLoader,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
             // 3. PROGRESS BAR OVERLAY (At the very bottom)

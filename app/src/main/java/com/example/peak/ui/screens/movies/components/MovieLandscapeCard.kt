@@ -97,16 +97,15 @@ fun MovieLandscapeCard(
                 .background(Color(0xFF141E30))
                 .clip(shape)
         ) {
-            // 1. LANDSCAPE BACKDROP ARTWORK
-            val backdropData = if (movie.backdropUrl.isNotBlank()) movie.backdropUrl else movie.imageUrl
-            val cacheKey = "${movie.mediaType.name}_${movie.movieId}_landscape"
-
+            // 1. LANDSCAPE POSTER (BASE LAYER)
+            val posterKey = "${movie.mediaType.name}_${movie.movieId}"
+            
             AsyncImage(
-                model = remember(movie.movieId, backdropData) {
+                model = remember(movie.movieId, movie.imageUrl) {
                     ImageRequest.Builder(context)
-                        .data(backdropData)
-                        .memoryCacheKey(cacheKey)
-                        .diskCacheKey(cacheKey)
+                        .data(movie.imageUrl)
+                        .memoryCacheKey(posterKey)
+                        .diskCacheKey(posterKey)
                         .crossfade(true)
                         .allowHardware(true)
                         .build()
@@ -116,6 +115,26 @@ fun MovieLandscapeCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+
+            // 1b. LANDSCAPE BACKDROP (TOP LAYER)
+            if (movie.backdropUrl.isNotBlank()) {
+                val backdropKey = "${posterKey}_backdrop"
+                AsyncImage(
+                    model = remember(movie.movieId, movie.backdropUrl) {
+                        ImageRequest.Builder(context)
+                            .data(movie.backdropUrl)
+                            .memoryCacheKey(backdropKey)
+                            .diskCacheKey(backdropKey)
+                            .crossfade(true)
+                            .allowHardware(true)
+                            .build()
+                    },
+                    imageLoader = imageLoader,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             // 2. BOTTOM GRADIENT OVERLAY
             Box(

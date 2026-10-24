@@ -43,8 +43,8 @@ fun CinematicTitleView(
 ) {
     val context = LocalContext.current
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
-    var isLogoError by remember(titleLogoUrl) { mutableStateOf(false) }
-    var isLogoLoaded by remember(titleLogoUrl) { mutableStateOf(false) }
+    var isLogoError by remember(titleLogoUrl, title) { mutableStateOf(false) }
+    var isLogoLoaded by remember(titleLogoUrl, title) { mutableStateOf(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
@@ -55,17 +55,12 @@ fun CinematicTitleView(
         contentAlignment = alignment
     ) {
         if (hasLogoUrl && !isLogoError) {
-            if (!isLogoLoaded) {
-                CinematicTextFallback(
-                    title = title,
-                    maxHeight = maxHeight,
-                    maxWidth = maxWidth
-                )
-            }
             AsyncImage(
                 model = remember(titleLogoUrl) {
                     ImageRequest.Builder(context)
                         .data(titleLogoUrl)
+                        .memoryCacheKey(titleLogoUrl)
+                        .diskCacheKey(titleLogoUrl)
                         .crossfade(150)
                         .allowHardware(true)
                         .build()
@@ -80,13 +75,15 @@ fun CinematicTitleView(
                     .heightIn(max = maxHeight)
                     .widthIn(max = maxWidth)
             )
-        } else {
-            // PEAK CINEMATIC TEXT FALLBACK
+        } else if (isEnriched) {
+            // PEAK CINEMATIC TEXT FALLBACK (Only when metadata enrichment is complete and no valid logo exists)
             CinematicTextFallback(
                 title = title,
                 maxHeight = maxHeight,
                 maxWidth = maxWidth
             )
+        } else {
+            // Metadata enrichment is pending: Reserve layout bounds without showing basic text prematurely
         }
     }
 }

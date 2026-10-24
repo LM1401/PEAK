@@ -34,4 +34,5 @@ interface MovieRepository {
 
     suspend fun getMediaById(id: String, type: MediaType): Result<Movie>
     suspend fun getImdbId(id: String, type: MediaType): Result<String>
+    fun getCachedMedia(id: String, type: MediaType): Movie? = null
 }

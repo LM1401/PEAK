@@ -2,22 +2,32 @@ package com.example.peak.ui.image
 
 import android.content.Context
 import coil.ImageLoader
+import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import com.example.peak.domain.model.Movie
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manager responsible for pre-decoding images into memory.
- * This prevents the "first-frame flash" or decode delay during D-pad navigation.
+ * Uses thread-safe in-flight tracking and direct MemoryCache verification.
  */
 object ImageWarmingManager {
 
-    // Separate sets to track what has been warmed.
-    // Thread-safe and bounded to prevent memory leaks during long sessions.
-    private val warmedPosters = ConcurrentHashMap.newKeySet<String>()
-    private val warmedBackdrops = ConcurrentHashMap.newKeySet<String>()
+    private val inFlightKeys = ConcurrentHashMap.newKeySet<String>()
+    private val inFlightDisposables = ConcurrentHashMap<String, coil.request.Disposable>()
 
-    private const val MAX_WARM_CACHE_SIZE = 500
+    fun cancelWarming(movie: Movie, cancelBackdropOnly: Boolean = false) {
+        val baseKey = "${movie.mediaType.name}_${movie.movieId}"
+        val backdropKey = "${baseKey}_backdrop"
+        
+        inFlightDisposables.remove(backdropKey)?.dispose()
+        inFlightKeys.remove(backdropKey)
+        
+        if (!cancelBackdropOnly) {
+            inFlightDisposables.remove(baseKey)?.dispose()
+            inFlightKeys.remove(baseKey)
+        }
+    }
 
     /**
      * Enqueues image requests to warm the memory cache using unified identity keys.
@@ -28,44 +38,86 @@ object ImageWarmingManager {
         movies: List<Movie>,
         warmBackdrops: Boolean = false
     ) {
-        // Simple eviction: clear if cache grows too large to avoid memory pressure
-        if (warmedPosters.size > MAX_WARM_CACHE_SIZE) warmedPosters.clear()
-        if (warmedBackdrops.size > MAX_WARM_CACHE_SIZE) warmedBackdrops.clear()
-
         movies.forEach { movie ->
-            val cacheKey = "${movie.mediaType.name}_${movie.movieId}"
-            
-            val needsPoster = !warmedPosters.contains(cacheKey)
-            val needsBackdrop = warmBackdrops && !warmedBackdrops.contains(cacheKey)
-
-            if (!needsPoster && !needsBackdrop) return@forEach
+            val baseKey = "${movie.mediaType.name}_${movie.movieId}"
+            val posterKey = baseKey
+            val backdropKey = "${baseKey}_backdrop"
 
             // 1. WARM POSTER (Key: mediaType_movieId)
-            if (needsPoster && movie.imageUrl.isNotBlank()) {
-                warmedPosters.add(cacheKey)
-                imageLoader.enqueue(
-                    ImageRequest.Builder(context)
-                        .data(movie.imageUrl)
-                        .memoryCacheKey(cacheKey)
-                        .diskCacheKey(cacheKey)
-                        .allowHardware(true)
-                        .crossfade(false)
-                        .build()
-                )
+            if (movie.imageUrl.isNotBlank()) {
+                val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(posterKey)) != null
+                if (!isInMemory && inFlightKeys.add(posterKey)) {
+                    try {
+                        val request = ImageRequest.Builder(context)
+                            .data(movie.imageUrl)
+                            .memoryCacheKey(posterKey)
+                            .diskCacheKey(posterKey)
+                            .allowHardware(true)
+                            .crossfade(false)
+                            .listener(
+                                onSuccess = { _, _ -> inFlightKeys.remove(posterKey); inFlightDisposables.remove(posterKey) },
+                                onError = { _, _ -> inFlightKeys.remove(posterKey); inFlightDisposables.remove(posterKey) },
+                                onCancel = { _ -> inFlightKeys.remove(posterKey); inFlightDisposables.remove(posterKey) }
+                            )
+                            .build()
+                        inFlightDisposables[posterKey] = imageLoader.enqueue(request)
+                    } catch (_: Throwable) {
+                        inFlightKeys.remove(posterKey)
+                        inFlightDisposables.remove(posterKey)
+                    }
+                }
             }
 
             // 2. WARM BACKDROP (Key: mediaType_movieId + "_backdrop")
-            if (needsBackdrop && movie.backdropUrl.isNotBlank()) {
-                warmedBackdrops.add(cacheKey)
-                imageLoader.enqueue(
-                    ImageRequest.Builder(context)
-                        .data(movie.backdropUrl)
-                        .memoryCacheKey(cacheKey + "_backdrop")
-                        .diskCacheKey(cacheKey + "_backdrop")
-                        .allowHardware(true)
-                        .crossfade(false)
-                        .build()
-                )
+            if (warmBackdrops && movie.backdropUrl.isNotBlank()) {
+                val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(backdropKey)) != null
+                if (!isInMemory && inFlightKeys.add(backdropKey)) {
+                    try {
+                        val request = ImageRequest.Builder(context)
+                            .data(movie.backdropUrl)
+                            .memoryCacheKey(backdropKey)
+                            .diskCacheKey(backdropKey)
+                            .allowHardware(true)
+                            .crossfade(false)
+                            .listener(
+                                onSuccess = { _, _ -> inFlightKeys.remove(backdropKey); inFlightDisposables.remove(backdropKey) },
+                                onError = { _, _ -> inFlightKeys.remove(backdropKey); inFlightDisposables.remove(backdropKey) },
+                                onCancel = { _ -> inFlightKeys.remove(backdropKey); inFlightDisposables.remove(backdropKey) }
+                            )
+                            .build()
+                        inFlightDisposables[backdropKey] = imageLoader.enqueue(request)
+                    } catch (_: Throwable) {
+                        inFlightKeys.remove(backdropKey)
+                        inFlightDisposables.remove(backdropKey)
+                    }
+                }
+            }
+
+            // 3. WARM TITLE LOGO (Key: titleLogoUrl)
+            val logoUrl = movie.titleLogoUrl
+            if (movie.isEnriched && !logoUrl.isNullOrBlank()) {
+                val logoKey = logoUrl
+                val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
+                if (!isInMemory && inFlightKeys.add(logoKey)) {
+                    try {
+                        val request = ImageRequest.Builder(context)
+                            .data(logoUrl)
+                            .memoryCacheKey(logoKey)
+                            .diskCacheKey(logoKey)
+                            .allowHardware(true)
+                            .crossfade(false)
+                            .listener(
+                                onSuccess = { _, _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) },
+                                onError = { _, _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) },
+                                onCancel = { _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) }
+                            )
+                            .build()
+                        inFlightDisposables[logoKey] = imageLoader.enqueue(request)
+                    } catch (_: Throwable) {
+                        inFlightKeys.remove(logoKey)
+                        inFlightDisposables.remove(logoKey)
+                    }
+                }
             }
         }
     }

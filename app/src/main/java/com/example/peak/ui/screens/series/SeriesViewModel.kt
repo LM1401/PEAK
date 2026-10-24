@@ -11,6 +11,7 @@ import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.TvListType
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -89,12 +90,18 @@ class SeriesViewModel(
     }
 
     fun onMovieFocused(rowId: String, movie: Movie) {
-        if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) return
-        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, movie)
+        val currentFocus = _focusState.value
+        if (currentFocus != null && currentFocus.movieId == movie.movieId && currentFocus.mediaType == movie.mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) return
+
+        // Instant cache hit: Bypass debounce if enriched media is already in repository cache
+        val repoCached = repository.getCachedMedia(movie.movieId, movie.mediaType)
+        val activeMovie = repoCached ?: movie
+        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, activeMovie)
         
-        if (!movie.isEnriched) {
+        if (!activeMovie.isEnriched) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
+                delay(300L)
                 repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->
                     if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) {
                         _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, fullMovie)

@@ -162,4 +162,49 @@ class MovieRepositoryImplTest {
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IllegalArgumentException)
     }
+
+    @Test
+    fun getCachedMedia_beforeEnrichment_returnsNull() = runTest {
+        val fakeApi = FakeTmdbApi()
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val cached = repository.getCachedMedia("550", MediaType.MOVIE)
+        org.junit.Assert.assertNull(cached)
+    }
+
+    @Test
+    fun getCachedMedia_afterEnrichment_returnsEnrichedMovie() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { createFakeTmdbMovie(id = 550, title = "Fight Club") }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // Initial fetch enriches and caches item
+        repository.getMediaById("550", MediaType.MOVIE)
+
+        val cached = repository.getCachedMedia("550", MediaType.MOVIE)
+        org.junit.Assert.assertNotNull(cached)
+        assertTrue(cached!!.isEnriched)
+        assertEquals("Fight Club", cached.name)
+    }
+
+    @Test
+    fun getCachedMedia_sameNumericIdDifferentMediaType_remainsDistinct() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { createFakeTmdbMovie(id = 100, title = "Movie Title", name = null) },
+            tvDetailResult = { createFakeTmdbMovie(id = 100, title = null, name = "Series Title") }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        repository.getMediaById("100", MediaType.MOVIE)
+        repository.getMediaById("100", MediaType.TV)
+
+        val cachedMovie = repository.getCachedMedia("100", MediaType.MOVIE)
+        val cachedTv = repository.getCachedMedia("100", MediaType.TV)
+
+        org.junit.Assert.assertNotNull(cachedMovie)
+        org.junit.Assert.assertNotNull(cachedTv)
+        assertEquals("Movie Title", cachedMovie!!.name)
+        assertEquals("Series Title", cachedTv!!.name)
+    }
 }
