@@ -7,7 +7,11 @@ import com.example.peak.data.remote.dto.TmdbResponse
 import com.example.peak.domain.model.MediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -68,8 +72,8 @@ class MovieRepositoryImplTest {
     }
 
     private class FakeTmdbApi(
-        private val movieDetailResult: (String) -> TmdbMovie = { throw Exception("Movie not found") },
-        private val tvDetailResult: (String) -> TmdbMovie = { throw Exception("TV show not found") }
+        private val movieDetailResult: suspend (String) -> TmdbMovie = { throw Exception("Movie not found") },
+        private val tvDetailResult: suspend (String) -> TmdbMovie = { throw Exception("TV show not found") }
     ) : TmdbApi {
         override suspend fun getTrending(): TmdbResponse = TmdbResponse(emptyList())
         override suspend fun getTrendingTv(): TmdbResponse = TmdbResponse(emptyList())
@@ -206,5 +210,82 @@ class MovieRepositoryImplTest {
         org.junit.Assert.assertNotNull(cachedTv)
         assertEquals("Movie Title", cachedMovie!!.name)
         assertEquals("Series Title", cachedTv!!.name)
+    }
+
+    @Test
+    fun getMediaById_concurrentUnrelatedRequests_runInParallel() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { id ->
+                apiCalls++
+                delay(500)
+                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val job1 = async { repository.getMediaById("1", MediaType.MOVIE) }
+        val job2 = async { repository.getMediaById("2", MediaType.MOVIE) }
+
+        advanceTimeBy(500) // Both should finish in 500ms since they run in parallel
+        val result1 = job1.await()
+        val result2 = job2.await()
+
+        assertTrue(result1.isSuccess)
+        assertTrue(result2.isSuccess)
+        assertEquals(2, apiCalls)
+    }
+
+    @Test
+    fun getMediaById_concurrentDuplicateRequests_runSeriallyAndDeduplicate() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { id ->
+                apiCalls++
+                delay(500)
+                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // Launch two requests for the EXACT same movie id
+        val job1 = async { repository.getMediaById("1", MediaType.MOVIE) }
+        val job2 = async { repository.getMediaById("1", MediaType.MOVIE) }
+
+        advanceTimeBy(500) 
+        val result1 = job1.await()
+        val result2 = job2.await()
+
+        assertTrue(result1.isSuccess)
+        assertTrue(result2.isSuccess)
+        // Ensure the API was only hit once because the second request waited and hit the cache
+        assertEquals(1, apiCalls)
+    }
+
+    @Test
+    fun getMediaById_cancellationReleasesMutex() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { id ->
+                apiCalls++
+                delay(1000)
+                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val job1 = launch { repository.getMediaById("1", MediaType.MOVIE) }
+        
+        // Let job1 acquire the mutex and start the API delay
+        advanceTimeBy(100)
+        
+        // Cancel job1
+        job1.cancel()
+        
+        // Now job2 should be able to acquire the mutex and succeed
+        val result2 = repository.getMediaById("1", MediaType.MOVIE)
+        
+        assertTrue(result2.isSuccess)
+        assertEquals(2, apiCalls) // 1 cancelled, 1 successful
     }
 }

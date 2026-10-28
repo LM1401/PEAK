@@ -23,7 +23,7 @@ class MovieRepositoryImpl(
     private val api: TmdbApi
 ) : MovieRepository {
 
-    private val detailMutex = Mutex()
+    private val detailMutexMap = ConcurrentHashMap<String, Mutex>()
     private val listMutexMap = ConcurrentHashMap<String, Mutex>()
     
     private val movieDetailsCache = ConcurrentHashMap<String, Movie>()
@@ -40,6 +40,10 @@ class MovieRepositoryImpl(
 
     private fun getListMutex(key: String): Mutex {
         return listMutexMap.getOrPut(key) { Mutex() }
+    }
+
+    private fun getDetailMutex(key: String): Mutex {
+        return detailMutexMap.getOrPut(key) { Mutex() }
     }
 
     private fun isExpired(timestamp: Long): Boolean {
@@ -201,7 +205,7 @@ class MovieRepositoryImpl(
             return Result.success(it)
         }
 
-        return detailMutex.withLock {
+        return getDetailMutex(cacheKey).withLock {
             getCachedMedia(id, type)?.let {
                 return@withLock Result.success(it)
             }

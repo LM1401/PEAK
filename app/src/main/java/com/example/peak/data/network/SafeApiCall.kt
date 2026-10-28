@@ -39,6 +39,9 @@ object SafeApiCall {
             Log.e(tag, "IO error ignored: ${e.message}")
             SafeResult(null, Source.ERROR, e)
 
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+
         } catch (e: Exception) {
             Log.e(tag, "Unexpected error: ${e.message}")
             SafeResult(null, Source.ERROR, e)
