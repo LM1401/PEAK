@@ -354,4 +354,91 @@ class MovieRepositoryImplTest {
         assertEquals(2, apiCalls)
         assertTrue(result.getOrThrow().isFullyEnriched)
     }
+
+    @Test
+    fun getMediaById_cacheDowngrade_preventedWhenFullIsCached() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                apiCalls++
+                createFakeTmdbMovie(id = 550, title = "Fight Club")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // 1. Fetch Full Details
+        val fullResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        assertEquals(1, apiCalls)
+        assertTrue(fullResult.getOrThrow().isFullyEnriched)
+
+        // 2. Fetch Lightweight details (should hit cache)
+        val lightResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+        assertEquals(1, apiCalls)
+
+        // Result should still be fully enriched because we return the upgraded cache item
+        assertTrue(lightResult.getOrThrow().isFullyEnriched)
+    }
+
+    @Test
+    fun getMediaById_concurrentMixedRequests_cachesFullDetails() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                apiCalls++
+                delay(500) // Delay to ensure both requests hit the concurrency logic
+                createFakeTmdbMovie(id = 550, title = "Fight Club")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // Launch both requests simultaneously
+        val lightJob = async { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false) }
+        val fullJob = async { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
+
+        advanceTimeBy(500)
+
+        val lightResult = lightJob.await()
+        val fullResult = fullJob.await()
+
+        // Both requests should complete successfully
+        assertTrue(lightResult.isSuccess)
+        assertTrue(fullResult.isSuccess)
+
+        // The final state of the cache should be fully enriched, regardless of race order
+        val cachedMedia = repository.getCachedMedia("550", MediaType.MOVIE)
+        org.junit.Assert.assertNotNull(cachedMedia)
+        assertTrue(cachedMedia!!.isFullyEnriched)
+    }
+
+    @Test
+    fun getMediaById_fullRequestFails_returnsLightweightFallback() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                apiCalls++
+                if (apiCalls == 1) {
+                    createFakeTmdbMovie(id = 550, title = "Fight Club")
+                } else {
+                    throw Exception("Network error simulating full detail failure")
+                }
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // 1. Pre-cache the lightweight version successfully
+        val lightResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+        assertTrue(lightResult.isSuccess)
+        org.junit.Assert.assertFalse(lightResult.getOrThrow().isFullyEnriched)
+        assertEquals(1, apiCalls)
+
+        // 2. Attempt to fetch full details, which will fail the network call
+        val fullResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+
+        // 3. Verify it falls back successfully instead of hard-failing
+        assertTrue(fullResult.isSuccess)
+
+        // The fallback result should be the lightweight cached item
+        org.junit.Assert.assertFalse(fullResult.getOrThrow().isFullyEnriched)
+        assertEquals(2, apiCalls)
+    }
 }

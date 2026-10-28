@@ -190,12 +190,12 @@ fun MovieRow(
             }
 
             // DIRECT WARMING: Fire-and-forget immediate decode trigger
-            // For focused items, we warm the BACKDROP as well.
+            // For focused items, we warm the POSTER ONLY (Backdrop prewarming disabled to save memory).
             if (prevFocusedMovie != null && prevFocusedMovie?.movieId != it.movieId) {
                 ImageWarmingManager.cancelWarming(prevFocusedMovie!!, cancelBackdropOnly = true)
             }
             prevFocusedMovie = it
-            ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = true)
+            ImageWarmingManager.warm(context, imageLoader, listOf(it), warmBackdrops = false)
 
             // Predictive pre-decoding for neighbors - Posters only
             val nextMovie = row.movies.getOrNull(index + 1)

@@ -88,7 +88,17 @@ fun MovieCard(
         Box(modifier = Modifier.fillMaxSize()) {
             val posterKey = "${movie.mediaType.name}_${movie.movieId}"
             val backdropKey = "${posterKey}_backdrop"
-            val isUsingBackdrop = isLocalFocused && movie.backdropUrl.isNotBlank()
+
+            var isUsingBackdrop by remember { mutableStateOf(false) }
+            LaunchedEffect(isLocalFocused, movie.backdropUrl) {
+                if (isLocalFocused && movie.backdropUrl.isNotBlank()) {
+                    isUsingBackdrop = false
+                    kotlinx.coroutines.delay(250)
+                    isUsingBackdrop = true
+                } else {
+                    isUsingBackdrop = false
+                }
+            }
 
             var isImageError by remember(movie.movieId, movie.mediaType, movie.imageUrl) { mutableStateOf(false) }
 

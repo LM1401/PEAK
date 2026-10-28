@@ -202,7 +202,7 @@ class MovieRepositoryImpl(
         val cacheKey = getCacheKey(id, type)
         getCachedMedia(id, type)?.let {
             if (!requireFullDetails || it.isFullyEnriched) {
-                Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id")
+                Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id (requestedFull=$requireFullDetails, isFull=${it.isFullyEnriched})")
                 return Result.success(it)
             }
         }
@@ -210,6 +210,7 @@ class MovieRepositoryImpl(
         return getDetailMutex(cacheKey).withLock {
             getCachedMedia(id, type)?.let {
                 if (!requireFullDetails || it.isFullyEnriched) {
+                    Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie from double-check lock for $id")
                     return@withLock Result.success(it)
                 }
             }
