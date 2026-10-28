@@ -138,7 +138,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(focusRowIndex) {
-        if (focusRowIndex != -1 && restorationTarget == null) {
+        if (focusRowIndex != -1) {
             cameraState.scrollToRow(focusRowIndex)
         }
     }
