@@ -32,7 +32,7 @@ interface MovieRepository {
     suspend fun searchMulti(query: String): Result<List<Movie>>
     suspend fun discoverMedia(genreIds: String): Result<List<Movie>>
 
-    suspend fun getMediaById(id: String, type: MediaType): Result<Movie>
+    suspend fun getMediaById(id: String, type: MediaType, requireFullDetails: Boolean = false): Result<Movie>
     suspend fun getImdbId(id: String, type: MediaType): Result<String>
     fun getCachedMedia(id: String, type: MediaType): Movie? = null
 }

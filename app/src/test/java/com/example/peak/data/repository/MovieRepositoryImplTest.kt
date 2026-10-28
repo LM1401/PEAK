@@ -82,13 +82,13 @@ class MovieRepositoryImplTest {
             movieId: String,
             append: String,
             includeImageLanguage: String
-        ): TmdbMovie = movieDetailResult(movieId)
+        ): TmdbMovie = movieDetailResult(append)
 
         override suspend fun getTvDetails(
             tvId: String,
             append: String,
             includeImageLanguage: String
-        ): TmdbMovie = tvDetailResult(tvId)
+        ): TmdbMovie = tvDetailResult(append)
 
         override suspend fun getPopularMovies(): TmdbResponse = TmdbResponse(emptyList())
         override suspend fun getTopRatedMovies(): TmdbResponse = TmdbResponse(emptyList())
@@ -110,7 +110,7 @@ class MovieRepositoryImplTest {
         )
         val repository = MovieRepositoryImpl(fakeApi)
 
-        val result = repository.getMediaById("550", MediaType.MOVIE)
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
         assertTrue(result.isSuccess)
 
         val movie = result.getOrThrow()
@@ -125,7 +125,7 @@ class MovieRepositoryImplTest {
         )
         val repository = MovieRepositoryImpl(fakeApi)
 
-        val result = repository.getMediaById("1399", MediaType.TV)
+        val result = repository.getMediaById("1399", MediaType.TV, requireFullDetails = true)
         assertTrue(result.isSuccess)
 
         val tvShow = result.getOrThrow()
@@ -216,10 +216,10 @@ class MovieRepositoryImplTest {
     fun getMediaById_concurrentUnrelatedRequests_runInParallel() = runTest {
         var apiCalls = 0
         val fakeApi = FakeTmdbApi(
-            movieDetailResult = { id ->
+            movieDetailResult = { 
                 apiCalls++
                 delay(500)
-                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+                createFakeTmdbMovie(id = apiCalls, title = "Movie $apiCalls")
             }
         )
         val repository = MovieRepositoryImpl(fakeApi)
@@ -240,10 +240,10 @@ class MovieRepositoryImplTest {
     fun getMediaById_concurrentDuplicateRequests_runSeriallyAndDeduplicate() = runTest {
         var apiCalls = 0
         val fakeApi = FakeTmdbApi(
-            movieDetailResult = { id ->
+            movieDetailResult = { 
                 apiCalls++
                 delay(500)
-                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+                createFakeTmdbMovie(id = 1, title = "Movie 1")
             }
         )
         val repository = MovieRepositoryImpl(fakeApi)
@@ -266,10 +266,10 @@ class MovieRepositoryImplTest {
     fun getMediaById_cancellationReleasesMutex() = runTest {
         var apiCalls = 0
         val fakeApi = FakeTmdbApi(
-            movieDetailResult = { id ->
+            movieDetailResult = { 
                 apiCalls++
                 delay(1000)
-                createFakeTmdbMovie(id = id.toInt(), title = "Movie $id")
+                createFakeTmdbMovie(id = 1, title = "Movie 1")
             }
         )
         val repository = MovieRepositoryImpl(fakeApi)
@@ -287,5 +287,71 @@ class MovieRepositoryImplTest {
         
         assertTrue(result2.isSuccess)
         assertEquals(2, apiCalls) // 1 cancelled, 1 successful
+    }
+    
+    @Test
+    fun getMediaById_lightweightMovieRequest_omitsCredits() = runTest {
+        var appendedString = ""
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { append ->
+                appendedString = append
+                createFakeTmdbMovie(id = 550, title = "Fight Club")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+        assertTrue(result.isSuccess)
+        
+        val movie = result.getOrThrow()
+        assertTrue(movie.isEnriched)
+        org.junit.Assert.assertFalse(movie.isFullyEnriched)
+        org.junit.Assert.assertFalse("Should not request credits", appendedString.contains("credits"))
+        assertTrue("Should request release dates", appendedString.contains("release_dates"))
+    }
+    
+    @Test
+    fun getMediaById_fullMovieRequest_includesCredits() = runTest {
+        var appendedString = ""
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { append ->
+                appendedString = append
+                createFakeTmdbMovie(id = 550, title = "Fight Club")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        assertTrue(result.isSuccess)
+        
+        val movie = result.getOrThrow()
+        assertTrue(movie.isEnriched)
+        assertTrue(movie.isFullyEnriched)
+        assertTrue("Should request credits", appendedString.contains("credits"))
+    }
+    
+    @Test
+    fun getMediaById_cacheUpgrade_fetchesFullWhenLightweightIsCached() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = { 
+                apiCalls++
+                createFakeTmdbMovie(id = 550, title = "Fight Club")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // 1. Fetch Lightweight
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+        assertEquals(1, apiCalls)
+        
+        // 2. Fetch Lightweight again (Should hit cache)
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+        assertEquals(1, apiCalls)
+        
+        // 3. Fetch Full (Should miss cache and upgrade)
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        assertEquals(2, apiCalls)
+        assertTrue(result.getOrThrow().isFullyEnriched)
     }
 }

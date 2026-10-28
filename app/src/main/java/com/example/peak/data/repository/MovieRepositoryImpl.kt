@@ -198,27 +198,39 @@ class MovieRepositoryImpl(
         return movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }
     }
 
-    override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
+    override suspend fun getMediaById(id: String, type: MediaType, requireFullDetails: Boolean): Result<Movie> {
         val cacheKey = getCacheKey(id, type)
         getCachedMedia(id, type)?.let {
-            Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id")
-            return Result.success(it)
+            if (!requireFullDetails || it.isFullyEnriched) {
+                Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id")
+                return Result.success(it)
+            }
         }
 
         return getDetailMutex(cacheKey).withLock {
             getCachedMedia(id, type)?.let {
-                return@withLock Result.success(it)
+                if (!requireFullDetails || it.isFullyEnriched) {
+                    return@withLock Result.success(it)
+                }
             }
 
-            Log.e("PEAK_DIAGNOSTIC", "Fetching detail data for $id from API")
+            val appendStr = if (requireFullDetails) {
+                if (type == MediaType.MOVIE) "credits,release_dates,watch/providers,images,external_ids" 
+                else "credits,content_ratings,watch/providers,images,external_ids"
+            } else {
+                if (type == MediaType.MOVIE) "release_dates,watch/providers,images" 
+                else "content_ratings,watch/providers,images"
+            }
+
+            Log.e("PEAK_DIAGNOSTIC", "Fetching detail data for $id from API (requireFullDetails=$requireFullDetails)")
             val result = SafeApiCall.execute("MovieRepository") {
-                if (type == MediaType.MOVIE) api.getMovieDetails(id) else api.getTvDetails(id)
+                if (type == MediaType.MOVIE) api.getMovieDetails(id, appendStr) else api.getTvDetails(id, appendStr)
             }
 
             return@withLock when {
                 result.data != null -> {
                     Log.e("PEAK_DIAGNOSTIC", "Successfully fetched detail for $id. Mapping to enriched.")
-                    val movie = result.data.toEnrichedMovie(type)
+                    val movie = result.data.toEnrichedMovie(type).copy(isFullyEnriched = requireFullDetails)
                     movieDetailsCache[cacheKey] = movie
                     Result.success(movie)
                 }

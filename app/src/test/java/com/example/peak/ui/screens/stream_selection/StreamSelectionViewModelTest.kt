@@ -55,7 +55,7 @@ class StreamSelectionViewModelTest {
         override suspend fun searchMulti(query: String): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun discoverMedia(genreIds: String): Result<List<Movie>> = Result.success(emptyList())
 
-        override suspend fun getMediaById(id: String, type: MediaType): Result<Movie> {
+        override suspend fun getMediaById(id: String, type: MediaType, requireFullDetails: Boolean): Result<Movie> {
             val movie = Movie(
                 movieId = id,
                 mediaType = type,

@@ -99,7 +99,7 @@ class DetailViewModel(
             _isInWatchlist.value = defaultList?.items?.any { it.movieId == id && it.mediaType == type } == true
 
             // Fetch full media details from repository
-            movieRepository.getMediaById(id, type)
+            movieRepository.getMediaById(id, type, requireFullDetails = true)
                 .onSuccess { mediaDetails ->
                     _movie.value = mediaDetails
                     _isLoading.value = false
