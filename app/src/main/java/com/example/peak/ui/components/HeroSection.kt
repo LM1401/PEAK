@@ -41,6 +41,7 @@ fun HeroSection(
         ) {
             AnimatedContent(
                 targetState = movie,
+                contentKey = { it?.movieId },
                 transitionSpec = {
                     fadeIn(
                         animationSpec = tween(500, easing = FastOutSlowInEasing)

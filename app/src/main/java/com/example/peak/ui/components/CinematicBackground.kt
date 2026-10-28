@@ -131,6 +131,7 @@ fun CinematicBackground(
                 },
                 onError = {
                     if (pendingBackdrop?.key == pending.key) {
+                        displayedBackdrop = null
                         pendingBackdrop = null
                     }
                 },
