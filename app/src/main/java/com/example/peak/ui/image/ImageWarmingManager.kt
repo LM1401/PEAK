@@ -98,7 +98,14 @@ object ImageWarmingManager {
             if (movie.isEnriched && !logoUrl.isNullOrBlank()) {
                 val logoKey = logoUrl
                 val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
-                if (!isInMemory && inFlightKeys.add(logoKey)) {
+                if (isInMemory) {
+                    HeroLogoTrace.record(
+                        event = HeroLogoTrace.Event.LOGO_WARM_MEMORY_CACHE_HIT,
+                        mediaType = movie.mediaType,
+                        mediaId = movie.movieId,
+                        imageSource = HeroLogoTrace.ImageSource.MEMORY_CACHE
+                    )
+                } else if (inFlightKeys.add(logoKey)) {
                     try {
                         val request = ImageRequest.Builder(context)
                             .data(logoUrl)
@@ -107,13 +114,52 @@ object ImageWarmingManager {
                             .allowHardware(true)
                             .crossfade(false)
                             .listener(
-                                onSuccess = { _, _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) },
-                                onError = { _, _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) },
-                                onCancel = { _ -> inFlightKeys.remove(logoKey); inFlightDisposables.remove(logoKey) }
+                                onStart = { _ ->
+                                    HeroLogoTrace.record(
+                                        event = HeroLogoTrace.Event.LOGO_WARM_STARTED,
+                                        mediaType = movie.mediaType,
+                                        mediaId = movie.movieId
+                                    )
+                                },
+                                onSuccess = { _, result ->
+                                    HeroLogoTrace.record(
+                                        event = HeroLogoTrace.Event.LOGO_WARM_SUCCEEDED,
+                                        mediaType = movie.mediaType,
+                                        mediaId = movie.movieId,
+                                        imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
+                                    )
+                                    inFlightKeys.remove(logoKey)
+                                    inFlightDisposables.remove(logoKey)
+                                },
+                                onError = { _, _ ->
+                                    HeroLogoTrace.record(
+                                        event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
+                                        mediaType = movie.mediaType,
+                                        mediaId = movie.movieId
+                                    )
+                                    inFlightKeys.remove(logoKey)
+                                    inFlightDisposables.remove(logoKey)
+                                },
+                                onCancel = { _ ->
+                                    HeroLogoTrace.record(
+                                        event = HeroLogoTrace.Event.LOGO_WARM_CANCELLED,
+                                        mediaType = movie.mediaType,
+                                        mediaId = movie.movieId,
+                                        outcome = HeroLogoTrace.Outcome.CANCELLED
+                                    )
+                                    inFlightKeys.remove(logoKey)
+                                    inFlightDisposables.remove(logoKey)
+                                }
                             )
                             .build()
                         inFlightDisposables[logoKey] = imageLoader.enqueue(request)
                     } catch (_: Throwable) {
+                        HeroLogoTrace.record(
+                            event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
+                            mediaType = movie.mediaType,
+                            mediaId = movie.movieId,
+                            outcome = HeroLogoTrace.Outcome.FAILED
+                        )
                         inFlightKeys.remove(logoKey)
                         inFlightDisposables.remove(logoKey)
                     }

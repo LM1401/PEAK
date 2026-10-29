@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -22,8 +23,10 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-
+import com.example.peak.domain.model.MediaType
+import com.example.peak.ui.image.HeroLogoTrace
 import com.example.peak.ui.image.PeakImageLoader
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Unified PEAK Cinematic Title Presentation View.
@@ -36,6 +39,8 @@ fun CinematicTitleView(
     title: String,
     titleLogoUrl: String?,
     isEnriched: Boolean,
+    mediaType: MediaType? = null,
+    mediaId: String? = null,
     modifier: Modifier = Modifier,
     maxHeight: Dp = 70.dp,
     maxWidth: Dp = 520.dp,
@@ -45,6 +50,8 @@ fun CinematicTitleView(
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     var isLogoError by remember(titleLogoUrl, title) { mutableStateOf(false) }
     var isLogoLoaded by remember(titleLogoUrl, title) { mutableStateOf(false) }
+    val traceIdentity = rememberUpdatedState(mediaType to mediaId)
+    val presentationLogged = remember(titleLogoUrl, mediaType, mediaId) { AtomicBoolean(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
@@ -63,6 +70,54 @@ fun CinematicTitleView(
                         .diskCacheKey(titleLogoUrl)
                         .crossfade(150)
                         .allowHardware(true)
+                        .listener(
+                            onStart = {
+                                traceIdentity.value.let { (type, id) ->
+                                    if (type != null && id != null) {
+                                        HeroLogoTrace.record(
+                                            event = HeroLogoTrace.Event.HERO_IMAGE_STARTED,
+                                            mediaType = type,
+                                            mediaId = id
+                                        )
+                                    }
+                                }
+                            },
+                            onSuccess = { _, result ->
+                                traceIdentity.value.let { (type, id) ->
+                                    if (type != null && id != null) {
+                                        HeroLogoTrace.record(
+                                            event = HeroLogoTrace.Event.HERO_IMAGE_SUCCEEDED,
+                                            mediaType = type,
+                                            mediaId = id,
+                                            imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
+                                        )
+                                    }
+                                }
+                            },
+                            onError = { _, _ ->
+                                traceIdentity.value.let { (type, id) ->
+                                    if (type != null && id != null) {
+                                        HeroLogoTrace.record(
+                                            event = HeroLogoTrace.Event.HERO_IMAGE_FAILED,
+                                            mediaType = type,
+                                            mediaId = id
+                                        )
+                                    }
+                                }
+                            },
+                            onCancel = {
+                                traceIdentity.value.let { (type, id) ->
+                                    if (type != null && id != null) {
+                                        HeroLogoTrace.record(
+                                            event = HeroLogoTrace.Event.HERO_IMAGE_CANCELLED,
+                                            mediaType = type,
+                                            mediaId = id,
+                                            outcome = HeroLogoTrace.Outcome.CANCELLED
+                                        )
+                                    }
+                                }
+                            }
+                        )
                         .build()
                 },
                 imageLoader = imageLoader,
@@ -74,6 +129,19 @@ fun CinematicTitleView(
                 modifier = Modifier
                     .heightIn(max = maxHeight)
                     .widthIn(max = maxWidth)
+                    .drawWithContent {
+                        drawContent()
+                        val (type, id) = traceIdentity.value
+                        if (isLogoLoaded && type != null && id != null &&
+                            presentationLogged.compareAndSet(false, true)
+                        ) {
+                            HeroLogoTrace.record(
+                                event = HeroLogoTrace.Event.LOGO_FIRST_DRAWN,
+                                mediaType = type,
+                                mediaId = id
+                            )
+                        }
+                    }
             )
         } else if (isEnriched) {
             // PEAK CINEMATIC TEXT FALLBACK (Only when metadata enrichment is complete and no valid logo exists)

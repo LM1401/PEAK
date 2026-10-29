@@ -259,6 +259,124 @@ class HomeViewModelFocusTest {
     }
 
     @Test
+    fun initialCombinedEmissionKeepsLoadingWhileCategoriesArePending() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+
+        testScheduler.runCurrent()
+
+        assertEquals(true, viewModel.uiState.value.loading)
+        assertEquals(emptyList<com.example.peak.domain.model.Row>(), viewModel.uiState.value.rows)
+    }
+
+    @Test
+    fun firstCategoryPublishesProgressivelyWhileOtherCategoriesRemainPending() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+        testScheduler.runCurrent()
+
+        fakeRepo.popularSeriesDeferred.complete(Result.success(listOf(createMovie("s1", "Series", MediaType.TV))))
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("popular_series"), viewModel.uiState.value.rows.map { it.id })
+        assertEquals(false, viewModel.uiState.value.loading)
+
+        fakeRepo.trendingDeferred.complete(Result.success(listOf(createMovie("t1", "Trending"))))
+        testScheduler.runCurrent()
+        assertEquals(listOf("trending", "popular_series"), viewModel.uiState.value.rows.map { it.id })
+
+        fakeRepo.popularMoviesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.loading)
+    }
+
+    @Test
+    fun continueWatchingContentEndsInitialLoadingWhileApiRequestsArePending() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val cwRepo = ContinueWatchingRepository(ContinueWatchingStorage(FakeContext()))
+        val viewModel = HomeViewModel(fakeRepo, cwRepo)
+        testScheduler.runCurrent()
+
+        cwRepo.saveProgress(
+            movieId = "cw1",
+            title = "Continue",
+            posterPath = "/poster.jpg",
+            backdropPath = null,
+            mediaType = MediaType.MOVIE,
+            positionMs = 50_000,
+            durationMs = 100_000
+        )
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("continue_watching"), viewModel.uiState.value.rows.map { it.id })
+        assertEquals(false, viewModel.uiState.value.loading)
+    }
+
+    @Test
+    fun allEmptyAndFailedCategoriesFinishLoading() = runTest {
+        val emptyRepo = FakeMovieRepository()
+        val emptyViewModel = createHomeViewModel(emptyRepo)
+        testScheduler.runCurrent()
+        emptyRepo.trendingDeferred.complete(Result.success(emptyList()))
+        emptyRepo.popularMoviesDeferred.complete(Result.success(emptyList()))
+        emptyRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        emptyRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, emptyViewModel.uiState.value.loading)
+        assertEquals(emptyList<com.example.peak.domain.model.Row>(), emptyViewModel.uiState.value.rows)
+
+        val failedRepo = FakeMovieRepository()
+        val failedViewModel = createHomeViewModel(failedRepo)
+        testScheduler.runCurrent()
+        failedRepo.trendingDeferred.complete(Result.failure(IllegalStateException("trending")))
+        failedRepo.popularMoviesDeferred.complete(Result.failure(IllegalStateException("popular movies")))
+        failedRepo.popularSeriesDeferred.complete(Result.failure(IllegalStateException("popular series")))
+        failedRepo.topRatedMoviesDeferred.complete(Result.failure(IllegalStateException("top rated")))
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, failedViewModel.uiState.value.loading)
+        assertEquals(emptyList<com.example.peak.domain.model.Row>(), failedViewModel.uiState.value.rows)
+    }
+
+    @Test
+    fun thrownCategoryFailureDoesNotCancelSuccessfulSibling() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+        testScheduler.runCurrent()
+
+        fakeRepo.popularMoviesDeferred.completeExceptionally(IllegalStateException("unexpected"))
+        fakeRepo.trendingDeferred.complete(Result.success(listOf(createMovie("t1", "Trending"))))
+        fakeRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("trending"), viewModel.uiState.value.rows.map { it.id })
+        assertEquals(false, viewModel.uiState.value.loading)
+    }
+
+    @Test
+    fun cancelledCategoryPropagatesWithoutSuppressingOtherCategoryResults() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+        testScheduler.runCurrent()
+
+        fakeRepo.popularMoviesDeferred.cancel()
+        fakeRepo.trendingDeferred.complete(Result.success(listOf(createMovie("t1", "Trending"))))
+        fakeRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("trending"), viewModel.uiState.value.rows.map { it.id })
+        assertEquals(false, viewModel.uiState.value.loading)
+    }
+
+    private fun createHomeViewModel(repository: FakeMovieRepository): HomeViewModel =
+        HomeViewModel(
+            repository,
+            ContinueWatchingRepository(ContinueWatchingStorage(FakeContext()))
+        )
+
+    @Test
     fun test6_horizontalNavigationWithinRow_preservedOnDataUpdate() = runTest {
         val fakeRepo = FakeMovieRepository()
         val fakeContext = FakeContext()

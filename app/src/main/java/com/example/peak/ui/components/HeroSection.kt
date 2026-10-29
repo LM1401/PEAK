@@ -110,6 +110,8 @@ fun HeroSection(
                             title = currentMovie.name,
                             titleLogoUrl = currentMovie.titleLogoUrl,
                             isEnriched = currentMovie.isEnriched,
+                            mediaType = currentMovie.mediaType,
+                            mediaId = currentMovie.movieId,
                             maxHeight = 70.dp,
                             maxWidth = 520.dp,
                             alignment = Alignment.CenterStart

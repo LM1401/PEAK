@@ -10,6 +10,7 @@ import com.example.peak.domain.model.Movie
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
+import com.example.peak.ui.image.HeroLogoTrace
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
@@ -202,6 +203,11 @@ class MovieRepositoryImpl(
         val cacheKey = getCacheKey(id, type)
         getCachedMedia(id, type)?.let {
             if (!requireFullDetails || it.isFullyEnriched) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.DETAIL_CACHE_HIT,
+                    mediaType = type,
+                    mediaId = id
+                )
                 Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id (requestedFull=$requireFullDetails, isFull=${it.isFullyEnriched})")
                 return Result.success(it)
             }
@@ -210,6 +216,11 @@ class MovieRepositoryImpl(
         return getDetailMutex(cacheKey).withLock {
             getCachedMedia(id, type)?.let {
                 if (!requireFullDetails || it.isFullyEnriched) {
+                    HeroLogoTrace.record(
+                        event = HeroLogoTrace.Event.DETAIL_CACHE_HIT,
+                        mediaType = type,
+                        mediaId = id
+                    )
                     Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie from double-check lock for $id")
                     return@withLock Result.success(it)
                 }
@@ -223,10 +234,43 @@ class MovieRepositoryImpl(
                 else "content_ratings,watch/providers,images"
             }
 
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.DETAIL_NETWORK_STARTED,
+                mediaType = type,
+                mediaId = id
+            )
             Log.e("PEAK_DIAGNOSTIC", "Fetching detail data for $id from API (requireFullDetails=$requireFullDetails)")
-            val result = SafeApiCall.execute("MovieRepository") {
-                if (type == MediaType.MOVIE) api.getMovieDetails(id, appendStr) else api.getTvDetails(id, appendStr)
+            val result = try {
+                SafeApiCall.execute("MovieRepository") {
+                    if (type == MediaType.MOVIE) api.getMovieDetails(id, appendStr) else api.getTvDetails(id, appendStr)
+                }
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.DETAIL_REQUEST_CANCELLED,
+                    mediaType = type,
+                    mediaId = id,
+                    outcome = HeroLogoTrace.Outcome.CANCELLED
+                )
+                throw cancellation
+            } catch (exception: Exception) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.DETAIL_REQUEST_FAILED,
+                    mediaType = type,
+                    mediaId = id,
+                    outcome = HeroLogoTrace.Outcome.FAILED
+                )
+                throw exception
             }
+            HeroLogoTrace.record(
+                event = if (result.data != null) {
+                    HeroLogoTrace.Event.DETAIL_RESPONSE_RECEIVED
+                } else {
+                    HeroLogoTrace.Event.DETAIL_REQUEST_FAILED
+                },
+                mediaType = type,
+                mediaId = id,
+                outcome = if (result.data != null) null else HeroLogoTrace.Outcome.FAILED
+            )
 
             return@withLock when {
                 result.data != null -> {

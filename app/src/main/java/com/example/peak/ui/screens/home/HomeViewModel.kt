@@ -11,6 +11,7 @@ import com.example.peak.domain.model.Row
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
+import com.example.peak.ui.image.HeroLogoTrace
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -83,11 +84,13 @@ class HomeViewModel(
 
             Pair(combinedRows, progressMap)
         }.onEach { (rows, progressMap) ->
-            _uiState.update { it.copy(
-                rows = rows,
-                continueWatchingProgress = progressMap,
-                loading = false
-            ) }
+            _uiState.update { current ->
+                current.copy(
+                    rows = rows,
+                    continueWatchingProgress = progressMap,
+                    loading = current.loading && rows.isEmpty()
+                )
+            }
 
             // Establish or update initial focus based on row priority
             val firstRealRow = rows.firstOrNull { !it.isPlaceholder }
@@ -100,66 +103,150 @@ class HomeViewModel(
                     // Initial establishment
                     _focusState.value = potentialFocus
                     if (!firstMovie.isEnriched) {
-                        viewModelScope.launch {
-                            repository.getMediaById(firstMovie.movieId, firstMovie.mediaType).onSuccess { enriched ->
-                                if (_focusState.value?.movieId == firstMovie.movieId && _focusState.value?.mediaType == firstMovie.mediaType) {
-                                    _focusState.value = FocusState(firstRealRow.id, firstMovie.movieId, firstMovie.mediaType, enriched)
-                                }
-                                updateRowMovie(firstRealRow.id, enriched)
-                            }
-                        }
+                        launchInitialHeroEnrichment(firstRealRow.id, firstMovie)
                     }
                 } else if (!hasUserInteracted && _focusState.value?.rowId != potentialFocus.rowId) {
                     // Follow Row 0 if it changes (e.g. Continue Watching arrives) before user interaction
                     _focusState.value = potentialFocus
                     if (!firstMovie.isEnriched) {
-                        viewModelScope.launch {
-                            repository.getMediaById(firstMovie.movieId, firstMovie.mediaType).onSuccess { enriched ->
-                                if (_focusState.value?.movieId == firstMovie.movieId && _focusState.value?.mediaType == firstMovie.mediaType) {
-                                    _focusState.value = FocusState(firstRealRow.id, firstMovie.movieId, firstMovie.mediaType, enriched)
-                                }
-                                updateRowMovie(firstRealRow.id, enriched)
-                            }
-                        }
+                        launchInitialHeroEnrichment(firstRealRow.id, firstMovie)
                     }
                 }
             }
         }.launchIn(viewModelScope)
     }
 
+    private fun launchInitialHeroEnrichment(rowId: String, movie: Movie) {
+        viewModelScope.launch {
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_STARTED,
+                mediaType = movie.mediaType,
+                mediaId = movie.movieId
+            )
+            val result = try {
+                repository.getMediaById(movie.movieId, movie.mediaType)
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_CANCELLED,
+                    mediaType = movie.mediaType,
+                    mediaId = movie.movieId,
+                    outcome = HeroLogoTrace.Outcome.CANCELLED
+                )
+                throw cancellation
+            } catch (exception: Exception) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_FAILED,
+                    mediaType = movie.mediaType,
+                    mediaId = movie.movieId,
+                    outcome = HeroLogoTrace.Outcome.FAILED
+                )
+                throw exception
+            }
+
+            result.onSuccess { enriched ->
+                val hasLogo = !enriched.titleLogoUrl.isNullOrBlank()
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_SUCCEEDED,
+                    mediaType = movie.mediaType,
+                    mediaId = movie.movieId,
+                    logoAvailable = hasLogo
+                )
+                if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType) {
+                    _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, enriched)
+                }
+                updateRowMovie(rowId, enriched)
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.LOGO_URL_AVAILABLE,
+                    mediaType = movie.mediaType,
+                    mediaId = movie.movieId,
+                    outcome = if (hasLogo) HeroLogoTrace.Outcome.AVAILABLE else HeroLogoTrace.Outcome.MISSING
+                )
+            }.onFailure {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_FAILED,
+                    mediaType = movie.mediaType,
+                    mediaId = movie.movieId,
+                    outcome = HeroLogoTrace.Outcome.FAILED
+                )
+            }
+        }
+    }
+
     fun fetchMovies() {
         _uiState.update { it.copy(loading = true) }
 
-        // PROGRESSIVE LOADING: Launch independent tasks to maximize parallel network work
+        // Keep category requests independent so one unexpected failure cannot cancel the others.
         viewModelScope.launch {
-            // 1. PRIMARY: Trending
-            val trendingJob = launch {
-                repository.getTrendingMovies().onSuccess { movies ->
-                    updateRow("trending", "Trending Now", movies)
+            try {
+                kotlinx.coroutines.supervisorScope {
+                    val jobs = listOf(
+                        launch {
+                            loadCategory("trending", "Trending Now") {
+                                repository.getTrendingMovies()
+                            }
+                        },
+                        launch {
+                            loadCategory("popular_movies", "Popular Movies") {
+                                repository.getMovies(MovieListType.POPULAR)
+                            }
+                        },
+                        launch {
+                            loadCategory("popular_series", "Popular Series") {
+                                repository.getSeries(TvListType.POPULAR)
+                            }
+                        },
+                        launch {
+                            loadCategory("top_rated_movies", "Top Rated Movies") {
+                                repository.getMovies(MovieListType.TOP_RATED)
+                            }
+                        }
+                    )
+                    kotlinx.coroutines.joinAll(*jobs.toTypedArray())
                 }
+            } finally {
+                // Also release the initial loading state if the parent request scope is cancelled.
+                _uiState.update { it.copy(loading = false) }
             }
+        }
+    }
 
-            // 2. SECONDARY: Popular/Top Rated (Independent Background Requests)
-            val popularMoviesJob = launch {
-                repository.getMovies(MovieListType.POPULAR).onSuccess { movies ->
-                    updateRow("popular_movies", "Popular Movies", movies)
+    private suspend fun loadCategory(
+        id: String,
+        title: String,
+        request: suspend () -> Result<List<Movie>>
+    ) {
+        try {
+            val result = request()
+            val movies = result.getOrNull().orEmpty()
+            val firstMovie = movies.firstOrNull()
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.CATEGORY_RESULT_RECEIVED,
+                mediaType = firstMovie?.mediaType ?: if (id == "popular_series") MediaType.TV else MediaType.MOVIE,
+                mediaId = firstMovie?.movieId,
+                category = id,
+                outcome = when {
+                    result.isFailure -> HeroLogoTrace.Outcome.FAILED
+                    movies.isEmpty() -> HeroLogoTrace.Outcome.EMPTY
+                    else -> HeroLogoTrace.Outcome.CONTENT
                 }
-            }
-            
-            val popularSeriesJob = launch {
-                repository.getSeries(TvListType.POPULAR).onSuccess { series ->
-                    updateRow("popular_series", "Popular Series", series)
-                }
-            }
-            
-            val topRatedJob = launch {
-                repository.getMovies(MovieListType.TOP_RATED).onSuccess { movies ->
-                    updateRow("top_rated_movies", "Top Rated Movies", movies)
-                }
-            }
-            
-            kotlinx.coroutines.joinAll(trendingJob, popularMoviesJob, popularSeriesJob, topRatedJob)
-            _uiState.update { it.copy(loading = false) }
+            )
+            result.onSuccess { updateRow(id, title, it) }
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.CATEGORY_REQUEST_CANCELLED,
+                mediaType = if (id == "popular_series") MediaType.TV else MediaType.MOVIE,
+                category = id,
+                outcome = HeroLogoTrace.Outcome.CANCELLED
+            )
+            throw cancellation
+        } catch (exception: Exception) {
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.CATEGORY_REQUEST_FAILED,
+                mediaType = if (id == "popular_series") MediaType.TV else MediaType.MOVIE,
+                category = id,
+                outcome = HeroLogoTrace.Outcome.FAILED
+            )
+            Log.e("HomeViewModel", "Failed to load home category $id", exception)
         }
     }
 
