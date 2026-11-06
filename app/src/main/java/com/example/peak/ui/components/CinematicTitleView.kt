@@ -25,6 +25,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.image.HeroLogoTrace
+import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -54,6 +55,22 @@ fun CinematicTitleView(
     val presentationLogged = remember(titleLogoUrl, mediaType, mediaId) { AtomicBoolean(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
+    var logoWarmReady by remember(titleLogoUrl, mediaType, mediaId) {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(titleLogoUrl, mediaType, mediaId) {
+        if (hasLogoUrl && mediaType != null && mediaId != null) {
+            ImageWarmingManager.warmLogoAndAwait(
+                context = context,
+                imageLoader = imageLoader,
+                mediaType = mediaType,
+                mediaId = mediaId,
+                logoUrl = titleLogoUrl
+            )
+        }
+        logoWarmReady = true
+    }
 
     Box(
         modifier = modifier
@@ -61,7 +78,7 @@ fun CinematicTitleView(
             .widthIn(max = maxWidth),
         contentAlignment = alignment
     ) {
-        if (hasLogoUrl && !isLogoError) {
+        if (hasLogoUrl && !isLogoError && logoWarmReady) {
             AsyncImage(
                 model = remember(titleLogoUrl) {
                     ImageRequest.Builder(context)

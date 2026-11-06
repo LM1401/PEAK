@@ -4,7 +4,9 @@ import android.content.Context
 import coil.ImageLoader
 import coil.memory.MemoryCache
 import coil.request.ImageRequest
+import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -15,6 +17,7 @@ object ImageWarmingManager {
 
     private val inFlightKeys = ConcurrentHashMap.newKeySet<String>()
     private val inFlightDisposables = ConcurrentHashMap<String, coil.request.Disposable>()
+    private val logoWarmCompletions = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
 
     fun cancelWarming(movie: Movie, cancelBackdropOnly: Boolean = false) {
         val baseKey = "${movie.mediaType.name}_${movie.movieId}"
@@ -94,77 +97,113 @@ object ImageWarmingManager {
             }
 
             // 3. WARM TITLE LOGO (Key: titleLogoUrl)
-            val logoUrl = movie.titleLogoUrl
-            if (movie.isEnriched && !logoUrl.isNullOrBlank()) {
-                val logoKey = logoUrl
-                val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
-                if (isInMemory) {
-                    HeroLogoTrace.record(
-                        event = HeroLogoTrace.Event.LOGO_WARM_MEMORY_CACHE_HIT,
-                        mediaType = movie.mediaType,
-                        mediaId = movie.movieId,
-                        imageSource = HeroLogoTrace.ImageSource.MEMORY_CACHE
-                    )
-                } else if (inFlightKeys.add(logoKey)) {
-                    try {
-                        val request = ImageRequest.Builder(context)
-                            .data(logoUrl)
-                            .memoryCacheKey(logoKey)
-                            .diskCacheKey(logoKey)
-                            .allowHardware(true)
-                            .crossfade(false)
-                            .listener(
-                                onStart = { _ ->
-                                    HeroLogoTrace.record(
-                                        event = HeroLogoTrace.Event.LOGO_WARM_STARTED,
-                                        mediaType = movie.mediaType,
-                                        mediaId = movie.movieId
-                                    )
-                                },
-                                onSuccess = { _, result ->
-                                    HeroLogoTrace.record(
-                                        event = HeroLogoTrace.Event.LOGO_WARM_SUCCEEDED,
-                                        mediaType = movie.mediaType,
-                                        mediaId = movie.movieId,
-                                        imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
-                                    )
-                                    inFlightKeys.remove(logoKey)
-                                    inFlightDisposables.remove(logoKey)
-                                },
-                                onError = { _, _ ->
-                                    HeroLogoTrace.record(
-                                        event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
-                                        mediaType = movie.mediaType,
-                                        mediaId = movie.movieId
-                                    )
-                                    inFlightKeys.remove(logoKey)
-                                    inFlightDisposables.remove(logoKey)
-                                },
-                                onCancel = { _ ->
-                                    HeroLogoTrace.record(
-                                        event = HeroLogoTrace.Event.LOGO_WARM_CANCELLED,
-                                        mediaType = movie.mediaType,
-                                        mediaId = movie.movieId,
-                                        outcome = HeroLogoTrace.Outcome.CANCELLED
-                                    )
-                                    inFlightKeys.remove(logoKey)
-                                    inFlightDisposables.remove(logoKey)
-                                }
-                            )
-                            .build()
-                        inFlightDisposables[logoKey] = imageLoader.enqueue(request)
-                    } catch (_: Throwable) {
-                        HeroLogoTrace.record(
-                            event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
-                            mediaType = movie.mediaType,
-                            mediaId = movie.movieId,
-                            outcome = HeroLogoTrace.Outcome.FAILED
-                        )
-                        inFlightKeys.remove(logoKey)
-                        inFlightDisposables.remove(logoKey)
-                    }
-                }
+            if (movie.isEnriched) {
+                warmLogo(context, imageLoader, movie.mediaType, movie.movieId, movie.titleLogoUrl)
             }
         }
+    }
+
+    /**
+     * Warms only the title logo so focus enrichment can trigger it without repeating poster work.
+     */
+    internal fun warmLogo(
+        context: Context,
+        imageLoader: ImageLoader,
+        mediaType: MediaType,
+        mediaId: String,
+        logoUrl: String?
+    ) {
+        if (logoUrl.isNullOrBlank()) return
+
+        val logoKey = logoUrl
+        logoWarmCompletions.computeIfAbsent(logoKey) { CompletableDeferred() }
+        val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
+        if (isInMemory) {
+            HeroLogoTrace.record(
+                event = HeroLogoTrace.Event.LOGO_WARM_MEMORY_CACHE_HIT,
+                mediaType = mediaType,
+                mediaId = mediaId,
+                imageSource = HeroLogoTrace.ImageSource.MEMORY_CACHE
+            )
+            finishLogoWarm(logoKey)
+        } else if (inFlightKeys.add(logoKey)) {
+            try {
+                val request = ImageRequest.Builder(context)
+                    .data(logoUrl)
+                    .memoryCacheKey(logoKey)
+                    .diskCacheKey(logoKey)
+                    .allowHardware(true)
+                    .crossfade(false)
+                    .listener(
+                        onStart = { _ ->
+                            HeroLogoTrace.record(
+                                event = HeroLogoTrace.Event.LOGO_WARM_STARTED,
+                                mediaType = mediaType,
+                                mediaId = mediaId
+                            )
+                        },
+                        onSuccess = { _, result ->
+                            HeroLogoTrace.record(
+                                event = HeroLogoTrace.Event.LOGO_WARM_SUCCEEDED,
+                                mediaType = mediaType,
+                                mediaId = mediaId,
+                                imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
+                            )
+                            finishLogoWarm(logoKey)
+                        },
+                        onError = { _, _ ->
+                            HeroLogoTrace.record(
+                                event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
+                                mediaType = mediaType,
+                                mediaId = mediaId
+                            )
+                            finishLogoWarm(logoKey)
+                        },
+                        onCancel = { _ ->
+                            HeroLogoTrace.record(
+                                event = HeroLogoTrace.Event.LOGO_WARM_CANCELLED,
+                                mediaType = mediaType,
+                                mediaId = mediaId,
+                                outcome = HeroLogoTrace.Outcome.CANCELLED
+                            )
+                            finishLogoWarm(logoKey)
+                        }
+                    )
+                    .build()
+                inFlightDisposables[logoKey] = imageLoader.enqueue(request)
+            } catch (_: Throwable) {
+                HeroLogoTrace.record(
+                    event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
+                    mediaType = mediaType,
+                    mediaId = mediaId,
+                    outcome = HeroLogoTrace.Outcome.FAILED
+                )
+                finishLogoWarm(logoKey)
+            }
+        }
+    }
+
+    /**
+     * Ensures the shared loader has finished warming this logo before the hero starts its own
+     * request. This lets the hero reuse the warmed memory entry instead of racing a second fetch.
+     */
+    internal suspend fun warmLogoAndAwait(
+        context: Context,
+        imageLoader: ImageLoader,
+        mediaType: MediaType,
+        mediaId: String,
+        logoUrl: String?
+    ) {
+        if (logoUrl.isNullOrBlank()) return
+
+        warmLogo(context, imageLoader, mediaType, mediaId, logoUrl)
+        if (imageLoader.memoryCache?.get(MemoryCache.Key(logoUrl)) != null) return
+        logoWarmCompletions[logoUrl]?.await()
+    }
+
+    private fun finishLogoWarm(logoKey: String) {
+        inFlightKeys.remove(logoKey)
+        inFlightDisposables.remove(logoKey)
+        logoWarmCompletions.remove(logoKey)?.complete(Unit)
     }
 }
