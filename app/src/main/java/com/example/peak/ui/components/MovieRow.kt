@@ -47,6 +47,42 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 
+internal data class FocusedLogoWarmTarget(
+    val mediaType: MediaType,
+    val mediaId: String,
+    val logoUrl: String
+)
+
+internal fun Movie?.toFocusedLogoWarmTarget(): FocusedLogoWarmTarget? =
+    this?.takeIf { it.isEnriched && !it.titleLogoUrl.isNullOrBlank() }?.let {
+        FocusedLogoWarmTarget(
+            mediaType = it.mediaType,
+            mediaId = it.movieId,
+            logoUrl = it.titleLogoUrl.orEmpty()
+        )
+    }
+
+internal fun resolveFocusedMovie(
+    rowMovies: List<Movie>,
+    focusedMovieId: String?,
+    focusedMediaType: MediaType?,
+    focusedStateMovie: Movie?
+): Movie? {
+    val rowMovie = rowMovies.firstOrNull {
+        it.movieId == focusedMovieId && it.mediaType == focusedMediaType
+    }
+    val stateMovie = focusedStateMovie?.takeIf {
+        it.movieId == focusedMovieId && it.mediaType == focusedMediaType
+    }
+
+    return when {
+        stateMovie?.isEnriched == true -> stateMovie
+        rowMovie?.isEnriched == true -> rowMovie
+        stateMovie != null -> stateMovie
+        else -> rowMovie
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 private object NoScrollBringIntoViewSpec : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
@@ -98,6 +134,19 @@ fun MovieRow(
     val focusedMovieId by remember(row.id) { 
         focusStateFlow.map { if (it?.rowId == row.id) it.movieId else null }.distinctUntilChanged() 
     }.collectAsState(initial = null)
+    val focusedMediaType by remember(row.id) {
+        focusStateFlow.map { if (it?.rowId == row.id) it.mediaType else null }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val focusedStateMovie by remember(row.id) {
+        focusStateFlow.map { if (it?.rowId == row.id) it.movie else null }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+
+    val focusedMovie = remember(row.movies, focusedMovieId, focusedMediaType, focusedStateMovie) {
+        resolveFocusedMovie(row.movies, focusedMovieId, focusedMediaType, focusedStateMovie)
+    }
+    val focusedLogoWarmTarget = remember(focusedMovie) {
+        focusedMovie.toFocusedLogoWarmTarget()
+    }
     
     // BACKWARD COMPATIBILITY: Internal map if no registry provided
     val localFocusRequesters = remember { mutableStateMapOf<String, FocusRequester>() }
@@ -148,6 +197,22 @@ fun MovieRow(
                     ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
                 }
             }
+    }
+
+    // Re-evaluate logo eligibility when the focused item is enriched or its logo URL changes.
+    // Keep this separate from focus scrolling/poster warming so enrichment does not restart those effects.
+    LaunchedEffect(isFocused, focusedLogoWarmTarget) {
+        if (!isFocused) return@LaunchedEffect
+
+        focusedLogoWarmTarget?.let { target ->
+            ImageWarmingManager.warmLogo(
+                context = context,
+                imageLoader = imageLoader,
+                mediaType = target.mediaType,
+                mediaId = target.mediaId,
+                logoUrl = target.logoUrl
+            )
+        }
     }
 
     var isRowFocusedInternal by remember { mutableStateOf(false) }
