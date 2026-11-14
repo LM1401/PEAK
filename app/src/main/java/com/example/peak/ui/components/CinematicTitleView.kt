@@ -25,7 +25,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.image.HeroLogoTrace
-import com.example.peak.ui.image.ImageWarmingManager
 import com.example.peak.ui.image.PeakImageLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -39,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 fun CinematicTitleView(
     title: String,
     titleLogoUrl: String?,
-    isEnriched: Boolean,
+    @Suppress("UNUSED_PARAMETER") isEnriched: Boolean,
     mediaType: MediaType? = null,
     mediaId: String? = null,
     modifier: Modifier = Modifier,
@@ -55,22 +54,6 @@ fun CinematicTitleView(
     val presentationLogged = remember(titleLogoUrl, mediaType, mediaId) { AtomicBoolean(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
-    var logoWarmReady by remember(titleLogoUrl, mediaType, mediaId) {
-        mutableStateOf(false)
-    }
-
-    LaunchedEffect(titleLogoUrl, mediaType, mediaId) {
-        if (hasLogoUrl && mediaType != null && mediaId != null) {
-            ImageWarmingManager.warmLogoAndAwait(
-                context = context,
-                imageLoader = imageLoader,
-                mediaType = mediaType,
-                mediaId = mediaId,
-                logoUrl = titleLogoUrl
-            )
-        }
-        logoWarmReady = true
-    }
 
     Box(
         modifier = modifier
@@ -78,14 +61,13 @@ fun CinematicTitleView(
             .widthIn(max = maxWidth),
         contentAlignment = alignment
     ) {
-        if (hasLogoUrl && !isLogoError && logoWarmReady) {
+        if (hasLogoUrl && !isLogoError) {
             AsyncImage(
                 model = remember(titleLogoUrl) {
                     ImageRequest.Builder(context)
                         .data(titleLogoUrl)
                         .memoryCacheKey(titleLogoUrl)
                         .diskCacheKey(titleLogoUrl)
-                        .crossfade(150)
                         .allowHardware(true)
                         .listener(
                             onStart = {
@@ -160,70 +142,6 @@ fun CinematicTitleView(
                         }
                     }
             )
-        } else if (isEnriched) {
-            // PEAK CINEMATIC TEXT FALLBACK (Only when metadata enrichment is complete and no valid logo exists)
-            CinematicTextFallback(
-                title = title,
-                maxHeight = maxHeight,
-                maxWidth = maxWidth
-            )
-        } else {
-            // Metadata enrichment is pending: Reserve layout bounds without showing basic text prematurely
         }
     }
 }
-
-/**
- * PEAK Cinematic Text Fallback.
- * Generates an authoritative title presentation with dynamic typography scaling,
- * tracking, and depth shadow matching PEAK's visual language.
- */
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-fun CinematicTextFallback(
-    title: String,
-    maxHeight: Dp,
-    maxWidth: Dp,
-    modifier: Modifier = Modifier
-) {
-    val cleanTitle = title.uppercase().trim()
-    val charCount = cleanTitle.length
-
-    // Dynamic typography scaling based on title length
-    val (fontSize, lineHeight, letterSpacing, maxLines) = when {
-        charCount <= 12 -> Quadruple(44.sp, 48.sp, 2.5.sp, 1)
-        charCount <= 25 -> Quadruple(36.sp, 40.sp, 2.0.sp, 1)
-        else -> Quadruple(28.sp, 32.sp, 1.5.sp, 2)
-    }
-
-    val cinematicShadow = Shadow(
-        color = Color.Black.copy(alpha = 0.85f),
-        offset = Offset(2f, 3f),
-        blurRadius = 8f
-    )
-
-    Text(
-        text = cleanTitle,
-        style = MaterialTheme.typography.displayMedium.copy(
-            fontSize = fontSize,
-            lineHeight = lineHeight,
-            fontWeight = FontWeight.ExtraBold,
-            fontFamily = FontFamily.SansSerif,
-            letterSpacing = letterSpacing,
-            shadow = cinematicShadow
-        ),
-        color = Color.White,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier
-            .heightIn(max = maxHeight)
-            .widthIn(max = maxWidth)
-    )
-}
-
-private data class Quadruple<A, B, C, D>(
-    val first: A,
-    val second: B,
-    val third: C,
-    val fourth: D
-)

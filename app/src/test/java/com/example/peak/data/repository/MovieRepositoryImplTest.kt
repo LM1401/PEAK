@@ -441,4 +441,65 @@ class MovieRepositoryImplTest {
         org.junit.Assert.assertFalse(fullResult.getOrThrow().isFullyEnriched)
         assertEquals(2, apiCalls)
     }
+
+    @Test
+    fun getMediaById_fullRequestWithNoLogo_preservesExistingLogo() = runTest {
+        var apiCalls = 0
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                apiCalls++
+                if (apiCalls == 1) {
+                    val images = com.example.peak.data.remote.dto.TmdbImages(
+                        logos = listOf(
+                            com.example.peak.data.remote.dto.TmdbLogo(
+                                filePath = "/valid_logo.png",
+                                iso6391 = "en",
+                                aspectRatio = 2.0,
+                                width = 500,
+                                height = 250
+                            )
+                        )
+                    )
+                    createFakeTmdbMovie(id = 550, title = "Movie").copy(images = images)
+                } else {
+                    createFakeTmdbMovie(id = 550, title = "Movie")
+                }
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        // 1. Fetch Lightweight, caches logo
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+
+        // 2. Fetch Full Details, missing logo
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+
+        assertTrue(result.isSuccess)
+        assertEquals("https://image.tmdb.org/t/p/w500/valid_logo.png", result.getOrThrow().titleLogoUrl)
+    }
+
+    @Test
+    fun getMediaById_successfulRequest_updatesCacheBeforeEmittingFlow() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550)
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi)
+
+        val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
+        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+            repository.enrichedMediaFlow.collect { movie ->
+                val cached = repository.getCachedMedia(movie.movieId, movie.mediaType)
+                org.junit.Assert.assertNotNull(cached)
+                emittedMovies.add(movie)
+            }
+        }
+
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
+
+        assertEquals(1, emittedMovies.size)
+        assertEquals("550", emittedMovies[0].movieId)
+        job.cancel()
+    }
 }

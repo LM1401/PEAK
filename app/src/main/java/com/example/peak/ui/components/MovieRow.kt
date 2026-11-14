@@ -32,6 +32,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.gestures.animateScrollBy
+import com.example.peak.PeakDependencyProvider
 import com.example.peak.domain.model.FocusState
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
@@ -180,20 +181,23 @@ fun MovieRow(
         }
     }
 
+    val repository = remember { PeakDependencyProvider.getMovieRepository() }
+    val currentMovies by rememberUpdatedState(row.movies)
+
     // PREDICTIVE SCROLL PRE-DECODING (WARMING)
     // Optimized: Keyed by row.id to prevent restarts on progressive data arrivals.
     // Window reduced to 5 for lighter speculative workload.
     LaunchedEffect(isNearViewport, row.id) {
         if (!isNearViewport) return@LaunchedEffect
 
-        snapshotFlow { Pair(listState.firstVisibleItemIndex, row.movies) }
+        snapshotFlow { Pair(listState.firstVisibleItemIndex, currentMovies) }
             .distinctUntilChanged()
             .collectLatest { (index, movies) ->
                 if (movies.isNotEmpty()) {
                     val windowSize = 5
                     val endIndex = (index + windowSize).coerceAtMost(movies.size)
                     val moviesToWarm = movies.subList(index, endIndex)
-                    // ROW SCROLL: Warm posters only, speculative
+                    repository.prefetchMetadata(moviesToWarm)
                     ImageWarmingManager.warm(context, imageLoader, moviesToWarm, warmBackdrops = false)
                 }
             }

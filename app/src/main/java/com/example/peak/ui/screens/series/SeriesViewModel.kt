@@ -46,6 +46,12 @@ class SeriesViewModel(
     private var focusDebounceJob: Job? = null
 
     init {
+        repository.enrichedMediaFlow
+            .onEach { enrichedMovie ->
+                updateRowMovie(enrichedMovie)
+            }
+            .launchIn(viewModelScope)
+
         fetchSeries()
 
         // SYNC INITIAL FOCUS: When first rows arrive
@@ -84,25 +90,41 @@ class SeriesViewModel(
 
     private fun updateRow(id: String, title: String, movies: List<Movie>) {
         if (movies.isEmpty()) return
+        val cachedMovies = movies.take(20).map { m -> repository.getCachedMedia(m.movieId, m.mediaType) ?: m }
         _apiRowsMap.update { current ->
-            current + (id to Row(id, title, movies.take(20)))
+            current + (id to Row(id, title, cachedMovies))
+        }
+    }
+
+    private fun updateRowMovie(movie: Movie) {
+        _apiRowsMap.update { currentMap ->
+            currentMap.mapValues { (_, row) ->
+                val updatedMovies = row.movies.map { m ->
+                    if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) {
+                        repository.getCachedMedia(m.movieId, m.mediaType) ?: movie
+                    } else m
+                }
+                row.copy(movies = updatedMovies)
+            }
         }
     }
 
     fun onMovieFocused(rowId: String, movie: Movie) {
         val currentFocus = _focusState.value
-        if (currentFocus != null && currentFocus.movieId == movie.movieId && currentFocus.mediaType == movie.mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) return
+        if (currentFocus != null && currentFocus.movieId == movie.movieId && currentFocus.mediaType == movie.mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isFullyEnriched == true) return
 
-        // Instant cache hit: Bypass debounce if enriched media is already in repository cache
         val repoCached = repository.getCachedMedia(movie.movieId, movie.mediaType)
         val activeMovie = repoCached ?: movie
-        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, activeMovie)
         
-        if (!activeMovie.isEnriched) {
+        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, activeMovie)
+
+        if (!activeMovie.isFullyEnriched) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
-                delay(300L)
-                repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->
+                if (!activeMovie.isEnriched) {
+                    delay(300L)
+                }
+                repository.getMediaById(movie.movieId, movie.mediaType, requireFullDetails = true).onSuccess { fullMovie ->
                     if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) {
                         _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, fullMovie)
                     }

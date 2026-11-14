@@ -49,6 +49,12 @@ class HomeViewModel(
     private var hasUserInteracted = false
 
     init {
+        repository.enrichedMediaFlow
+            .onEach { enrichedMovie ->
+                updateRowMovie(enrichedMovie)
+            }
+            .launchIn(viewModelScope)
+
         setupStatePipeline()
         fetchMovies()
     }
@@ -72,7 +78,10 @@ class HomeViewModel(
             // Deterministic Row Ordering
             val combinedRows = buildList {
                 if (validCwItems.isNotEmpty()) {
-                    add(Row("continue_watching", "Continue Watching", validCwItems.map { it.toMovie() }))
+                    add(Row("continue_watching", "Continue Watching", validCwItems.map { cwItem ->
+                        val movie = cwItem.toMovie()
+                        repository.getCachedMedia(movie.movieId, movie.mediaType) ?: movie
+                    }))
                 }
                 
                 // Add API rows in priority order if they exist
@@ -102,13 +111,13 @@ class HomeViewModel(
                 if (_focusState.value == null) {
                     // Initial establishment
                     _focusState.value = potentialFocus
-                    if (!firstMovie.isEnriched) {
+                    if (!firstMovie.isFullyEnriched) {
                         launchInitialHeroEnrichment(firstRealRow.id, firstMovie)
                     }
                 } else if (!hasUserInteracted && _focusState.value?.rowId != potentialFocus.rowId) {
                     // Follow Row 0 if it changes (e.g. Continue Watching arrives) before user interaction
                     _focusState.value = potentialFocus
-                    if (!firstMovie.isEnriched) {
+                    if (!firstMovie.isFullyEnriched) {
                         launchInitialHeroEnrichment(firstRealRow.id, firstMovie)
                     }
                 }
@@ -124,7 +133,7 @@ class HomeViewModel(
                 mediaId = movie.movieId
             )
             val result = try {
-                repository.getMediaById(movie.movieId, movie.mediaType)
+                repository.getMediaById(movie.movieId, movie.mediaType, requireFullDetails = true)
             } catch (cancellation: kotlinx.coroutines.CancellationException) {
                 HeroLogoTrace.record(
                     event = HeroLogoTrace.Event.INITIAL_HERO_DETAIL_CANCELLED,
@@ -154,7 +163,6 @@ class HomeViewModel(
                 if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType) {
                     _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, enriched)
                 }
-                updateRowMovie(rowId, enriched)
                 HeroLogoTrace.record(
                     event = HeroLogoTrace.Event.LOGO_URL_AVAILABLE,
                     mediaType = movie.mediaType,
@@ -252,22 +260,21 @@ class HomeViewModel(
 
     private fun updateRow(id: String, title: String, movies: List<Movie>) {
         if (movies.isEmpty()) return
+        val cachedMovies = movies.take(20).map { m -> repository.getCachedMedia(m.movieId, m.mediaType) ?: m }
         _apiRowsMap.update { current ->
-            current + (id to Row(id, title, movies.take(20)))
+            current + (id to Row(id, title, cachedMovies))
         }
     }
 
-    private fun updateRowMovie(rowId: String, movie: Movie) {
+    private fun updateRowMovie(movie: Movie) {
         _apiRowsMap.update { currentMap ->
-            currentMap.mapValues { (currentId, row) ->
-                if (currentId == rowId) {
-                    val updatedMovies = row.movies.map { m ->
-                        if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) movie else m
-                    }
-                    row.copy(movies = updatedMovies)
-                } else {
-                    row
+            currentMap.mapValues { (_, row) ->
+                val updatedMovies = row.movies.map { m ->
+                    if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) {
+                        repository.getCachedMedia(m.movieId, m.mediaType) ?: movie
+                    } else m
                 }
+                row.copy(movies = updatedMovies)
             }
         }
     }
@@ -279,35 +286,29 @@ class HomeViewModel(
     fun onMovieFocused(rowId: String, movieId: String, mediaType: MediaType) {
         Log.e("PEAK_DIAGNOSTIC", "onMovieFocused: rowId=$rowId, movieId=$movieId, mediaType=$mediaType")
         val currentFocus = _focusState.value
-        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) {
-            Log.e("PEAK_DIAGNOSTIC", "  Already focused and enriched. Ignoring.")
-            return
-        }
-
-        // Instant cache hit: Bypass 300ms debounce if enriched media is already in repository cache
-        val repoCached = repository.getCachedMedia(movieId, mediaType)
-        if (repoCached != null) {
-            focusDebounceJob?.cancel()
-            _focusState.value = FocusState(rowId, movieId, mediaType, repoCached)
-            updateRowMovie(rowId, repoCached)
+        if (currentFocus != null && currentFocus.movieId == movieId && currentFocus.mediaType == mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isFullyEnriched == true) {
+            Log.e("PEAK_DIAGNOSTIC", "  Already focused and fully enriched. Ignoring.")
             return
         }
 
         val cachedMovie = _uiState.value.rows.find { it.id == rowId }?.movies?.find { it.movieId == movieId && it.mediaType == mediaType }
+        val repoCached = repository.getCachedMedia(movieId, mediaType)
         
-        if (cachedMovie != null) {
-            _focusState.value = FocusState(rowId, movieId, mediaType, cachedMovie)
-            if (cachedMovie.isEnriched) return
-        }
+        val activeMovie = repoCached ?: cachedMovie ?: return
 
-        focusDebounceJob?.cancel()
-        focusDebounceJob = viewModelScope.launch {
-            delay(300L)
-            repository.getMediaById(movieId, mediaType).onSuccess { movie ->
-                if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
-                    _focusState.value = FocusState(rowId, movieId, mediaType, movie)
+        _focusState.value = FocusState(rowId, movieId, mediaType, activeMovie)
+
+        if (!activeMovie.isFullyEnriched) {
+            focusDebounceJob?.cancel()
+            focusDebounceJob = viewModelScope.launch {
+                if (!activeMovie.isEnriched) {
+                    delay(300L)
                 }
-                updateRowMovie(rowId, movie)
+                repository.getMediaById(movieId, mediaType, requireFullDetails = true).onSuccess { movie ->
+                    if (_focusState.value?.movieId == movieId && _focusState.value?.mediaType == mediaType && _focusState.value?.rowId == rowId) {
+                        _focusState.value = FocusState(rowId, movieId, mediaType, movie)
+                    }
+                }
             }
         }
     }

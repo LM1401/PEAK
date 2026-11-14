@@ -73,10 +73,17 @@ class HomeViewModelFocusTest {
     }
 
     private inner class FakeMovieRepository : MovieRepository {
+        override val enrichedMediaFlow = kotlinx.coroutines.flow.MutableSharedFlow<Movie>()
+        override fun prefetchMetadata(movies: List<Movie>) {}
         val trendingDeferred = CompletableDeferred<Result<List<Movie>>>()
         val popularMoviesDeferred = CompletableDeferred<Result<List<Movie>>>()
         val popularSeriesDeferred = CompletableDeferred<Result<List<Movie>>>()
         val topRatedMoviesDeferred = CompletableDeferred<Result<List<Movie>>>()
+
+        val cache = mutableMapOf<String, Movie>()
+        val getMediaByIdDeferreds = mutableMapOf<String, CompletableDeferred<Result<Movie>>>()
+
+        override fun getCachedMedia(id: String, type: MediaType): Movie? = cache["${type.name}_$id"]
 
         override suspend fun getTrendingMovies(): Result<List<Movie>> = trendingDeferred.await()
         override suspend fun getTrendingSeries(): Result<List<Movie>> = Result.success(emptyList())
@@ -96,7 +103,15 @@ class HomeViewModelFocusTest {
         override suspend fun searchMulti(query: String): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun discoverMedia(genreIds: String): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun getMediaById(id: String, type: MediaType, requireFullDetails: Boolean): Result<Movie> {
-            val movie = createMovie(id, "Enriched $id", type)
+            val key = "${type.name}_$id"
+            val deferred = getMediaByIdDeferreds[key]
+            if (deferred != null) {
+                val result = deferred.await()
+                result.getOrNull()?.let { cache[key] = it }
+                return result
+            }
+            val movie = createMovie(id, "Enriched $id", type).copy(isFullyEnriched = requireFullDetails)
+            cache[key] = movie
             return Result.success(movie)
         }
         override suspend fun getImdbId(id: String, type: MediaType): Result<String> {
@@ -403,5 +418,74 @@ class HomeViewModelFocusTest {
         // Verify focus stays on t3
         assertEquals("trending", viewModel.focusState.value?.rowId)
         assertEquals("t3", viewModel.focusState.value?.movieId)
+    }
+
+    @Test
+    fun home_duplicateRowAppearances_receiveEnrichmentUpdates() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+
+        // Movie "m1" appears in both trending and popular_movies
+        val movie1 = createMovie("m1", "Movie 1", MediaType.MOVIE).copy(isEnriched = false)
+        fakeRepo.trendingDeferred.complete(Result.success(listOf(movie1)))
+        fakeRepo.popularMoviesDeferred.complete(Result.success(listOf(movie1)))
+        fakeRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.rows.size)
+        val trendingRowBefore = viewModel.uiState.value.rows.find { it.id == "trending" }!!
+        val popularRowBefore = viewModel.uiState.value.rows.find { it.id == "popular_movies" }!!
+        assertEquals(false, trendingRowBefore.movies[0].isEnriched)
+        assertEquals(false, popularRowBefore.movies[0].isEnriched)
+
+        // Emit enriched movie "m1" via enrichedMediaFlow
+        val enrichedMovie1 = movie1.copy(isEnriched = true, titleLogoUrl = "http://example.com/logo1.png")
+        fakeRepo.cache["MOVIE_m1"] = enrichedMovie1
+        fakeRepo.enrichedMediaFlow.emit(enrichedMovie1)
+        testScheduler.advanceUntilIdle()
+
+        // Verify BOTH rows received the update
+        val trendingRowAfter = viewModel.uiState.value.rows.find { it.id == "trending" }!!
+        val popularRowAfter = viewModel.uiState.value.rows.find { it.id == "popular_movies" }!!
+        assertEquals(true, trendingRowAfter.movies[0].isEnriched)
+        assertEquals("http://example.com/logo1.png", trendingRowAfter.movies[0].titleLogoUrl)
+        assertEquals(true, popularRowAfter.movies[0].isEnriched)
+        assertEquals("http://example.com/logo1.png", popularRowAfter.movies[0].titleLogoUrl)
+    }
+
+    @Test
+    fun home_oldFocusResponse_cannotReplaceNewerFocus() = runTest {
+        val fakeRepo = FakeMovieRepository()
+        val viewModel = createHomeViewModel(fakeRepo)
+
+        val movie1 = createMovie("m1", "Movie 1", MediaType.MOVIE).copy(isEnriched = false, isFullyEnriched = false)
+        val movie2 = createMovie("m2", "Movie 2", MediaType.MOVIE).copy(isEnriched = false, isFullyEnriched = false)
+        fakeRepo.trendingDeferred.complete(Result.success(listOf(movie1, movie2)))
+        fakeRepo.popularMoviesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.popularSeriesDeferred.complete(Result.success(emptyList()))
+        fakeRepo.topRatedMoviesDeferred.complete(Result.success(emptyList()))
+        testScheduler.advanceUntilIdle()
+
+        // Set up deferred slow response for m1
+        val m1Deferred = CompletableDeferred<Result<Movie>>()
+        fakeRepo.getMediaByIdDeferreds["MOVIE_m1"] = m1Deferred
+
+        // User focuses m1 (triggers background fetch for m1)
+        viewModel.onMovieFocused("trending", "m1", MediaType.MOVIE)
+        testScheduler.runCurrent()
+
+        // Before m1 completes, user focuses m2
+        viewModel.onMovieFocused("trending", "m2", MediaType.MOVIE)
+        testScheduler.runCurrent()
+
+        assertEquals("m2", viewModel.focusState.value?.movieId)
+
+        // Now m1's delayed response finishes
+        m1Deferred.complete(Result.success(movie1.copy(name = "Enriched m1", isEnriched = true, isFullyEnriched = true)))
+        testScheduler.advanceUntilIdle()
+
+        // Verify focus state STILL holds m2, not reverted to m1
+        assertEquals("m2", viewModel.focusState.value?.movieId)
     }
 }

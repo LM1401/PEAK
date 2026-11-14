@@ -130,27 +130,40 @@ class FocusedLogoWarmTargetTest {
     }
 
     @Test
-    fun heroWaitsForAnExistingLogoWarmRequestToTerminate() = runBlocking {
+    fun imageWarmingManager_warm_onlyWarmsLogoForEnrichedMoviesWithLogoUrl() {
         val enqueued = mutableListOf<ImageRequest>()
         val imageLoader = fakeImageLoader(enqueued)
-        val logoUrl = "https://images.example/logo-await-test.png"
+        val context = ContextWrapper(null)
 
-        val heroWarm = async {
-            ImageWarmingManager.warmLogoAndAwait(
-                context = ContextWrapper(null),
-                imageLoader = imageLoader,
-                mediaType = MediaType.MOVIE,
-                mediaId = "303",
-                logoUrl = logoUrl
-            )
-        }
-        yield()
+        val enrichedWithLogo = createMovie(id = "1", url = "https://images.example/logo-1.png", enriched = true)
+        val enrichedNoLogo = createMovie(id = "2", url = null, enriched = true)
+        val unenrichedWithLogo = createMovie(id = "3", url = "https://images.example/logo-3.png", enriched = false)
 
-        assertEquals(1, enqueued.size)
-        assertFalse(heroWarm.isCompleted)
-        enqueued.single().listener?.onCancel(enqueued.single())
-        heroWarm.await()
+        ImageWarmingManager.warm(context, imageLoader, listOf(enrichedWithLogo, enrichedNoLogo, unenrichedWithLogo), warmBackdrops = false)
+
+        val logoRequests = enqueued.filter { it.memoryCacheKey?.key?.contains("logo") == true }
+        assertEquals(1, logoRequests.size)
+        assertEquals("https://images.example/logo-1.png", logoRequests.single().memoryCacheKey?.key)
     }
+
+    @Test
+    fun imageWarmingManager_warm_preservesMediaTypeAndIdForLogos() {
+        val enqueued = mutableListOf<ImageRequest>()
+        val imageLoader = fakeImageLoader(enqueued)
+        val context = ContextWrapper(null)
+
+        val movie = createMovie(id = "100", type = MediaType.MOVIE, url = "https://images.example/movie-logo.png", enriched = true)
+        val tvShow = createMovie(id = "100", type = MediaType.TV, url = "https://images.example/tv-logo.png", enriched = true)
+
+        ImageWarmingManager.warm(context, imageLoader, listOf(movie, tvShow), warmBackdrops = false)
+
+        val logoRequests = enqueued.filter { it.memoryCacheKey?.key?.contains("logo") == true }
+        assertEquals(2, logoRequests.size)
+        assertEquals("https://images.example/movie-logo.png", logoRequests[0].memoryCacheKey?.key)
+        assertEquals("https://images.example/tv-logo.png", logoRequests[1].memoryCacheKey?.key)
+    }
+
+
 
     private fun createMovie(
         id: String,

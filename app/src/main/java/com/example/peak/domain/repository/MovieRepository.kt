@@ -2,6 +2,7 @@ package com.example.peak.domain.repository
 
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import kotlinx.coroutines.flow.SharedFlow
 
 enum class MovieListType {
     TRENDING,
@@ -23,6 +24,10 @@ enum class TvListType {
  * Interface defining the operations for fetching movie and TV data.
  */
 interface MovieRepository {
+    val enrichedMediaFlow: SharedFlow<Movie>
+
+    fun prefetchMetadata(movies: List<Movie>)
+
     suspend fun getTrendingMovies(): Result<List<Movie>>
     suspend fun getTrendingSeries(): Result<List<Movie>>
     

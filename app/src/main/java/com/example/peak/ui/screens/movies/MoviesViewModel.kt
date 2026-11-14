@@ -49,6 +49,12 @@ class MoviesViewModel(
     private var heroEnrichJob: Job? = null
 
     init {
+        repository.enrichedMediaFlow
+            .onEach { enrichedMovie ->
+                updateRowMovie(enrichedMovie)
+            }
+            .launchIn(viewModelScope)
+
         initializeCollections()
         fetchMovies()
         
@@ -116,9 +122,14 @@ class MoviesViewModel(
                     )
                 }
 
-                // Enrich 0th featured movie asynchronously
                 if (featuredList.isNotEmpty()) {
-                    enrichFeaturedMovie(0, featuredList[0])
+                    val first = featuredList[0]
+                    val cached = repository.getCachedMedia(first.movieId, first.mediaType)
+                    if (cached != null && cached.isFullyEnriched) {
+                        // Already enriched
+                    } else {
+                        enrichFeaturedMovie(first)
+                    }
                 }
             }.onFailure { error ->
                 _uiState.update { current ->
@@ -187,8 +198,8 @@ class MoviesViewModel(
         }
 
         val targetMovie = featured[index]
-        if (!targetMovie.isEnriched) {
-            enrichFeaturedMovie(index, targetMovie)
+        if (!targetMovie.isFullyEnriched) {
+            enrichFeaturedMovie(targetMovie)
         }
     }
 
@@ -214,26 +225,17 @@ class MoviesViewModel(
         }
     }
 
-    private fun enrichFeaturedMovie(index: Int, movie: Movie) {
+    private fun enrichFeaturedMovie(movie: Movie) {
         heroEnrichJob?.cancel()
         heroEnrichJob = viewModelScope.launch {
-            repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->
-                _uiState.update { current ->
-                    val currentFeatured = current.heroState.featuredMovies.toMutableList()
-                    if (index in currentFeatured.indices) {
-                        currentFeatured[index] = fullMovie
-                        current.copy(
-                            heroState = current.heroState.copy(featuredMovies = currentFeatured)
-                        )
-                    } else current
-                }
-            }
+            repository.getMediaById(movie.movieId, movie.mediaType, requireFullDetails = true)
         }
     }
 
     private fun updateRow(id: String, title: String, movies: List<Movie>) {
         if (movies.isEmpty()) return
-        val newRow = Row(id, title, movies.take(20))
+        val cachedMovies = movies.take(20).map { m -> repository.getCachedMedia(m.movieId, m.mediaType) ?: m }
+        val newRow = Row(id, title, cachedMovies)
         _apiRowsMap.update { current ->
             current + (id to newRow)
         }
@@ -246,20 +248,61 @@ class MoviesViewModel(
         }
     }
 
+    private fun updateRowMovie(movie: Movie) {
+        _apiRowsMap.update { currentMap ->
+            currentMap.mapValues { (_, row) ->
+                val updatedMovies = row.movies.map { m ->
+                    if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) {
+                        repository.getCachedMedia(m.movieId, m.mediaType) ?: movie
+                    } else m
+                }
+                row.copy(movies = updatedMovies)
+            }
+        }
+
+        _uiState.update { current ->
+            val currentFeatured = current.heroState.featuredMovies.toMutableList()
+            var changed = false
+            for (i in currentFeatured.indices) {
+                if (currentFeatured[i].movieId == movie.movieId && currentFeatured[i].mediaType == movie.mediaType) {
+                    currentFeatured[i] = repository.getCachedMedia(movie.movieId, movie.mediaType) ?: movie
+                    changed = true
+                }
+            }
+
+            val updatedCategoryRows = current.categoryRows.map { row ->
+                val updatedMovies = row.movies.map { m ->
+                    if (m.movieId == movie.movieId && m.mediaType == movie.mediaType) {
+                        repository.getCachedMedia(m.movieId, m.mediaType) ?: movie
+                    } else m
+                }
+                row.copy(movies = updatedMovies)
+            }
+
+            current.copy(
+                heroState = if (changed) current.heroState.copy(featuredMovies = currentFeatured) else current.heroState,
+                categoryRows = updatedCategoryRows,
+                rows = updatedCategoryRows
+            )
+        }
+    }
+
     fun onMovieFocused(rowId: String, movie: Movie) {
         val currentFocus = _focusState.value
-        if (currentFocus != null && currentFocus.movieId == movie.movieId && currentFocus.mediaType == movie.mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isEnriched == true) return
+        if (currentFocus != null && currentFocus.movieId == movie.movieId && currentFocus.mediaType == movie.mediaType && currentFocus.rowId == rowId && currentFocus.movie?.isFullyEnriched == true) return
 
-        // Instant cache hit: Bypass debounce if enriched media is already in repository cache
         val repoCached = repository.getCachedMedia(movie.movieId, movie.mediaType)
         val activeMovie = repoCached ?: movie
-        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, activeMovie)
         
-        if (!activeMovie.isEnriched) {
+        _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, activeMovie)
+
+        if (!activeMovie.isFullyEnriched) {
             focusDebounceJob?.cancel()
             focusDebounceJob = viewModelScope.launch {
-                delay(300L)
-                repository.getMediaById(movie.movieId, movie.mediaType).onSuccess { fullMovie ->
+                if (!activeMovie.isEnriched) {
+                    delay(300L)
+                }
+                repository.getMediaById(movie.movieId, movie.mediaType, requireFullDetails = true).onSuccess { fullMovie ->
                     if (_focusState.value?.movieId == movie.movieId && _focusState.value?.mediaType == movie.mediaType && _focusState.value?.rowId == rowId) {
                         _focusState.value = FocusState(rowId, movie.movieId, movie.mediaType, fullMovie)
                     }

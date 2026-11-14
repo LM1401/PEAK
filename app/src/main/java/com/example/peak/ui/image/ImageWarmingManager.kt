@@ -6,7 +6,6 @@ import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
-import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -17,7 +16,6 @@ object ImageWarmingManager {
 
     private val inFlightKeys = ConcurrentHashMap.newKeySet<String>()
     private val inFlightDisposables = ConcurrentHashMap<String, coil.request.Disposable>()
-    private val logoWarmCompletions = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
 
     fun cancelWarming(movie: Movie, cancelBackdropOnly: Boolean = false) {
         val baseKey = "${movie.mediaType.name}_${movie.movieId}"
@@ -116,7 +114,6 @@ object ImageWarmingManager {
         if (logoUrl.isNullOrBlank()) return
 
         val logoKey = logoUrl
-        logoWarmCompletions.computeIfAbsent(logoKey) { CompletableDeferred() }
         val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
         if (isInMemory) {
             HeroLogoTrace.record(
@@ -183,27 +180,8 @@ object ImageWarmingManager {
         }
     }
 
-    /**
-     * Ensures the shared loader has finished warming this logo before the hero starts its own
-     * request. This lets the hero reuse the warmed memory entry instead of racing a second fetch.
-     */
-    internal suspend fun warmLogoAndAwait(
-        context: Context,
-        imageLoader: ImageLoader,
-        mediaType: MediaType,
-        mediaId: String,
-        logoUrl: String?
-    ) {
-        if (logoUrl.isNullOrBlank()) return
-
-        warmLogo(context, imageLoader, mediaType, mediaId, logoUrl)
-        if (imageLoader.memoryCache?.get(MemoryCache.Key(logoUrl)) != null) return
-        logoWarmCompletions[logoUrl]?.await()
-    }
-
     private fun finishLogoWarm(logoKey: String) {
         inFlightKeys.remove(logoKey)
         inFlightDisposables.remove(logoKey)
-        logoWarmCompletions.remove(logoKey)?.complete(Unit)
     }
 }

@@ -48,6 +48,8 @@ class StreamSelectionViewModelTest {
     private class FakeMovieRepository(
         private val imdbIdResult: (String, MediaType) -> Result<String> = { id, _ -> Result.success("tt$id") }
     ) : MovieRepository {
+        override val enrichedMediaFlow = kotlinx.coroutines.flow.MutableSharedFlow<Movie>()
+        override fun prefetchMetadata(movies: List<Movie>) {}
         override suspend fun getTrendingMovies(): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun getTrendingSeries(): Result<List<Movie>> = Result.success(emptyList())
         override suspend fun getMovies(type: MovieListType, genreId: String?): Result<List<Movie>> = Result.success(emptyList())

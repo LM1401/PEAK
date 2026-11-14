@@ -15,6 +15,16 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -33,6 +43,61 @@ class MovieRepositoryImpl(
     private val categoryCache = ConcurrentHashMap<String, List<Movie>>()
     private val categoryTimestamps = ConcurrentHashMap<String, Long>()
     
+    private val _enrichedMediaFlow = MutableSharedFlow<Movie>(
+        replay = 0,
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val enrichedMediaFlow: SharedFlow<Movie> = _enrichedMediaFlow.asSharedFlow()
+
+    private val inFlightPrefetch = ConcurrentHashMap<String, String>()
+
+    private val prefetchChannel = Channel<PrefetchTask>(
+        capacity = 32,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    ) { task ->
+        inFlightPrefetch.remove(task.cacheKey, task.token)
+    }
+
+    private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        repeat(2) {
+            repoScope.launch {
+                for (task in prefetchChannel) {
+                    try {
+                        if (movieDetailsCache[task.cacheKey]?.isEnriched != true) {
+                            getMediaById(task.movie.movieId, task.movie.mediaType, requireFullDetails = false)
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Suppress background errors
+                    } finally {
+                        inFlightPrefetch.remove(task.cacheKey, task.token)
+                    }
+                }
+            }
+        }
+    }
+
+    private data class PrefetchTask(val movie: Movie, val cacheKey: String, val token: String)
+
+    override fun prefetchMetadata(movies: List<Movie>) {
+        movies.forEach { movie ->
+            val cacheKey = getCacheKey(movie.movieId, movie.mediaType)
+            if (movieDetailsCache[cacheKey]?.isEnriched == true) return@forEach
+
+            val token = UUID.randomUUID().toString()
+            if (inFlightPrefetch.putIfAbsent(cacheKey, token) == null) {
+                val task = PrefetchTask(movie, cacheKey, token)
+                if (!prefetchChannel.trySend(task).isSuccess) {
+                    inFlightPrefetch.remove(cacheKey, token)
+                }
+            }
+        }
+    }
+
     companion object {
         private const val CACHE_TTL_MS = 2 * 60 * 1000L // 2 Minutes
     }
@@ -275,8 +340,22 @@ class MovieRepositoryImpl(
             return@withLock when {
                 result.data != null -> {
                     Log.e("PEAK_DIAGNOSTIC", "Successfully fetched detail for $id. Mapping to enriched.")
-                    val movie = result.data.toEnrichedMovie(type).copy(isFullyEnriched = requireFullDetails)
+                    val newEnriched = result.data.toEnrichedMovie(type)
+                    val existing = movieDetailsCache[cacheKey]
+
+                    val preservedLogoUrl = if (existing != null && newEnriched.titleLogoUrl.isNullOrBlank() && !existing.titleLogoUrl.isNullOrBlank()) {
+                        existing.titleLogoUrl
+                    } else {
+                        newEnriched.titleLogoUrl
+                    }
+
+                    val movie = newEnriched.copy(
+                        titleLogoUrl = preservedLogoUrl,
+                        isFullyEnriched = requireFullDetails || (existing?.isFullyEnriched == true)
+                    )
+
                     movieDetailsCache[cacheKey] = movie
+                    _enrichedMediaFlow.tryEmit(movie)
                     Result.success(movie)
                 }
                 else -> {
