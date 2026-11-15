@@ -81,13 +81,13 @@ class MovieRepositoryImplTest {
         override suspend fun getMovieDetails(
             movieId: String,
             append: String,
-            includeImageLanguage: String
+            includeImageLanguage: String?
         ): TmdbMovie = movieDetailResult(append)
 
         override suspend fun getTvDetails(
             tvId: String,
             append: String,
-            includeImageLanguage: String
+            includeImageLanguage: String?
         ): TmdbMovie = tvDetailResult(append)
 
         override suspend fun getPopularMovies(): TmdbResponse = TmdbResponse(emptyList())

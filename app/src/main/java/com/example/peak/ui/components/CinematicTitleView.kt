@@ -50,12 +50,20 @@ fun CinematicTitleView(
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
     var isLogoError by remember(titleLogoUrl, title) { mutableStateOf(false) }
     var isLogoLoaded by remember(titleLogoUrl, title) { mutableStateOf(false) }
+    var retryTrigger by remember(titleLogoUrl, title) { mutableIntStateOf(0) }
     val traceIdentity = rememberUpdatedState(mediaType to mediaId)
     val presentationLogged = remember(titleLogoUrl, mediaType, mediaId) { AtomicBoolean(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
-
+    // Bounded auto-retry for transient cold-boot image failures (max 2 retries, 1.5s delay)
+    LaunchedEffect(titleLogoUrl, title, isLogoError, retryTrigger) {
+        if (hasLogoUrl && isLogoError && retryTrigger < 2) {
+            kotlinx.coroutines.delay(1500L)
+            isLogoError = false
+            retryTrigger++
+        }
+    }
 
     Box(
         modifier = modifier
@@ -63,9 +71,9 @@ fun CinematicTitleView(
             .widthIn(max = maxWidth),
         contentAlignment = alignment
     ) {
-        if (hasLogoUrl && !isLogoError) {
+        if (hasLogoUrl && (!isLogoError || retryTrigger < 2)) {
             AsyncImage(
-                model = remember(titleLogoUrl) {
+                model = remember(titleLogoUrl, retryTrigger) {
                     ImageRequest.Builder(context)
                         .data(titleLogoUrl)
                         .memoryCacheKey(titleLogoUrl)
@@ -125,7 +133,10 @@ fun CinematicTitleView(
                 contentDescription = title,
                 contentScale = ContentScale.Fit,
                 alignment = alignment,
-                onSuccess = { isLogoLoaded = true },
+                onSuccess = {
+                    isLogoLoaded = true
+                    isLogoError = false
+                },
                 onError = { isLogoError = true },
                 modifier = Modifier
                     .heightIn(max = maxHeight)

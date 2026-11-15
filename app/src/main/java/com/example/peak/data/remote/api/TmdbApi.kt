@@ -21,14 +21,14 @@ interface TmdbApi {
     suspend fun getMovieDetails(
         @Path("movie_id") movieId: String,
         @Query("append_to_response") append: String,
-        @Query("include_image_language") includeImageLanguage: String = "en,null"
+        @Query("include_image_language") includeImageLanguage: String? = null
     ): TmdbMovie
 
     @GET("tv/{tv_id}")
     suspend fun getTvDetails(
         @Path("tv_id") tvId: String,
         @Query("append_to_response") append: String,
-        @Query("include_image_language") includeImageLanguage: String = "en,null"
+        @Query("include_image_language") includeImageLanguage: String? = null
     ): TmdbMovie
 
     // MOVIE CATEGORIES
