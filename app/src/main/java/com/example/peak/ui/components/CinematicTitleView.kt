@@ -55,6 +55,8 @@ fun CinematicTitleView(
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
+
+
     Box(
         modifier = modifier
             .heightIn(min = 48.dp, max = maxHeight)

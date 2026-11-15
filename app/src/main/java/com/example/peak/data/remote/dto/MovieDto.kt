@@ -235,60 +235,80 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
 
 /**
  * Deterministically selects the highest-quality, best-proportioned title logo URL from available TMDB logos.
- * Returns null if no available logo meets the suitability criteria, triggering the PEAK Cinematic Text Fallback.
+ * Maximizes branded logo coverage across both movies and TV series without requiring text fallbacks.
  */
 fun selectBestTitleLogo(logos: List<TmdbLogo>?): String? {
     if (logos.isNullOrEmpty()) return null
 
-    data class ScoredLogo(val logo: TmdbLogo, val score: Int)
+    data class ScoredLogo(val logo: TmdbLogo, val score: Int, val pixelArea: Long)
 
     val scoredLogos = logos.mapNotNull { logo ->
         val filePath = logo.filePath
         if (filePath.isNullOrBlank()) return@mapNotNull null
 
+        // Accept .png, .jpg, .jpeg; exclude unsupported SVG vector assets until Coil SVG decoder is added
+        val isRasterImage = filePath.endsWith(".png", ignoreCase = true) ||
+                            filePath.endsWith(".jpg", ignoreCase = true) ||
+                            filePath.endsWith(".jpeg", ignoreCase = true)
+        if (!isRasterImage) return@mapNotNull null
+
         val lang = logo.iso6391
         val ar = logo.aspectRatio ?: 0.0
-        val width = logo.width ?: 0
-        val height = logo.height ?: 0
+        val w = logo.width
+        val h = logo.height
 
-        // Disqualify extreme aspect ratios (square/tall < 1.4 or ultra-wide banner > 5.5)
-        if (ar > 0.0 && (ar < 1.4 || ar > 5.5)) return@mapNotNull null
+        val hasKnownWidth = w != null && w > 0
+        val hasKnownHeight = h != null && h > 0
 
-        // Disqualify tiny logos if resolution data is present
-        if (width in 1..199 || height in 1..29) return@mapNotNull null
+        // Aspect-ratio eligibility
+        if (ar > 0.0 && (ar < 0.5 || ar > 8.0)) return@mapNotNull null
+
+        // Disqualify genuinely tiny thumbnails or single-pixel artifacts
+        if (hasKnownWidth && w in 1..199 && hasKnownHeight && h in 1..199) return@mapNotNull null
+        if (hasKnownWidth && hasKnownHeight && minOf(w, h) in 1..29) return@mapNotNull null
 
         var score = 0
 
-        // 1. Language suitability
+        // Language suitability
         when {
             lang.equals("en", ignoreCase = true) -> score += 100
-            lang.isNullOrBlank() -> score += 50
-            else -> score -= 150 // Heavily penalize non-English logos
+            lang.isNullOrBlank() -> score += 70
+            else -> score += 30 // Foreign native-language logos remain eligible
         }
 
-        // 2. Aspect ratio suitability (Horizontal cinematic title logos)
+        // Aspect-ratio scoring (Mutually exclusive conditions)
         when {
-            ar in 2.2..4.2 -> score += 80
-            ar in 1.8..2.2 -> score += 50
-            ar in 4.2..5.0 -> score += 40
-            ar > 0.0 -> score += 10
-            else -> score += 20 // Unknown aspect ratio
+            ar >= 1.8 && ar < 4.5 -> score += 50 // Optimal horizontal
+            (ar >= 1.2 && ar < 1.8) || (ar >= 4.5 && ar < 6.0) -> score += 40 // Standard / mildly stacked
+            (ar >= 0.7 && ar < 1.2) || (ar >= 6.0 && ar <= 8.0) -> score += 30 // Square / stacked / banner
+            ar >= 0.5 && ar < 0.7 -> score += 20 // Tall portrait
+            else -> score += 25 // Missing / unknown aspect ratio (ar <= 0.0)
         }
 
-        // 3. Resolution bonus
-        when {
-            width >= 500 -> score += 30
-            width >= 300 -> score += 15
+        // Resolution bonus (ONLY awarded when BOTH width and height are known and > 0)
+        if (hasKnownWidth && hasKnownHeight) {
+            val maxDim = maxOf(w, h)
+            when {
+                maxDim >= 1000 -> score += 30
+                maxDim >= 500 -> score += 20
+                maxDim >= 200 -> score += 10
+            }
         }
 
-        ScoredLogo(logo, score)
+        val pixelArea = if (hasKnownWidth && hasKnownHeight) w.toLong() * h.toLong() else 0L
+        ScoredLogo(logo, score, pixelArea)
     }
 
-    val winner = scoredLogos.maxByOrNull { it.score }
-    // Minimum score threshold for a suitable logo is 80 (e.g. English logo with acceptable aspect ratio)
-    return if (winner != null && winner.score >= 80) {
-        "https://image.tmdb.org/t/p/w500${winner.logo.filePath}"
-    } else {
-        null
-    }
+    // Minimum suitability threshold
+    val eligibleLogos = scoredLogos.filter { it.score >= 30 }
+    if (eligibleLogos.isEmpty()) return null
+
+    // Deterministic selection tie-breaker: Score -> Pixel Area -> File Path String
+    val winner = eligibleLogos.maxWithOrNull(
+        compareBy<ScoredLogo> { it.score }
+            .thenBy { it.pixelArea }
+            .thenBy { it.logo.filePath ?: "" }
+    )
+
+    return winner?.let { "https://image.tmdb.org/t/p/w500${it.logo.filePath}" }
 }
