@@ -102,15 +102,17 @@ fun Sidebar(
                                 .height(16.dp)
                                 .background(Color(0xFF00D2FF))
                         )
-                        Text(
-                            text = "PEAK",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.5.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        if (isExpanded) {
+                            Text(
+                                text = "PEAK",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.5.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
 
