@@ -214,6 +214,9 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     Log.e("PEAK_DIAGNOSTIC", "Resolved Brand for $id: '${brandIdentity?.displayName ?: "None"}'")
 
     val titleLogoUrl = selectBestTitleLogo(images?.logos)
+    val logoAspectRatio = images?.logos?.find { logo ->
+        logo.filePath?.let { "https://image.tmdb.org/t/p/w500$it" } == titleLogoUrl
+    }?.aspectRatio?.toFloat()
     val resolvedImdbId = externalIds?.imdbId?.takeIf { it.isNotBlank() }
         ?: imdbId?.takeIf { it.isNotBlank() }
 
@@ -227,6 +230,7 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         productionCompany = brandIdentity?.displayName ?: "",
         brand = brandIdentity,
         titleLogoUrl = titleLogoUrl,
+        logoAspectRatio = logoAspectRatio,
         videoUrl = summary.videoUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
         isEnriched = true,
         imdbId = resolvedImdbId
@@ -279,8 +283,8 @@ fun selectBestTitleLogo(logos: List<TmdbLogo>?): String? {
         // Aspect-ratio scoring (Mutually exclusive conditions)
         when {
             ar >= 1.8 && ar < 4.5 -> score += 50 // Optimal horizontal
-            (ar >= 1.2 && ar < 1.8) || (ar >= 4.5 && ar < 6.0) -> score += 40 // Standard / mildly stacked
-            (ar >= 0.7 && ar < 1.2) || (ar >= 6.0 && ar <= 8.0) -> score += 30 // Square / stacked / banner
+            (ar >= 1.4 && ar < 1.8) || (ar >= 4.5 && ar <= 7.0) -> score += 40 // Standard horizontal / banner
+            (ar >= 0.7 && ar < 1.4) || (ar > 7.0 && ar <= 8.0) -> score += 30 // Square / stacked badge / extreme ribbon
             ar >= 0.5 && ar < 0.7 -> score += 20 // Tall portrait
             else -> score += 25 // Missing / unknown aspect ratio (ar <= 0.0)
         }
@@ -303,9 +307,10 @@ fun selectBestTitleLogo(logos: List<TmdbLogo>?): String? {
     val eligibleLogos = scoredLogos.filter { it.score >= 30 }
     if (eligibleLogos.isEmpty()) return null
 
-    // Deterministic selection tie-breaker: Score -> Pixel Area -> File Path String
+    // Deterministic selection tie-breaker: Score -> Aspect Ratio -> Pixel Area -> File Path String
     val winner = eligibleLogos.maxWithOrNull(
         compareBy<ScoredLogo> { it.score }
+            .thenBy { it.logo.aspectRatio ?: 0.0 }
             .thenBy { it.pixelArea }
             .thenBy { it.logo.filePath ?: "" }
     )

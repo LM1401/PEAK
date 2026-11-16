@@ -112,6 +112,7 @@ fun HeroSection(
                             isEnriched = currentMovie.isEnriched,
                             mediaType = currentMovie.mediaType,
                             mediaId = currentMovie.movieId,
+                            aspectRatio = currentMovie.logoAspectRatio,
                             maxHeight = 70.dp,
                             maxWidth = 520.dp,
                             alignment = Alignment.CenterStart

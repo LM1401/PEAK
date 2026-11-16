@@ -286,6 +286,7 @@ private fun WatchlistHeroSection(
                     title = movie.name,
                     titleLogoUrl = movie.titleLogoUrl,
                     isEnriched = movie.isEnriched,
+                    aspectRatio = movie.logoAspectRatio,
                     maxHeight = 64.dp,
                     maxWidth = 500.dp,
                     alignment = Alignment.CenterStart

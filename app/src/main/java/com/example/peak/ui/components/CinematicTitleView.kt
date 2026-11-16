@@ -29,6 +29,16 @@ import com.example.peak.ui.image.PeakImageLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
+ * Stage 8A: Calculates adaptive logo presentation height based on aspect ratio geometry.
+ */
+fun calculateEffectiveMaxHeight(aspectRatio: Float?, maxHeight: Dp = 70.dp): Dp = when {
+    aspectRatio != null && aspectRatio >= 1.8f -> maxHeight
+    aspectRatio != null && aspectRatio >= 1.4f -> maxOf(maxHeight, 84.dp)
+    aspectRatio != null && aspectRatio > 0.0f -> maxOf(maxHeight, 96.dp)
+    else -> maxHeight
+}
+
+/**
  * Unified PEAK Cinematic Title Presentation View.
  * Renders official TMDB title logos when available and suitable, or falls back to
  * a dynamic PEAK Cinematic Text Fallback treatment.
@@ -44,7 +54,8 @@ fun CinematicTitleView(
     modifier: Modifier = Modifier,
     maxHeight: Dp = 70.dp,
     maxWidth: Dp = 520.dp,
-    alignment: Alignment = Alignment.CenterStart
+    alignment: Alignment = Alignment.CenterStart,
+    aspectRatio: Float? = null
 ) {
     val context = LocalContext.current
     val imageLoader = remember { PeakImageLoader.getInstance(context) }
@@ -55,6 +66,9 @@ fun CinematicTitleView(
     val presentationLogged = remember(titleLogoUrl, mediaType, mediaId) { AtomicBoolean(false) }
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
+
+    // Stage 8A: Calculate adaptive height based on aspect ratio geometry
+    val effectiveMaxHeight = calculateEffectiveMaxHeight(aspectRatio, maxHeight)
 
     // Bounded auto-retry for transient cold-boot image failures (max 2 retries, 1.5s delay)
     LaunchedEffect(titleLogoUrl, title, isLogoError, retryTrigger) {
@@ -67,7 +81,7 @@ fun CinematicTitleView(
 
     Box(
         modifier = modifier
-            .heightIn(min = 48.dp, max = maxHeight)
+            .heightIn(min = 48.dp, max = effectiveMaxHeight)
             .widthIn(max = maxWidth),
         contentAlignment = alignment
     ) {
@@ -139,7 +153,7 @@ fun CinematicTitleView(
                 },
                 onError = { isLogoError = true },
                 modifier = Modifier
-                    .heightIn(max = maxHeight)
+                    .heightIn(max = effectiveMaxHeight)
                     .widthIn(max = maxWidth)
                     .drawWithContent {
                         drawContent()

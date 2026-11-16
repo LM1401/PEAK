@@ -214,6 +214,7 @@ fun DetailContent(
                 title = movie.name,
                 titleLogoUrl = movie.titleLogoUrl,
                 isEnriched = movie.isEnriched,
+                aspectRatio = movie.logoAspectRatio,
                 maxHeight = 60.dp,
                 maxWidth = 520.dp,
                 alignment = Alignment.CenterStart

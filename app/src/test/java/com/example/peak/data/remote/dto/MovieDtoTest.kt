@@ -1,5 +1,6 @@
 package com.example.peak.data.remote.dto
 
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -45,7 +46,7 @@ class MovieDtoTest {
         assertNull(selectBestTitleLogo(null))
     }
 
-    // --- 2. ASPECT-RATIO BOUNDARIES & EXACT TIER SCORING ---
+    // --- 2. ASPECT-RATIO BOUNDARIES & STAGE 7 TIER SCORING ---
 
     @Test
     fun selectBestTitleLogo_aspectRatioDisqualificationsAndNullHandling() {
@@ -59,7 +60,7 @@ class MovieDtoTest {
     }
 
     @Test
-    fun selectBestTitleLogo_exactAspectRatioBoundaryTransitions() {
+    fun selectBestTitleLogo_stage7_exactAspectRatioBoundaryTransitions() {
         // Comparative candidates with identical language ("en") and resolution (1000x500)
         // 0.5 vs 0.499: 0.5 is eligible (+20), 0.499 is disqualified (null)
         val ar05 = createLogo(filePath = "/ar05.png", aspectRatio = 0.5)
@@ -71,10 +72,10 @@ class MovieDtoTest {
         val ar0699 = createLogo(filePath = "/ar0699.png", aspectRatio = 0.699)
         assertEquals("https://image.tmdb.org/t/p/w500/ar07.png", selectBestTitleLogo(listOf(ar0699, ar07)))
 
-        // 1.2 (+40, score 170) vs 1.199 (+30, score 160): 1.2 wins
-        val ar12 = createLogo(filePath = "/ar12.png", aspectRatio = 1.2)
-        val ar1199 = createLogo(filePath = "/ar1199.png", aspectRatio = 1.199)
-        assertEquals("https://image.tmdb.org/t/p/w500/ar12.png", selectBestTitleLogo(listOf(ar1199, ar12)))
+        // Stage 7 boundary: 1.4 (+40, score 170) vs 1.399 (+30, score 160): 1.4 wins
+        val ar14 = createLogo(filePath = "/ar14.png", aspectRatio = 1.4)
+        val ar1399 = createLogo(filePath = "/ar1399.png", aspectRatio = 1.399)
+        assertEquals("https://image.tmdb.org/t/p/w500/ar14.png", selectBestTitleLogo(listOf(ar1399, ar14)))
 
         // 1.8 (+50, score 180) vs 1.799 (+40, score 170): 1.8 wins
         val ar18 = createLogo(filePath = "/ar18.png", aspectRatio = 1.8)
@@ -86,10 +87,10 @@ class MovieDtoTest {
         val ar45 = createLogo(filePath = "/ar45.png", aspectRatio = 4.5)
         assertEquals("https://image.tmdb.org/t/p/w500/ar4499.png", selectBestTitleLogo(listOf(ar45, ar4499)))
 
-        // 5.999 (+40, score 170) vs 6.0 (+30, score 160): 5.999 wins
-        val ar5999 = createLogo(filePath = "/ar5999.png", aspectRatio = 5.999)
-        val ar60 = createLogo(filePath = "/ar60.png", aspectRatio = 6.0)
-        assertEquals("https://image.tmdb.org/t/p/w500/ar5999.png", selectBestTitleLogo(listOf(ar60, ar5999)))
+        // Stage 7 boundary: 7.0 (+40, score 170) vs 7.001 (+30, score 160): 7.0 wins
+        val ar70 = createLogo(filePath = "/ar70.png", aspectRatio = 7.0)
+        val ar7001 = createLogo(filePath = "/ar7001.png", aspectRatio = 7.001)
+        assertEquals("https://image.tmdb.org/t/p/w500/ar70.png", selectBestTitleLogo(listOf(ar7001, ar70)))
 
         // 8.0 (+30, score 160) vs 8.001: 8.0 is eligible, 8.001 is disqualified (null)
         val ar80 = createLogo(filePath = "/ar80.png", aspectRatio = 8.0)
@@ -184,24 +185,97 @@ class MovieDtoTest {
         assertEquals("https://image.tmdb.org/t/p/w500/neutral.png", selectBestTitleLogo(listOf(lowResEnglish, highResNeutral)))
     }
 
-    // --- 6. SELECTION AND TIE-BREAKING ---
+    // --- 6. STAGE 6 COMPARATOR & TIE-BREAKER TESTS ---
 
     @Test
-    fun selectBestTitleLogo_deterministicTieBreaker_usesPixelAreaThenFilePath() {
-        // Identical score, larger surface area wins
-        val smallerArea = createLogo(filePath = "/b.png", width = 1000, height = 400) // Area = 400,000
-        val largerArea = createLogo(filePath = "/a.png", width = 1200, height = 500)  // Area = 600,000
+    fun selectBestTitleLogo_stage6_equalScores_higherAspectRatioWins() {
+        // Equal scores (180), smaller area but higher aspect ratio (2.5 vs 2.0)
+        val stackedLogo = createLogo(filePath = "/stacked.png", aspectRatio = 2.0, width = 4000, height = 2000) // Score 180, Area 8.0M
+        val wideLogo = createLogo(filePath = "/wide.png", aspectRatio = 2.5, width = 2500, height = 1000)       // Score 180, Area 2.5M
+
+        assertEquals("https://image.tmdb.org/t/p/w500/wide.png", selectBestTitleLogo(listOf(stackedLogo, wideLogo)))
+    }
+
+    @Test
+    fun selectBestTitleLogo_stage6_differentScores_higherScoreAlwaysWins() {
+        // Higher score (180, AR 2.0) vs lower score (170, AR 4.0)
+        val higherScoreStacked = createLogo(filePath = "/stacked_high.png", aspectRatio = 2.0, width = 2000, height = 1000) // Score 180
+        val lowerScoreWide = createLogo(filePath = "/wide_low.png", aspectRatio = 4.0, width = 800, height = 200)               // Score 170
+
+        assertEquals("https://image.tmdb.org/t/p/w500/stacked_high.png", selectBestTitleLogo(listOf(lowerScoreWide, higherScoreStacked)))
+    }
+
+    @Test
+    fun selectBestTitleLogo_stage6_equalScoresAndAspectRatios_largerPixelAreaWins() {
+        // Equal scores (180) and identical aspect ratios (2.5), larger pixel surface area wins
+        val smallerArea = createLogo(filePath = "/b.png", aspectRatio = 2.5, width = 1000, height = 400) // Area = 400,000
+        val largerArea = createLogo(filePath = "/a.png", aspectRatio = 2.5, width = 1200, height = 480)  // Area = 576,000
 
         assertEquals("https://image.tmdb.org/t/p/w500/a.png", selectBestTitleLogo(listOf(smallerArea, largerArea)))
+    }
 
-        // Identical score and identical pixel area -> File path string tie-breaker
-        val logoA = createLogo(filePath = "/a_logo.png", width = 1000, height = 400)
-        val logoB = createLogo(filePath = "/b_logo.png", width = 1000, height = 400)
+    @Test
+    fun selectBestTitleLogo_stage6_completeTies_filePathStringSortsDeterministically() {
+        // Equal score (180), AR (2.5), and area (400,000) -> File path string tie-breaker
+        val logoA = createLogo(filePath = "/a_logo.png", aspectRatio = 2.5, width = 1000, height = 400)
+        val logoB = createLogo(filePath = "/b_logo.png", aspectRatio = 2.5, width = 1000, height = 400)
 
         assertEquals("https://image.tmdb.org/t/p/w500/b_logo.png", selectBestTitleLogo(listOf(logoA, logoB)))
     }
 
-    // --- 7. REGRESSION EXAMPLES ---
+    @Test
+    fun selectBestTitleLogo_stage6_unknownAspectRatios_predictableSelection() {
+        // Missing aspect ratio (0.0 / null) defaults AR to 0.0
+        val unknownAr1 = createLogo(filePath = "/unknown1.png", aspectRatio = null, width = 1000, height = 400) // AR 0.0, Score 150
+        val knownAr = createLogo(filePath = "/known.png", aspectRatio = 2.0, width = 1000, height = 500)         // AR 2.0, Score 180
+
+        assertEquals("https://image.tmdb.org/t/p/w500/known.png", selectBestTitleLogo(listOf(unknownAr1, knownAr)))
+    }
+
+    @Test
+    fun selectBestTitleLogo_stage6_higherScoringStackedLogoBeatsLowerScoringHorizontalLogo() {
+        // English Stacked Logo (180) vs Foreign Horizontal Logo (110)
+        val englishStacked = createLogo(filePath = "/en_stacked.png", iso6391 = "en", aspectRatio = 1.5, width = 2000, height = 1333) // Score 180
+        val foreignWide = createLogo(filePath = "/ja_wide.png", iso6391 = "ja", aspectRatio = 3.5, width = 2000, height = 571)         // Score 110
+
+        assertEquals("https://image.tmdb.org/t/p/w500/en_stacked.png", selectBestTitleLogo(listOf(foreignWide, englishStacked)))
+    }
+
+    @Test
+    fun selectBestTitleLogo_stage6_projectHailMaryRegressionTest() {
+        // Reproduction of Project Hail Mary candidates:
+        // Candidate 1: Stacked block (/xCL7AxU18ddFQP1vGVus8zPs3b0.png, 4100x2212, AR 1.854, Score 180, Area 9.0M)
+        // Candidate 2: Single-line horizontal (/jd78iUDLmzE7E4kdmODfNDkl6Uz.png, 1592x694, AR 2.294, Score 180, Area 1.1M)
+        val stackedBlock = createLogo(filePath = "/xCL7AxU18ddFQP1vGVus8zPs3b0.png", iso6391 = "en", aspectRatio = 1.854, width = 4100, height = 2212)
+        val horizontalSingleLine = createLogo(filePath = "/jd78iUDLmzE7E4kdmODfNDkl6Uz.png", iso6391 = "en", aspectRatio = 2.294, width = 1592, height = 694)
+
+        // Single-line horizontal logo (AR 2.294) strictly wins over stacked block logo (AR 1.854)
+        assertEquals("https://image.tmdb.org/t/p/w500/jd78iUDLmzE7E4kdmODfNDkl6Uz.png", selectBestTitleLogo(listOf(stackedBlock, horizontalSingleLine)))
+    }
+
+    // --- 7. STAGE 7 REGRESSION & REFINED TIER TESTS ---
+
+    @Test
+    fun selectBestTitleLogo_stage7_ringsOfPowerRegressionTest() {
+        // Reproduction of The Rings of Power candidates:
+        // Candidate 1: Single-line banner (/fA1eS6rfYjS9W8AZbBVG0fpxXn1.png, 3848x559, AR 6.884, Score 170 in Stage 7)
+        // Candidate 8: Stacked badge (/z6zoYp6uACsf2JTzOBlUoKoLtFG.png, 1075x895, AR 1.201, Score 160 in Stage 7)
+        val singleLineBanner = createLogo(filePath = "/fA1eS6rfYjS9W8AZbBVG0fpxXn1.png", iso6391 = "en", aspectRatio = 6.884, width = 3848, height = 559)
+        val stackedBadge = createLogo(filePath = "/z6zoYp6uACsf2JTzOBlUoKoLtFG.png", iso6391 = "en", aspectRatio = 1.201, width = 1075, height = 895)
+
+        // Single-line banner (Score 170) strictly wins over stacked badge (Score 160)
+        assertEquals("https://image.tmdb.org/t/p/w500/fA1eS6rfYjS9W8AZbBVG0fpxXn1.png", selectBestTitleLogo(listOf(stackedBadge, singleLineBanner)))
+    }
+
+    @Test
+    fun selectBestTitleLogo_stage7_stackedLogoEligibilityPreserved() {
+        // Legitimate stacked badge (AR 1.087 - Beverly Hills 90210) scores 140 and passes threshold
+        val stackedBadge = createLogo(filePath = "/87opWwLd7dHUE0IW6tXHlopWe3z.png", iso6391 = "en", aspectRatio = 1.087, width = 288, height = 265)
+
+        assertEquals("https://image.tmdb.org/t/p/w500/87opWwLd7dHUE0IW6tXHlopWe3z.png", selectBestTitleLogo(listOf(stackedBadge)))
+    }
+
+    // --- 8. EXISTING REGRESSION EXAMPLES ---
 
     @Test
     fun selectBestTitleLogo_beverlyHills90210_selectsEnglishPng() {
@@ -211,15 +285,6 @@ class MovieDtoTest {
 
         // English PNG (Score 140) beats Neutral 7K PNG (Score 130). SVG excluded.
         assertEquals("https://image.tmdb.org/t/p/w500/87opWwLd7dHUE0IW6tXHlopWe3z.png", selectBestTitleLogo(listOf(svgLogo, neutralPng, englishPng)))
-    }
-
-    @Test
-    fun selectBestTitleLogo_ringsOfPower_selectsHighResPngLogo() {
-        val wideBanner = createLogo(filePath = "/2uDS3VQIDlNnwq3Mp8BsC7igftU.png", iso6391 = "en", aspectRatio = 6.047, width = 6434, height = 1064)
-        val stackedBadge = createLogo(filePath = "/d4HKgGW4BJJDGeX41PFid9ay44P.png", iso6391 = "en", aspectRatio = 1.147, width = 2857, height = 2491)
-
-        // Stacked badge wins via larger pixel surface area (7.1M px² vs 6.8M px²)
-        assertEquals("https://image.tmdb.org/t/p/w500/d4HKgGW4BJJDGeX41PFid9ay44P.png", selectBestTitleLogo(listOf(wideBanner, stackedBadge)))
     }
 
     @Test
@@ -255,12 +320,12 @@ class MovieDtoTest {
     }
 
     @Test
-    fun selectBestTitleLogo_avatar_preservesOptimalHorizontalLogoOverBanner() {
+    fun selectBestTitleLogo_avatar_selectsWideBannerLogo() {
         val horizontalLogo = createLogo(filePath = "/eYBa9fpSvZEYOl88ulP5fnRoCIi.png", iso6391 = "en", aspectRatio = 4.863, width = 1600, height = 329)
         val bannerLogo = createLogo(filePath = "/bET8bJdM8diTCpUVilWqqu0M3EJ.png", iso6391 = "en", aspectRatio = 6.102, width = 4314, height = 707)
 
-        // Horizontal Tier 2 logo (Score 170) strictly beats Ultra-Wide Banner (Score 160)
-        assertEquals("https://image.tmdb.org/t/p/w500/eYBa9fpSvZEYOl88ulP5fnRoCIi.png", selectBestTitleLogo(listOf(bannerLogo, horizontalLogo)))
+        // Both fall into Tier 2 (+40, score 170). Higher aspect ratio banner (6.102) wins in Stage 7!
+        assertEquals("https://image.tmdb.org/t/p/w500/bET8bJdM8diTCpUVilWqqu0M3EJ.png", selectBestTitleLogo(listOf(horizontalLogo, bannerLogo)))
     }
 
     @Test
@@ -270,5 +335,28 @@ class MovieDtoTest {
 
         // Horizontal Tier 2 logo (Score 170) strictly beats Stacked Badge (Score 160)
         assertEquals("https://image.tmdb.org/t/p/w500/7Uqhv24pGJs4Ns31NoOPWFJGWNG.png", selectBestTitleLogo(listOf(stackedBadge, horizontalLogo)))
+    }
+
+    // --- 9. STAGE 8A ADAPTIVE SIZING TESTS ---
+
+    @Test
+    fun calculateEffectiveMaxHeight_correctlyAdaptsToLogoAspectRatios() {
+        // AR >= 1.8f: Retains caller's maxHeight (70.dp)
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(2.5f, 70.dp))
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.8f, 70.dp))
+
+        // AR in 1.4f..<1.8f: maxOf(maxHeight, 84.dp)
+        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.5f, 70.dp))
+        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.4f, 70.dp))
+        assertEquals(90.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.5f, 90.dp))
+
+        // AR in 0.0f..<1.4f: maxOf(maxHeight, 96.dp)
+        assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.0f, 70.dp))
+        assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(0.868f, 70.dp))
+
+        // Unknown / null / invalid AR: Retains caller's maxHeight
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(null, 70.dp))
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(0.0f, 70.dp))
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(-1.0f, 70.dp))
     }
 }
