@@ -337,26 +337,49 @@ class MovieDtoTest {
         assertEquals("https://image.tmdb.org/t/p/w500/7Uqhv24pGJs4Ns31NoOPWFJGWNG.png", selectBestTitleLogo(listOf(stackedBadge, horizontalLogo)))
     }
 
-    // --- 9. STAGE 8A ADAPTIVE SIZING TESTS ---
+    // --- 9. STAGE 8B ADAPTIVE SIZING TESTS ---
 
     @Test
-    fun calculateEffectiveMaxHeight_correctlyAdaptsToLogoAspectRatios() {
-        // AR >= 1.8f: Retains caller's maxHeight (70.dp)
+    fun calculateEffectiveMaxHeight_stage8b_exactBoundariesAndAdaptiveTiers() {
+        // AR >= 2.5f: Retains caller's maxHeight (70.dp)
         assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(2.5f, 70.dp))
-        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.8f, 70.dp))
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(3.5f, 70.dp))
 
-        // AR in 1.4f..<1.8f: maxOf(maxHeight, 84.dp)
-        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.5f, 70.dp))
-        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.4f, 70.dp))
-        assertEquals(90.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.5f, 90.dp))
+        // AR in 1.8f..<2.5f: maxOf(maxHeight, 80.dp) (e.g., Project Hail Mary AR 2.294)
+        assertEquals(80.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(2.499f, 70.dp))
+        assertEquals(80.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.8f, 70.dp))
 
-        // AR in 0.0f..<1.4f: maxOf(maxHeight, 96.dp)
-        assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.0f, 70.dp))
+        // AR in 1.4f..<1.8f: maxOf(maxHeight, 88.dp)
+        assertEquals(88.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.799f, 70.dp))
+        assertEquals(88.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.4f, 70.dp))
+
+        // AR in 0.0f..<1.4f: maxOf(maxHeight, 96.dp) (e.g., Star vs Evil AR 0.868)
+        assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.399f, 70.dp))
         assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(0.868f, 70.dp))
+    }
 
-        // Unknown / null / invalid AR: Retains caller's maxHeight
+    @Test
+    fun calculateEffectiveMaxHeight_stage8b_invalidAndNullInputHandling() {
+        // Unknown / null / zero / negative / NaN AR: Retains caller's maxHeight (70.dp)
         assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(null, 70.dp))
         assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(0.0f, 70.dp))
         assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(-1.0f, 70.dp))
+        assertEquals(70.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(Float.NaN, 70.dp))
+    }
+
+    @Test
+    fun calculateEffectiveMaxHeight_stage8b_preservesCustomMaxHeight() {
+        // Custom caller maxHeight = 84.dp (e.g. MoviesHeroSection)
+        // 2.499f: maxOf(84.dp, 80.dp) = 84.dp
+        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(2.499f, 84.dp))
+
+        // 1.799f: maxOf(84.dp, 88.dp) = 88.dp
+        assertEquals(88.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.799f, 84.dp))
+
+        // 1.399f: maxOf(84.dp, 96.dp) = 96.dp
+        assertEquals(96.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(1.399f, 84.dp))
+
+        // AR >= 2.5f: Retains custom maxHeight (84.dp)
+        assertEquals(84.dp, com.example.peak.ui.components.calculateEffectiveMaxHeight(3.0f, 84.dp))
     }
 }

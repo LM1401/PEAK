@@ -29,11 +29,16 @@ import com.example.peak.ui.image.PeakImageLoader
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Stage 8A: Calculates adaptive logo presentation height based on aspect ratio geometry.
+ * Stage 8B: Calculates adaptive logo presentation height based on aspect ratio geometry.
  */
-fun calculateEffectiveMaxHeight(aspectRatio: Float?, maxHeight: Dp = 70.dp): Dp = when {
-    aspectRatio != null && aspectRatio >= 1.8f -> maxHeight
-    aspectRatio != null && aspectRatio >= 1.4f -> maxOf(maxHeight, 84.dp)
+fun calculateEffectiveMaxHeight(
+    aspectRatio: Float?,
+    maxHeight: Dp = 70.dp
+): Dp = when {
+    aspectRatio != null && aspectRatio.isNaN() -> maxHeight
+    aspectRatio != null && aspectRatio >= 2.5f -> maxHeight
+    aspectRatio != null && aspectRatio >= 1.8f -> maxOf(maxHeight, 80.dp)
+    aspectRatio != null && aspectRatio >= 1.4f -> maxOf(maxHeight, 88.dp)
     aspectRatio != null && aspectRatio > 0.0f -> maxOf(maxHeight, 96.dp)
     else -> maxHeight
 }
@@ -67,7 +72,7 @@ fun CinematicTitleView(
 
     val hasLogoUrl = !titleLogoUrl.isNullOrBlank()
 
-    // Stage 8A: Calculate adaptive height based on aspect ratio geometry
+    // Stage 8B: Calculate adaptive height based on aspect ratio geometry
     val effectiveMaxHeight = calculateEffectiveMaxHeight(aspectRatio, maxHeight)
 
     // Bounded auto-retry for transient cold-boot image failures (max 2 retries, 1.5s delay)
