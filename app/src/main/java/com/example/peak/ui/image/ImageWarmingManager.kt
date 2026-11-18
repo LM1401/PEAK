@@ -103,6 +103,7 @@ object ImageWarmingManager {
 
     /**
      * Warms only the title logo so focus enrichment can trigger it without repeating poster work.
+     * Applies AutoTrimTransparentBordersTransformation with compound memory cache keys to ensure memory cache parity.
      */
     internal fun warmLogo(
         context: Context,
@@ -113,8 +114,10 @@ object ImageWarmingManager {
     ) {
         if (logoUrl.isNullOrBlank()) return
 
-        val logoKey = logoUrl
-        val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoKey)) != null
+        val transformation = AutoTrimTransparentBordersTransformation()
+        val logoMemoryKey = PeakImageLoader.getLogoMemoryCacheKey(logoUrl, transformation.cacheKey)
+
+        val isInMemory = imageLoader.memoryCache?.get(MemoryCache.Key(logoMemoryKey)) != null
         if (isInMemory) {
             HeroLogoTrace.record(
                 event = HeroLogoTrace.Event.LOGO_WARM_MEMORY_CACHE_HIT,
@@ -122,13 +125,14 @@ object ImageWarmingManager {
                 mediaId = mediaId,
                 imageSource = HeroLogoTrace.ImageSource.MEMORY_CACHE
             )
-            finishLogoWarm(logoKey)
-        } else if (inFlightKeys.add(logoKey)) {
+            finishLogoWarm(logoMemoryKey)
+        } else if (inFlightKeys.add(logoMemoryKey)) {
             try {
                 val request = ImageRequest.Builder(context)
                     .data(logoUrl)
-                    .memoryCacheKey(logoKey)
-                    .diskCacheKey(logoKey)
+                    .memoryCacheKey(logoMemoryKey)
+                    .diskCacheKey(logoUrl)
+                    .transformations(transformation)
                     .allowHardware(true)
                     .crossfade(false)
                     .listener(
@@ -146,7 +150,7 @@ object ImageWarmingManager {
                                 mediaId = mediaId,
                                 imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
                             )
-                            finishLogoWarm(logoKey)
+                            finishLogoWarm(logoMemoryKey)
                         },
                         onError = { _, _ ->
                             HeroLogoTrace.record(
@@ -154,7 +158,7 @@ object ImageWarmingManager {
                                 mediaType = mediaType,
                                 mediaId = mediaId
                             )
-                            finishLogoWarm(logoKey)
+                            finishLogoWarm(logoMemoryKey)
                         },
                         onCancel = { _ ->
                             HeroLogoTrace.record(
@@ -163,11 +167,11 @@ object ImageWarmingManager {
                                 mediaId = mediaId,
                                 outcome = HeroLogoTrace.Outcome.CANCELLED
                             )
-                            finishLogoWarm(logoKey)
+                            finishLogoWarm(logoMemoryKey)
                         }
                     )
                     .build()
-                inFlightDisposables[logoKey] = imageLoader.enqueue(request)
+                inFlightDisposables[logoMemoryKey] = imageLoader.enqueue(request)
             } catch (_: Throwable) {
                 HeroLogoTrace.record(
                     event = HeroLogoTrace.Event.LOGO_WARM_FAILED,
@@ -175,7 +179,7 @@ object ImageWarmingManager {
                     mediaId = mediaId,
                     outcome = HeroLogoTrace.Outcome.FAILED
                 )
-                finishLogoWarm(logoKey)
+                finishLogoWarm(logoMemoryKey)
             }
         }
     }

@@ -6,7 +6,9 @@ import coil.request.Disposable
 import coil.request.ImageRequest
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import com.example.peak.ui.image.AutoTrimTransparentBordersTransformation
 import com.example.peak.ui.image.ImageWarmingManager
+import com.example.peak.ui.image.PeakImageLoader
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -114,12 +116,13 @@ class FocusedLogoWarmTargetTest {
         val imageLoader = fakeImageLoader(enqueued)
         val context = ContextWrapper(null)
         val logoUrl = "https://images.example/logo-inflight-test.png"
+        val expectedMemoryKey = PeakImageLoader.getLogoMemoryCacheKey(logoUrl, AutoTrimTransparentBordersTransformation().cacheKey)
 
         ImageWarmingManager.warmLogo(context, imageLoader, MediaType.MOVIE, "201", logoUrl)
         ImageWarmingManager.warmLogo(context, imageLoader, MediaType.TV, "202", logoUrl)
 
         assertEquals(1, enqueued.size)
-        assertEquals(logoUrl, enqueued.single().memoryCacheKey?.key)
+        assertEquals(expectedMemoryKey, enqueued.single().memoryCacheKey?.key)
         assertEquals(logoUrl, enqueued.single().diskCacheKey)
 
         enqueued.single().listener?.onCancel(enqueued.single())
@@ -142,8 +145,9 @@ class FocusedLogoWarmTargetTest {
         ImageWarmingManager.warm(context, imageLoader, listOf(enrichedWithLogo, enrichedNoLogo, unenrichedWithLogo), warmBackdrops = false)
 
         val logoRequests = enqueued.filter { it.memoryCacheKey?.key?.contains("logo") == true }
+        val expectedMemoryKey = PeakImageLoader.getLogoMemoryCacheKey("https://images.example/logo-1.png", AutoTrimTransparentBordersTransformation().cacheKey)
         assertEquals(1, logoRequests.size)
-        assertEquals("https://images.example/logo-1.png", logoRequests.single().memoryCacheKey?.key)
+        assertEquals(expectedMemoryKey, logoRequests.single().memoryCacheKey?.key)
     }
 
     @Test
@@ -158,9 +162,12 @@ class FocusedLogoWarmTargetTest {
         ImageWarmingManager.warm(context, imageLoader, listOf(movie, tvShow), warmBackdrops = false)
 
         val logoRequests = enqueued.filter { it.memoryCacheKey?.key?.contains("logo") == true }
+        val expectedMovieKey = PeakImageLoader.getLogoMemoryCacheKey("https://images.example/movie-logo.png", AutoTrimTransparentBordersTransformation().cacheKey)
+        val expectedTvKey = PeakImageLoader.getLogoMemoryCacheKey("https://images.example/tv-logo.png", AutoTrimTransparentBordersTransformation().cacheKey)
+
         assertEquals(2, logoRequests.size)
-        assertEquals("https://images.example/movie-logo.png", logoRequests[0].memoryCacheKey?.key)
-        assertEquals("https://images.example/tv-logo.png", logoRequests[1].memoryCacheKey?.key)
+        assertEquals(expectedMovieKey, logoRequests[0].memoryCacheKey?.key)
+        assertEquals(expectedTvKey, logoRequests[1].memoryCacheKey?.key)
     }
 
 

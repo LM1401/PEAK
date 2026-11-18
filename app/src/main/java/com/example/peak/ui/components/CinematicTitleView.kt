@@ -24,6 +24,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.peak.domain.model.MediaType
+import com.example.peak.ui.image.AutoTrimTransparentBordersTransformation
 import com.example.peak.ui.image.HeroLogoTrace
 import com.example.peak.ui.image.PeakImageLoader
 import java.util.concurrent.atomic.AtomicBoolean
@@ -91,12 +92,19 @@ fun CinematicTitleView(
         contentAlignment = alignment
     ) {
         if (hasLogoUrl && (!isLogoError || retryTrigger < 2)) {
+            val transformation = remember { AutoTrimTransparentBordersTransformation() }
+            val logoMemoryKey = remember(titleLogoUrl) {
+                if (titleLogoUrl.isNullOrBlank()) null
+                else PeakImageLoader.getLogoMemoryCacheKey(titleLogoUrl, transformation.cacheKey)
+            }
+
             AsyncImage(
                 model = remember(titleLogoUrl, retryTrigger) {
                     ImageRequest.Builder(context)
                         .data(titleLogoUrl)
-                        .memoryCacheKey(titleLogoUrl)
+                        .memoryCacheKey(logoMemoryKey)
                         .diskCacheKey(titleLogoUrl)
+                        .transformations(transformation)
                         .allowHardware(true)
                         .listener(
                             onStart = {

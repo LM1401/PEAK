@@ -45,6 +45,14 @@ object PeakImageLoader {
     }
 
     /**
+     * Helper to construct unified compound memory cache keys for title logos with transformations.
+     * Ensures memory cache parity between ImageWarmingManager and CinematicTitleView.
+     */
+    fun getLogoMemoryCacheKey(logoUrl: String, transformationKey: String): String {
+        return "${logoUrl}_$transformationKey"
+    }
+
+    /**
      * Helper to build a standard, cached ImageRequest.
      * Ensures memory and disk cache policies are explicitly enabled.
      */
