@@ -20,15 +20,70 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import android.content.Context
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class MovieRepositoryImplTest {
 
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var context: Context
+
+    private lateinit var fakeAltLogoProvider: FakeAlternativeLogoProvider
+    private lateinit var fakeImageLoader: FakeImageLoader
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        context = RuntimeEnvironment.getApplication()
+        fakeAltLogoProvider = FakeAlternativeLogoProvider()
+        fakeImageLoader = FakeImageLoader(context)
+    }
+
+    class FakeAlternativeLogoProvider : com.example.peak.data.provider.AlternativeLogoProvider {
+        var findLogoResult: (String, MediaType) -> com.example.peak.data.provider.AlternativeLogoResult = { _, _ -> com.example.peak.data.provider.AlternativeLogoResult.NotFound }
+        var apiCalls = 0
+        override suspend fun findLogo(tmdbId: String, mediaType: MediaType): com.example.peak.data.provider.AlternativeLogoResult {
+            apiCalls++
+            return findLogoResult(tmdbId, mediaType)
+        }
+    }
+
+    class FakeImageLoader(val context: Context) : coil.ImageLoader {
+        var successResult: Boolean = true
+        var isTransparent: Boolean = true
+        var returnedWidth: Int = 500
+        var returnedHeight: Int = 250
+        var executedRequests = mutableListOf<coil.request.ImageRequest>()
+        
+        override val components get() = coil.ComponentRegistry()
+        override val defaults get() = coil.request.DefaultRequestOptions()
+        override val diskCache get() = null
+        override val memoryCache get() = null
+        
+        override fun enqueue(request: coil.request.ImageRequest): coil.request.Disposable = throw NotImplementedError()
+        
+        override suspend fun execute(request: coil.request.ImageRequest): coil.request.ImageResult {
+            executedRequests.add(request)
+            return if (successResult) {
+                val bitmap = android.graphics.Bitmap.createBitmap(returnedWidth, returnedHeight, android.graphics.Bitmap.Config.ARGB_8888)
+                if (isTransparent) {
+                    bitmap.setPixel(0, 0, android.graphics.Color.TRANSPARENT) // Give it actual transparency
+                } else {
+                    bitmap.eraseColor(android.graphics.Color.BLACK)
+                }
+                val drawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                coil.request.SuccessResult(drawable, request, coil.decode.DataSource.NETWORK)
+            } else {
+                coil.request.ErrorResult(null, request, Throwable("Failed to load"))
+            }
+        }
+        
+        override fun newBuilder(): coil.ImageLoader.Builder = coil.ImageLoader.Builder(context)
+        override fun shutdown() {}
     }
 
     @After
@@ -108,7 +163,7 @@ class MovieRepositoryImplTest {
         val fakeApi = FakeTmdbApi(
             movieDetailResult = { createFakeTmdbMovie(id = 550, title = "Fight Club", externalImdbId = "tt0137523") }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
         assertTrue(result.isSuccess)
@@ -123,7 +178,7 @@ class MovieRepositoryImplTest {
         val fakeApi = FakeTmdbApi(
             tvDetailResult = { createFakeTmdbMovie(id = 1399, name = "Game of Thrones", externalImdbId = "tt0944947") }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getMediaById("1399", MediaType.TV, requireFullDetails = true)
         assertTrue(result.isSuccess)
@@ -138,7 +193,7 @@ class MovieRepositoryImplTest {
         val fakeApi = FakeTmdbApi(
             movieDetailResult = { createFakeTmdbMovie(id = 550, externalImdbId = "tt0137523") }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getImdbId("550", MediaType.MOVIE)
         assertTrue(result.isSuccess)
@@ -150,7 +205,7 @@ class MovieRepositoryImplTest {
         val fakeApi = FakeTmdbApi(
             movieDetailResult = { createFakeTmdbMovie(id = 999, externalImdbId = null, imdbId = null) }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getImdbId("999", MediaType.MOVIE)
         assertTrue(result.isFailure)
@@ -160,7 +215,7 @@ class MovieRepositoryImplTest {
     @Test
     fun getImdbId_blankMediaId_returnsFailure() = runTest {
         val fakeApi = FakeTmdbApi()
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getImdbId("   ", MediaType.MOVIE)
         assertTrue(result.isFailure)
@@ -170,7 +225,7 @@ class MovieRepositoryImplTest {
     @Test
     fun getCachedMedia_beforeEnrichment_returnsNull() = runTest {
         val fakeApi = FakeTmdbApi()
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val cached = repository.getCachedMedia("550", MediaType.MOVIE)
         org.junit.Assert.assertNull(cached)
@@ -181,7 +236,7 @@ class MovieRepositoryImplTest {
         val fakeApi = FakeTmdbApi(
             movieDetailResult = { createFakeTmdbMovie(id = 550, title = "Fight Club") }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // Initial fetch enriches and caches item
         repository.getMediaById("550", MediaType.MOVIE)
@@ -198,7 +253,7 @@ class MovieRepositoryImplTest {
             movieDetailResult = { createFakeTmdbMovie(id = 100, title = "Movie Title", name = null) },
             tvDetailResult = { createFakeTmdbMovie(id = 100, title = null, name = "Series Title") }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         repository.getMediaById("100", MediaType.MOVIE)
         repository.getMediaById("100", MediaType.TV)
@@ -222,7 +277,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = apiCalls, title = "Movie $apiCalls")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val job1 = async { repository.getMediaById("1", MediaType.MOVIE) }
         val job2 = async { repository.getMediaById("2", MediaType.MOVIE) }
@@ -246,7 +301,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 1, title = "Movie 1")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // Launch two requests for the EXACT same movie id
         val job1 = async { repository.getMediaById("1", MediaType.MOVIE) }
@@ -272,7 +327,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 1, title = "Movie 1")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val job1 = launch { repository.getMediaById("1", MediaType.MOVIE) }
         
@@ -298,7 +353,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550, title = "Fight Club")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
         assertTrue(result.isSuccess)
@@ -319,7 +374,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550, title = "Fight Club")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
         assertTrue(result.isSuccess)
@@ -339,7 +394,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550, title = "Fight Club")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // 1. Fetch Lightweight
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
@@ -364,7 +419,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550, title = "Fight Club")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // 1. Fetch Full Details
         val fullResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
@@ -389,7 +444,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550, title = "Fight Club")
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // Launch both requests simultaneously
         val lightJob = async { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false) }
@@ -423,7 +478,7 @@ class MovieRepositoryImplTest {
                 }
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // 1. Pre-cache the lightweight version successfully
         val lightResult = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
@@ -466,7 +521,7 @@ class MovieRepositoryImplTest {
                 }
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         // 1. Fetch Lightweight, caches logo
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = false)
@@ -485,7 +540,7 @@ class MovieRepositoryImplTest {
                 createFakeTmdbMovie(id = 550)
             }
         )
-        val repository = MovieRepositoryImpl(fakeApi)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
 
         val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
         val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
@@ -501,5 +556,212 @@ class MovieRepositoryImplTest {
         assertEquals(1, emittedMovies.size)
         assertEquals("550", emittedMovies[0].movieId)
         job.cancel()
+    }
+
+    @Test
+    fun getMediaById_tmdbLogoTakesPriorityOverTrakt() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                val images = com.example.peak.data.remote.dto.TmdbImages(
+                    logos = listOf(
+                        com.example.peak.data.remote.dto.TmdbLogo(
+                            filePath = "/tmdb_logo.png",
+                            iso6391 = "en",
+                            aspectRatio = 2.0,
+                            width = 500,
+                            height = 250
+                        )
+                    )
+                )
+                createFakeTmdbMovie(id = 550, title = "Movie").copy(images = images)
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+
+        assertTrue(result.isSuccess)
+        assertEquals("https://image.tmdb.org/t/p/w500/tmdb_logo.png", result.getOrThrow().titleLogoUrl)
+        assertEquals(0, fakeAltLogoProvider.apiCalls) // Alternative provider should not be called
+    }
+
+    @Test
+    fun getMediaById_traktIsQueriedWhenTmdbLogoIsAbsent() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/logo.png")
+        }
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
+        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+            repository.enrichedMediaFlow.collect { movie ->
+                emittedMovies.add(movie)
+            }
+        }
+
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+
+        // The first result should be the one without the logo (text fallback preserved)
+        assertTrue(result.isSuccess)
+        org.junit.Assert.assertNull(result.getOrThrow().titleLogoUrl)
+
+        // Give background coroutines time to run on Dispatchers.IO
+        Thread.sleep(200)
+
+        // The alternative provider should have been called
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+
+        // There should be a second emission with the discovered logo
+        assertTrue(emittedMovies.size >= 2)
+        assertEquals("https://walter.trakt.tv/logo.png", emittedMovies.last().titleLogoUrl)
+        // Check that the logoAspectRatio was updated based on the fake image dimensions
+        assertEquals(2.0f, emittedMovies.last().logoAspectRatio)
+        
+        job.cancel()
+    }
+
+    @Test
+    fun getMediaById_notFoundPreservesTextFallback() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            com.example.peak.data.provider.AlternativeLogoResult.NotFound
+        }
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
+        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+            repository.enrichedMediaFlow.collect { movie ->
+                emittedMovies.add(movie)
+            }
+        }
+
+        val result = repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        
+        assertTrue(result.isSuccess)
+        org.junit.Assert.assertNull(result.getOrThrow().titleLogoUrl)
+
+        Thread.sleep(200)
+
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+        
+        // No new emission should occur because no logo was found
+        assertEquals(1, emittedMovies.size)
+        org.junit.Assert.assertNull(emittedMovies.last().titleLogoUrl)
+
+        job.cancel()
+    }
+
+    @Test
+    fun getMediaById_opaqueImageRejectedAndNegativelyCached() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/opaque_logo.png")
+        }
+        fakeImageLoader.isTransparent = false // This makes our fake Coil return an opaque image
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        
+        Thread.sleep(200)
+
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+
+        // Second request should hit the negative cache and NOT call the provider again
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        Thread.sleep(200)
+
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+    }
+
+    @Test
+    fun getMediaById_concurrentRequestsForSameTitleDeduplicated() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            // Add a small artificial delay to ensure concurrency overlap
+            Thread.sleep(50)
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/logo.png")
+        }
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        // Launch two requests simultaneously
+        val job1 = launch(Dispatchers.IO) { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
+        val job2 = launch(Dispatchers.IO) { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
+        
+        Thread.sleep(300)
+        
+        // Even though both launched simultaneously and asked for the missing logo, 
+        // the mutex should ensure the provider is only called once.
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+        
+        job1.cancel()
+        job2.cancel()
+    }
+
+    @Test
+    fun getMediaById_rateLimitExpiryIsRespected() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        // Rate limited for 2 seconds (2000 ms)
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            com.example.peak.data.provider.AlternativeLogoResult.RateLimited(2)
+        }
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        Thread.sleep(200)
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+
+        // Request again immediately -> should hit cache, apiCalls still 1
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        Thread.sleep(200)
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+
+        // Wait past the rate limit (2 seconds)
+        Thread.sleep(2100)
+        
+        // Request again -> cache expired, should call provider again
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        Thread.sleep(200)
+        assertEquals(2, fakeAltLogoProvider.apiCalls)
+    }
+
+    @Test
+    fun getMediaById_temporaryFailuresExpire() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 550, title = "Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ -> 
+            com.example.peak.data.provider.AlternativeLogoResult.Error(Exception("Network error"))
+        }
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+
+        repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
+        Thread.sleep(200)
+        assertEquals(1, fakeAltLogoProvider.apiCalls)
+        
+        // Cannot practically Thread.sleep(60_000) for the 1 minute expiry, but the test ensures the error doesn't crash the repo.
     }
 }

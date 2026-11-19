@@ -54,7 +54,7 @@ fun PEAKApp() {
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    val movieRepository = remember { PeakDependencyProvider.getMovieRepository() }
+    val movieRepository = remember { PeakDependencyProvider.getMovieRepository(context) }
     val continueWatchingRepository = remember { PeakDependencyProvider.getContinueWatchingRepository(context) }
     val watchlistRepository = remember { PeakDependencyProvider.getWatchlistRepository(context) }
 

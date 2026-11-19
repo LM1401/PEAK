@@ -20,11 +20,29 @@ object RetrofitInstance {
     private val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val original = chain.request()
-            val url = original.url.newBuilder()
-                .addQueryParameter("api_key", BuildConfig.TMDB_API_KEY)
-                .build()
-            val request = original.newBuilder().url(url).build()
-            chain.proceed(request)
+            when (original.url.host) {
+                "api.themoviedb.org" -> {
+                    val url = original.url.newBuilder()
+                        .addQueryParameter("api_key", BuildConfig.TMDB_API_KEY)
+                        .build()
+                    val request = original.newBuilder().url(url).build()
+                    chain.proceed(request)
+                }
+                "api.trakt.tv" -> {
+                    val clientId = BuildConfig.TRAKT_CLIENT_ID
+                    if (clientId.isNotBlank()) {
+                        val request = original.newBuilder()
+                            .header("trakt-api-key", clientId)
+                            .build()
+                        chain.proceed(request)
+                    } else {
+                        chain.proceed(original)
+                    }
+                }
+                else -> {
+                    chain.proceed(original)
+                }
+            }
         }
         .addInterceptor(logging)
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -40,5 +58,14 @@ object RetrofitInstance {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(TmdbApi::class.java)
+    }
+
+    val traktApi: com.example.peak.data.remote.api.TraktApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.trakt.tv/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(com.example.peak.data.remote.api.TraktApi::class.java)
     }
 }

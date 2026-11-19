@@ -181,7 +181,7 @@ fun MovieRow(
         }
     }
 
-    val repository = remember { PeakDependencyProvider.getMovieRepository() }
+    val repository = remember { PeakDependencyProvider.getMovieRepository(context) }
     val currentMovies by rememberUpdatedState(row.movies)
 
     // PREDICTIVE SCROLL PRE-DECODING (WARMING)

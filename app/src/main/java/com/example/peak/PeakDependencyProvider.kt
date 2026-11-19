@@ -17,9 +17,17 @@ object PeakDependencyProvider {
     private var continueWatchingRepository: ContinueWatchingRepository? = null
     private var watchlistRepository: com.example.peak.data.repository.WatchlistRepository? = null
 
-    fun getMovieRepository(): MovieRepository {
+    fun getMovieRepository(context: Context): MovieRepository {
         return movieRepository ?: synchronized(this) {
-            movieRepository ?: MovieRepositoryImpl(RetrofitInstance.api).also { movieRepository = it }
+            val appCtx = context.applicationContext
+            val altLogoProvider = com.example.peak.data.provider.TraktLogoProviderImpl(getTraktApi())
+            val imageLoader = com.example.peak.ui.image.PeakImageLoader.getInstance(appCtx)
+            movieRepository ?: MovieRepositoryImpl(
+                api = RetrofitInstance.api,
+                alternativeLogoProvider = altLogoProvider,
+                context = appCtx,
+                imageLoader = imageLoader
+            ).also { movieRepository = it }
         }
     }
 
@@ -81,6 +89,10 @@ object PeakDependencyProvider {
         return addonStreamApiClient ?: synchronized(this) {
             addonStreamApiClient ?: com.example.peak.data.addon.AddonStreamApiClient().also { addonStreamApiClient = it }
         }
+    }
+
+    fun getTraktApi(): com.example.peak.data.remote.api.TraktApi {
+        return RetrofitInstance.traktApi
     }
 
     fun getStreamHandoffManager(): com.example.peak.player.StreamHandoffManager {

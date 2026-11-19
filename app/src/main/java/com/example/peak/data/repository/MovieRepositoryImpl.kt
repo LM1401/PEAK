@@ -3,6 +3,10 @@ package com.example.peak.data.repository
 import android.util.Log
 import com.example.peak.data.network.SafeApiCall
 import com.example.peak.data.remote.api.TmdbApi
+import com.example.peak.data.provider.AlternativeLogoProvider
+import com.example.peak.data.provider.AlternativeLogoResult
+import com.example.peak.data.provider.AltLogoCacheEntry
+import com.example.peak.data.provider.AlternativeLogoKey
 import com.example.peak.data.remote.dto.toMovie
 import com.example.peak.data.remote.dto.toEnrichedMovie
 import com.example.peak.domain.model.MediaType
@@ -11,6 +15,7 @@ import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
 import com.example.peak.ui.image.HeroLogoTrace
+import com.example.peak.ui.image.hasActualTransparency
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
@@ -31,7 +36,10 @@ import java.util.concurrent.ConcurrentHashMap
  * Implementation of [MovieRepository] with a hardened in-memory caching layer.
  */
 class MovieRepositoryImpl(
-    private val api: TmdbApi
+    private val api: TmdbApi,
+    private val alternativeLogoProvider: com.example.peak.data.provider.AlternativeLogoProvider,
+    private val context: android.content.Context,
+    private val imageLoader: coil.ImageLoader
 ) : MovieRepository {
 
     private val detailMutexMap = ConcurrentHashMap<String, Mutex>()
@@ -42,6 +50,10 @@ class MovieRepositoryImpl(
     // Category Caching
     private val categoryCache = ConcurrentHashMap<String, List<Movie>>()
     private val categoryTimestamps = ConcurrentHashMap<String, Long>()
+    
+    // Alternative Logo Caching
+    private val altLogoCache = ConcurrentHashMap<String, com.example.peak.data.provider.AltLogoCacheEntry>()
+    private val altLogoMutexMap = ConcurrentHashMap<String, Mutex>()
     
     private val _enrichedMediaFlow = MutableSharedFlow<Movie>(
         replay = 0,
@@ -102,7 +114,7 @@ class MovieRepositoryImpl(
         private const val CACHE_TTL_MS = 2 * 60 * 1000L // 2 Minutes
     }
 
-    private fun getCacheKey(id: String, type: MediaType): String = "${type.name}_$id"
+    private fun getCacheKey(id: String, type: MediaType): String = AlternativeLogoKey(type, id).value
 
     private fun getListMutex(key: String): Mutex {
         return listMutexMap.getOrPut(key) { Mutex() }
@@ -114,6 +126,19 @@ class MovieRepositoryImpl(
 
     private fun isExpired(timestamp: Long): Boolean {
         return System.currentTimeMillis() - timestamp > CACHE_TTL_MS
+    }
+
+    private fun isAltLogoExpired(entry: com.example.peak.data.provider.AltLogoCacheEntry): Boolean {
+        val expirationTime = entry.timestamp + when (entry.result) {
+            is com.example.peak.data.provider.AlternativeLogoResult.Found -> 24 * 60 * 60 * 1000L // 24 hours
+            is com.example.peak.data.provider.AlternativeLogoResult.NotFound -> 2 * 60 * 60 * 1000L // 2 hours
+            is com.example.peak.data.provider.AlternativeLogoResult.RateLimited -> {
+                val retry = entry.result.retryAfterSeconds?.toLong()?.times(1000L) ?: (5 * 60 * 1000L)
+                retry
+            }
+            is com.example.peak.data.provider.AlternativeLogoResult.Error -> 1 * 60 * 1000L // 1 minute
+        }
+        return System.currentTimeMillis() > expirationTime
     }
 
     private fun updateDetailsCache(movies: List<Movie>) {
@@ -259,6 +284,70 @@ class MovieRepositoryImpl(
         }
     }
 
+    private fun triggerAlternativeLogoDiscovery(movie: Movie, cacheKey: String, id: String, type: MediaType) {
+        if (movie.titleLogoUrl.isNullOrBlank()) {
+            repoScope.launch {
+                val altLogoMutex = altLogoMutexMap.getOrPut(cacheKey) { Mutex() }
+                altLogoMutex.withLock {
+                    val cachedState = altLogoCache[cacheKey]
+                    if (cachedState != null && !isAltLogoExpired(cachedState)) {
+                        return@withLock
+                    }
+                    
+                    val latestMovie = movieDetailsCache[cacheKey]
+                    if (latestMovie != null && !latestMovie.titleLogoUrl.isNullOrBlank()) {
+                        return@withLock
+                    }
+                    
+                    val altResult = alternativeLogoProvider.findLogo(id, type)
+                    
+                    if (altResult is com.example.peak.data.provider.AlternativeLogoResult.Found) {
+                        val altUrl = altResult.url
+                        val transformation = com.example.peak.ui.image.AutoTrimTransparentBordersTransformation()
+                        val logoMemoryKey = com.example.peak.ui.image.PeakImageLoader.getLogoMemoryCacheKey(altUrl, transformation.cacheKey)
+
+                        val request = coil.request.ImageRequest.Builder(context)
+                            .data(altUrl)
+                            .memoryCacheKey(logoMemoryKey)
+                            .diskCacheKey(altUrl)
+                            .transformations(transformation)
+                            .allowHardware(true)
+                            .build()
+
+                        val coilResult = imageLoader.execute(request)
+
+                        if (coilResult is coil.request.SuccessResult) {
+                            val drawable = coilResult.drawable
+                            val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+
+                            if (bitmap != null && bitmap.hasActualTransparency()) {
+                                val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+
+                                getDetailMutex(cacheKey).withLock {
+                                    val latest = movieDetailsCache[cacheKey] ?: return@withLock
+                                    if (latest.titleLogoUrl.isNullOrBlank()) {
+                                        val updatedMovie = latest.copy(
+                                            titleLogoUrl = altUrl,
+                                            logoAspectRatio = aspectRatio
+                                        )
+                                        movieDetailsCache[cacheKey] = updatedMovie
+                                        _enrichedMediaFlow.tryEmit(updatedMovie)
+                                    }
+                                }
+                            } else {
+                                altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(com.example.peak.data.provider.AlternativeLogoResult.NotFound)
+                            }
+                        } else {
+                            altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(com.example.peak.data.provider.AlternativeLogoResult.Error(Exception("Coil load failed")))
+                        }
+                    } else {
+                        altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(altResult)
+                    }
+                }
+            }
+        }
+    }
+
     override fun getCachedMedia(id: String, type: MediaType): Movie? {
         val cacheKey = getCacheKey(id, type)
         return movieDetailsCache[cacheKey]?.takeIf { it.isEnriched }
@@ -274,6 +363,7 @@ class MovieRepositoryImpl(
                     mediaId = id
                 )
                 Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie for $id (requestedFull=$requireFullDetails, isFull=${it.isFullyEnriched})")
+                triggerAlternativeLogoDiscovery(it, cacheKey, id, type)
                 return Result.success(it)
             }
         }
@@ -287,6 +377,7 @@ class MovieRepositoryImpl(
                         mediaId = id
                     )
                     Log.e("PEAK_DIAGNOSTIC", "Returning cached enriched movie from double-check lock for $id")
+                    triggerAlternativeLogoDiscovery(it, cacheKey, id, type)
                     return@withLock Result.success(it)
                 }
             }
@@ -356,6 +447,9 @@ class MovieRepositoryImpl(
 
                     movieDetailsCache[cacheKey] = movie
                     _enrichedMediaFlow.tryEmit(movie)
+
+                    triggerAlternativeLogoDiscovery(movie, cacheKey, id, type)
+
                     Result.success(movie)
                 }
                 else -> {

@@ -1,7 +1,19 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    FileInputStream(localPropertiesFile).use { stream ->
+        localProperties.load(stream)
+    }
+}
+val traktClientId = localProperties.getProperty("TRAKT_CLIENT_ID", "")
 
 android {
     namespace = "com.example.peak"
@@ -19,6 +31,7 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "TMDB_API_KEY", "\"28698e1796764c8280ae3896267caecd\"")
+        buildConfigField("String", "TRAKT_CLIENT_ID", "\"$traktClientId\"")
     }
 
     testOptions {
