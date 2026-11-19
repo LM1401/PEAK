@@ -1,12 +1,51 @@
 package com.example.peak.ui.image
 
+import android.graphics.Bitmap
+import coil.size.Size
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class AutoTrimTransparentBordersTransformationTest {
+
+    private val defaultTransformation = AutoTrimTransparentBordersTransformation(
+        alphaThreshold = 16,
+        paddingPx = 4,
+        minAreaSavedPct = 5.0f
+    )
+
+    private fun createBitmap(
+        width: Int,
+        height: Int,
+        baseAlpha: Int = 0,
+        visibleLeft: Int = -1,
+        visibleTop: Int = -1,
+        visibleRight: Int = -1,
+        visibleBottom: Int = -1,
+        visibleAlpha: Int = 255
+    ): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        if (baseAlpha > 0) {
+            bitmap.eraseColor((baseAlpha shl 24) or 0x00FFFFFF)
+        }
+        if (visibleLeft >= 0 && visibleTop >= 0 && visibleRight >= visibleLeft && visibleBottom >= visibleTop) {
+            for (y in visibleTop..visibleBottom) {
+                for (x in visibleLeft..visibleRight) {
+                    bitmap.setPixel(x, y, (visibleAlpha shl 24) or 0x00FFFFFF)
+                }
+            }
+        }
+        return bitmap
+    }
 
     private fun createPixels(
         width: Int,
@@ -56,6 +95,82 @@ class AutoTrimTransparentBordersTransformationTest {
         }
 
         return if (found) intArrayOf(minX, maxX, minY, maxY) else null
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // REAL ANDROID BITMAP TESTS (ROBOLECTRIC)
+    // -----------------------------------------------------------------------------------------
+
+    @Test
+    fun transform_realBitmap_trimsTransparentBordersCorrectly() = runBlocking {
+        // 100x100 ARGB_8888 bitmap with 50x50 centered content (x:25..74, y:25..74)
+        val input = createBitmap(100, 100, visibleLeft = 25, visibleTop = 25, visibleRight = 74, visibleBottom = 74)
+
+        val result = defaultTransformation.transform(input, Size.ORIGINAL)
+
+        // Candidate crop minX=25, maxX=74, minY=25, maxY=74
+        // Padded by 4px: left=21, top=21, right=79, bottom=79 -> width=58, height=58
+        assertEquals(58, result.width)
+        assertEquals(58, result.height)
+    }
+
+    @Test
+    fun transform_realBitmap_fullyTransparent_returnsOriginalBitmapInstance() = runBlocking {
+        val input = createBitmap(100, 100, baseAlpha = 0)
+        val result = defaultTransformation.transform(input, Size.ORIGINAL)
+        assertSame(input, result)
+    }
+
+    @Test
+    fun transform_realBitmap_fullyOpaque_returnsOriginalBitmapInstance() = runBlocking {
+        val input = createBitmap(100, 100, baseAlpha = 255)
+        val result = defaultTransformation.transform(input, Size.ORIGINAL)
+        assertSame(input, result)
+    }
+
+    @Test
+    fun transform_realBitmap_belowAreaThreshold_returnsOriginalBitmapInstance() = runBlocking {
+        // 100x100 bitmap, visible x:5..94, y:5..94; padded crop is 98x98 (3.96% saved)
+        val input = createBitmap(100, 100, visibleLeft = 5, visibleTop = 5, visibleRight = 94, visibleBottom = 94)
+        val result = defaultTransformation.transform(input, Size.ORIGINAL)
+        assertSame(input, result)
+    }
+
+    @Test
+    fun transform_hardwareConfigBitmap_convertsSafelyAndTrims() = runBlocking {
+        // Hardware bitmap configuration test
+        val inputSoftware = createBitmap(100, 100, visibleLeft = 25, visibleTop = 25, visibleRight = 74, visibleBottom = 74)
+        val inputHardware = inputSoftware.copy(Bitmap.Config.HARDWARE, false)
+
+        val result = defaultTransformation.transform(inputHardware, Size.ORIGINAL)
+
+        // Verify hardware bitmap was copied and cropped without throwing IllegalArgumentException
+        assertNotNull(result)
+        assertEquals(58, result.width)
+        assertEquals(58, result.height)
+    }
+
+    @Test
+    fun calculateCropBitmap_detachedArtwork_preservesDetachedElementsOnRealBitmap() {
+        val bitmap = createBitmap(200, 200)
+        // Main title in center x:80..120, y:80..120
+        for (y in 80..120) for (x in 80..120) bitmap.setPixel(x, y, 0xFFFFFFFF.toInt())
+        // Top-left star icon x:15..25, y:10..20
+        for (y in 10..20) for (x in 15..25) bitmap.setPixel(x, y, 0xFFFFFFFF.toInt())
+        // Bottom-right trademark icon x:175..185, y:180..190
+        for (y in 180..190) for (x in 175..185) bitmap.setPixel(x, y, 0xFFFFFFFF.toInt())
+
+        val result = calculateCropBitmap(bitmap, alphaThreshold = 16, paddingPx = 4, minAreaSavedPct = 1.0f)
+
+        assertTrue(result.shouldTrim)
+        assertEquals(15, result.minX)
+        assertEquals(185, result.maxX)
+        assertEquals(10, result.minY)
+        assertEquals(190, result.maxY)
+        assertEquals(11, result.cropLeft) // 15 - 4
+        assertEquals(6, result.cropTop)   // 10 - 4
+        assertEquals(190, result.cropRight) // 185 + 1 + 4
+        assertEquals(195, result.cropBottom) // 190 + 1 + 4
     }
 
     // -----------------------------------------------------------------------------------------
@@ -159,7 +274,7 @@ class AutoTrimTransparentBordersTransformationTest {
     }
 
     // -----------------------------------------------------------------------------------------
-    // STAGE 10D TEST SCENARIOS (RE-VERIFIED IN STAGE 10E)
+    // STAGE 10D TEST SCENARIOS (RE-VERIFIED IN STAGE 10E/H)
     // -----------------------------------------------------------------------------------------
 
     @Test
