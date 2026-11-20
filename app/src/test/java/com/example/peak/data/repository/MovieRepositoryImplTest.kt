@@ -2,6 +2,7 @@ package com.example.peak.data.repository
 
 import com.example.peak.data.remote.api.TmdbApi
 import com.example.peak.data.remote.dto.TmdbExternalIds
+import com.example.peak.data.remote.dto.TmdbLogo
 import com.example.peak.data.remote.dto.TmdbMovie
 import com.example.peak.data.remote.dto.TmdbResponse
 import com.example.peak.domain.model.MediaType
@@ -11,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -595,10 +597,10 @@ class MovieRepositoryImplTest {
         fakeAltLogoProvider.findLogoResult = { _, _ -> 
             com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/logo.png")
         }
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
-        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) {
             repository.enrichedMediaFlow.collect { movie ->
                 emittedMovies.add(movie)
             }
@@ -610,8 +612,7 @@ class MovieRepositoryImplTest {
         assertTrue(result.isSuccess)
         org.junit.Assert.assertNull(result.getOrThrow().titleLogoUrl)
 
-        // Give background coroutines time to run on Dispatchers.IO
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
 
         // The alternative provider should have been called
         assertEquals(1, fakeAltLogoProvider.apiCalls)
@@ -635,10 +636,10 @@ class MovieRepositoryImplTest {
         fakeAltLogoProvider.findLogoResult = { _, _ -> 
             com.example.peak.data.provider.AlternativeLogoResult.NotFound
         }
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
-        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) {
             repository.enrichedMediaFlow.collect { movie ->
                 emittedMovies.add(movie)
             }
@@ -649,7 +650,7 @@ class MovieRepositoryImplTest {
         assertTrue(result.isSuccess)
         org.junit.Assert.assertNull(result.getOrThrow().titleLogoUrl)
 
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
 
         assertEquals(1, fakeAltLogoProvider.apiCalls)
         
@@ -672,17 +673,17 @@ class MovieRepositoryImplTest {
         }
         fakeImageLoader.isTransparent = false // This makes our fake Coil return an opaque image
 
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
         
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
 
         assertEquals(1, fakeAltLogoProvider.apiCalls)
 
         // Second request should hit the negative cache and NOT call the provider again
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
 
         assertEquals(1, fakeAltLogoProvider.apiCalls)
     }
@@ -695,17 +696,15 @@ class MovieRepositoryImplTest {
             }
         )
         fakeAltLogoProvider.findLogoResult = { _, _ -> 
-            // Add a small artificial delay to ensure concurrency overlap
-            Thread.sleep(50)
             com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/logo.png")
         }
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         // Launch two requests simultaneously
-        val job1 = launch(Dispatchers.IO) { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
-        val job2 = launch(Dispatchers.IO) { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
+        val job1 = launch { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
+        val job2 = launch { repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true) }
         
-        Thread.sleep(300)
+        testScheduler.advanceUntilIdle()
         
         // Even though both launched simultaneously and asked for the missing logo, 
         // the mutex should ensure the provider is only called once.
@@ -726,15 +725,15 @@ class MovieRepositoryImplTest {
         fakeAltLogoProvider.findLogoResult = { _, _ -> 
             com.example.peak.data.provider.AlternativeLogoResult.RateLimited(2)
         }
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
         assertEquals(1, fakeAltLogoProvider.apiCalls)
 
         // Request again immediately -> should hit cache, apiCalls still 1
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
         assertEquals(1, fakeAltLogoProvider.apiCalls)
 
         // Wait past the rate limit (2 seconds)
@@ -742,7 +741,7 @@ class MovieRepositoryImplTest {
         
         // Request again -> cache expired, should call provider again
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
         assertEquals(2, fakeAltLogoProvider.apiCalls)
     }
 
@@ -756,12 +755,267 @@ class MovieRepositoryImplTest {
         fakeAltLogoProvider.findLogoResult = { _, _ -> 
             com.example.peak.data.provider.AlternativeLogoResult.Error(Exception("Network error"))
         }
-        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader)
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
 
         repository.getMediaById("550", MediaType.MOVIE, requireFullDetails = true)
-        Thread.sleep(200)
+        testScheduler.advanceUntilIdle()
         assertEquals(1, fakeAltLogoProvider.apiCalls)
         
         // Cannot practically Thread.sleep(60_000) for the 1 minute expiry, but the test ensures the error doesn't crash the repo.
+    }
+
+    // --- LOGO SOURCE PROVENANCE TESTS ---
+
+    @Test
+    fun logoSource_tmdbLogoPresent_reportsTMDB() = runTest {
+        val tmdbLogo = TmdbLogo(filePath = "/tmdb_logo.png", iso6391 = "en", aspectRatio = 2.0, width = 500, height = 250)
+        val tmdbImages = com.example.peak.data.remote.dto.TmdbImages(logos = listOf(tmdbLogo))
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 100, title = "TMDB Movie").copy(images = tmdbImages)
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        val result = repository.getMediaById("100", MediaType.MOVIE, requireFullDetails = true)
+        assertTrue(result.isSuccess)
+        val movie = result.getOrNull()!!
+
+        assertEquals(com.example.peak.domain.model.LogoSource.TMDB, movie.logoSource)
+        assertEquals("https://image.tmdb.org/t/p/w500/tmdb_logo.png", movie.titleLogoUrl)
+        assertEquals(0, fakeAltLogoProvider.apiCalls)
+    }
+
+    @Test
+    fun logoSource_tmdbLogoMissing_initialResultReportsPEAK_FALLBACK() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 101, title = "Fallback Movie")
+            }
+        )
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        val result = repository.getMediaById("101", MediaType.MOVIE, requireFullDetails = true)
+        assertTrue(result.isSuccess)
+        val movie = result.getOrNull()!!
+
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, movie.logoSource)
+    }
+
+    @Test
+    fun logoSource_traktLogoFoundAndLoaded_emitsTRAKT() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 102, title = "Trakt Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/trakt_logo.png")
+        }
+        fakeImageLoader.successResult = true
+        fakeImageLoader.isTransparent = true
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
+        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.enrichedMediaFlow.collect { emittedMovies.add(it) }
+        }
+
+        val initialResult = repository.getMediaById("102", MediaType.MOVIE, requireFullDetails = true)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, initialResult.getOrNull()?.logoSource)
+
+        testScheduler.advanceUntilIdle()
+
+        val updated = repository.getCachedMedia("102", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.TRAKT, updated?.logoSource)
+        assertEquals("https://walter.trakt.tv/trakt_logo.png", updated?.titleLogoUrl)
+
+        assertTrue(emittedMovies.any { it.logoSource == com.example.peak.domain.model.LogoSource.TRAKT })
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun logoSource_tvShow_traktLogoFoundAndLoaded_emitsTRAKT() = runTest {
+        val fakeApi = FakeTmdbApi(
+            tvDetailResult = {
+                createFakeTmdbMovie(id = 301, name = "Trakt TV Series")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { tmdbId, mediaType ->
+            assertEquals("301", tmdbId)
+            assertEquals(MediaType.TV, mediaType)
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/tv_logo.png")
+        }
+        fakeImageLoader.successResult = true
+        fakeImageLoader.isTransparent = true
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        val emittedMovies = mutableListOf<com.example.peak.domain.model.Movie>()
+        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
+            repository.enrichedMediaFlow.collect { emittedMovies.add(it) }
+        }
+
+        val initialResult = repository.getMediaById("301", MediaType.TV, requireFullDetails = true)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, initialResult.getOrNull()?.logoSource)
+
+        testScheduler.advanceUntilIdle()
+
+        val updated = repository.getCachedMedia("301", MediaType.TV)
+        assertEquals(com.example.peak.domain.model.LogoSource.TRAKT, updated?.logoSource)
+        assertEquals("https://walter.trakt.tv/tv_logo.png", updated?.titleLogoUrl)
+
+        assertTrue(emittedMovies.any { it.mediaType == MediaType.TV && it.logoSource == com.example.peak.domain.model.LogoSource.TRAKT })
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun logoSource_traktNotFound_preservesPEAK_FALLBACK() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 103, title = "NotFound Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.NotFound
+        }
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        repository.getMediaById("103", MediaType.MOVIE, requireFullDetails = true)
+        testScheduler.advanceUntilIdle()
+
+        val cached = repository.getCachedMedia("103", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, cached?.logoSource)
+    }
+
+    @Test
+    fun logoSource_traktNetworkError_preservesPEAK_FALLBACK() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 104, title = "Error Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.Error(Exception("Network timeout"))
+        }
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        repository.getMediaById("104", MediaType.MOVIE, requireFullDetails = true)
+        testScheduler.advanceUntilIdle()
+
+        val cached = repository.getCachedMedia("104", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, cached?.logoSource)
+    }
+
+    @Test
+    fun logoSource_failedCoilLoad_preservesPEAK_FALLBACK() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 105, title = "Coil Fail Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/broken_logo.png")
+        }
+        fakeImageLoader.successResult = false // Coil fails
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        repository.getMediaById("105", MediaType.MOVIE, requireFullDetails = true)
+        testScheduler.advanceUntilIdle()
+
+        val cached = repository.getCachedMedia("105", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, cached?.logoSource)
+    }
+
+    @Test
+    fun logoSource_insufficientTransparency_preservesPEAK_FALLBACK() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 106, title = "Opaque Poster Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/opaque_poster.png")
+        }
+        fakeImageLoader.successResult = true
+        fakeImageLoader.isTransparent = false // Fails transparency check (opaque poster)
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        repository.getMediaById("106", MediaType.MOVIE, requireFullDetails = true)
+        testScheduler.advanceUntilIdle()
+
+        val cached = repository.getCachedMedia("106", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, cached?.logoSource)
+    }
+
+    @Test
+    fun logoSource_switchingBetweenMovieAndTvDetails_doesNotRetainStaleSourceState() = runTest {
+        val tmdbLogo = TmdbLogo(filePath = "/movie_logo.png", iso6391 = "en", aspectRatio = 2.0, width = 500, height = 250)
+        val tmdbImages = com.example.peak.data.remote.dto.TmdbImages(logos = listOf(tmdbLogo))
+
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 201, title = "TMDB Movie").copy(images = tmdbImages)
+            },
+            tvDetailResult = {
+                createFakeTmdbMovie(id = 202, name = "No Logo Show") // No TMDB logo
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.NotFound
+        }
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        // 1. Fetch movie with TMDB logo -> TMDB
+        val movieResult = repository.getMediaById("201", MediaType.MOVIE, requireFullDetails = true)
+        assertEquals(com.example.peak.domain.model.LogoSource.TMDB, movieResult.getOrNull()?.logoSource)
+
+        // 2. Fetch TV show with no logos -> PEAK_FALLBACK
+        val tvResult = repository.getMediaById("202", MediaType.TV, requireFullDetails = true)
+        assertEquals(com.example.peak.domain.model.LogoSource.PEAK_FALLBACK, tvResult.getOrNull()?.logoSource)
+
+        // 3. Navigate back to movie 201 -> TMDB source preserved cleanly, no stale state
+        val reacquiredMovie = repository.getCachedMedia("201", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.TMDB, reacquiredMovie?.logoSource)
+    }
+
+    @Test
+    fun logoSource_reEnrichmentPreservesTraktLogoAndSource() = runTest {
+        val fakeApi = FakeTmdbApi(
+            movieDetailResult = {
+                createFakeTmdbMovie(id = 401, title = "ReEnrich Movie")
+            }
+        )
+        fakeAltLogoProvider.findLogoResult = { _, _ ->
+            com.example.peak.data.provider.AlternativeLogoResult.Found("https://walter.trakt.tv/trakt_logo.png")
+        }
+        fakeImageLoader.successResult = true
+        fakeImageLoader.isTransparent = true
+
+        val repository = MovieRepositoryImpl(fakeApi, fakeAltLogoProvider, context, fakeImageLoader, StandardTestDispatcher(testScheduler))
+
+        // First call populates summary/initial detail and triggers Trakt discovery
+        repository.getMediaById("401", MediaType.MOVIE, requireFullDetails = false)
+        testScheduler.advanceUntilIdle()
+
+        val cachedAfterTrakt = repository.getCachedMedia("401", MediaType.MOVIE)
+        assertEquals(com.example.peak.domain.model.LogoSource.TRAKT, cachedAfterTrakt?.logoSource)
+        assertEquals("https://walter.trakt.tv/trakt_logo.png", cachedAfterTrakt?.titleLogoUrl)
+
+        // Second call with requireFullDetails = true re-enriching from TMDB (which has no TMDB logo)
+        val reEnrichedResult = repository.getMediaById("401", MediaType.MOVIE, requireFullDetails = true)
+        assertTrue(reEnrichedResult.isSuccess)
+        val reEnriched = reEnrichedResult.getOrNull()!!
+
+        assertEquals(com.example.peak.domain.model.LogoSource.TRAKT, reEnriched.logoSource)
+        assertEquals("https://walter.trakt.tv/trakt_logo.png", reEnriched.titleLogoUrl)
     }
 }

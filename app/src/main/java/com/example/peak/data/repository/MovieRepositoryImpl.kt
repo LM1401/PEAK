@@ -9,8 +9,10 @@ import com.example.peak.data.provider.AltLogoCacheEntry
 import com.example.peak.data.provider.AlternativeLogoKey
 import com.example.peak.data.remote.dto.toMovie
 import com.example.peak.data.remote.dto.toEnrichedMovie
+import com.example.peak.domain.model.LogoSource
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import com.example.peak.util.PeakLogoLogger
 import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.domain.repository.MovieListType
 import com.example.peak.domain.repository.TvListType
@@ -39,7 +41,8 @@ class MovieRepositoryImpl(
     private val api: TmdbApi,
     private val alternativeLogoProvider: com.example.peak.data.provider.AlternativeLogoProvider,
     private val context: android.content.Context,
-    private val imageLoader: coil.ImageLoader
+    private val imageLoader: coil.ImageLoader,
+    ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO
 ) : MovieRepository {
 
     private val detailMutexMap = ConcurrentHashMap<String, Mutex>()
@@ -99,7 +102,7 @@ class MovieRepositoryImpl(
         inFlightPrefetch.remove(task.cacheKey, task.token)
     }
 
-    private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repoScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     init {
         repeat(2) {
@@ -314,15 +317,18 @@ class MovieRepositoryImpl(
 
     private fun triggerAlternativeLogoDiscovery(movie: Movie, cacheKey: String, id: String, type: MediaType) {
         if (movie.titleLogoUrl.isNullOrBlank()) {
+            PeakLogoLogger.d { "Trakt logo discovery triggered for $type ID: $id (TMDB logo unavailable)" }
             repoScope.launch {
                 withAltLogoLock(cacheKey) {
                     val cachedState = altLogoCache[cacheKey]
                     if (cachedState != null && !isAltLogoExpired(cachedState)) {
+                        PeakLogoLogger.d { "Alt logo discovery skipped for $type ID: $id (cached state active: ${cachedState.result})" }
                         return@withAltLogoLock
                     }
 
                     val latestMovie = movieDetailsCache[cacheKey]
                     if (latestMovie != null && !latestMovie.titleLogoUrl.isNullOrBlank()) {
+                        PeakLogoLogger.d { "Alt logo discovery skipped for $type ID: $id (logo already present in cache)" }
                         return@withAltLogoLock
                     }
 
@@ -330,6 +336,7 @@ class MovieRepositoryImpl(
 
                     if (altResult is com.example.peak.data.provider.AlternativeLogoResult.Found) {
                         val altUrl = altResult.url
+                        PeakLogoLogger.d { "Trakt returned candidate logo URL for $type ID: $id -> $altUrl" }
                         val transformation = com.example.peak.ui.image.AutoTrimTransparentBordersTransformation()
                         val logoMemoryKey = com.example.peak.ui.image.PeakImageLoader.getLogoMemoryCacheKey(altUrl, transformation.cacheKey)
 
@@ -344,36 +351,45 @@ class MovieRepositoryImpl(
                         val coilResult = imageLoader.execute(request)
 
                         if (coilResult is coil.request.SuccessResult) {
+                            PeakLogoLogger.d { "Coil image load succeeded for $type ID: $id" }
                             val drawable = coilResult.drawable
                             val bitmap = (drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
 
                             if (bitmap != null && bitmap.hasActualTransparency()) {
                                 val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                                PeakLogoLogger.d { "Candidate URL validation succeeded (transparency verified, aspect ratio: $aspectRatio) for $type ID: $id" }
 
                                 getDetailMutex(cacheKey).withLock {
                                     val latest = movieDetailsCache[cacheKey] ?: return@withLock
                                     if (latest.titleLogoUrl.isNullOrBlank()) {
                                         val updatedMovie = latest.copy(
                                             titleLogoUrl = altUrl,
-                                            logoAspectRatio = aspectRatio
+                                            logoAspectRatio = aspectRatio,
+                                            logoSource = LogoSource.TRAKT
                                         )
                                         movieDetailsCache[cacheKey] = updatedMovie
                                         _enrichedMediaFlow.tryEmit(updatedMovie)
+                                        PeakLogoLogger.d { "Trakt logo accepted and applied for $type ID: $id. Emitted updated Movie with logoSource=TRAKT." }
                                     }
                                 }
                                 // Log the Found state to altLogoCache for consistency
                                 altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(altResult)
                             } else {
+                                PeakLogoLogger.d { "Candidate URL validation failed (insufficient transparency) for $type ID: $id. PEAK_FALLBACK remains active." }
                                 altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(com.example.peak.data.provider.AlternativeLogoResult.NotFound)
                             }
                         } else {
+                            PeakLogoLogger.d { "Coil image load failed for $type ID: $id. PEAK_FALLBACK remains active." }
                             altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(com.example.peak.data.provider.AlternativeLogoResult.Error(Exception("Coil load failed")))
                         }
                     } else {
+                        PeakLogoLogger.d { "Trakt provider returned result: $altResult for $type ID: $id. PEAK_FALLBACK remains active." }
                         altLogoCache[cacheKey] = com.example.peak.data.provider.AltLogoCacheEntry(altResult)
                     }
                 }
             }
+        } else {
+            PeakLogoLogger.d { "TMDB logo is selected for $type ID: $id (${movie.titleLogoUrl}). Alternative discovery skipped." }
         }
     }
 
@@ -463,14 +479,16 @@ class MovieRepositoryImpl(
                     val newEnriched = result.data.toEnrichedMovie(type)
                     val existing = movieDetailsCache[cacheKey]
 
-                    val preservedLogoUrl = if (existing != null && newEnriched.titleLogoUrl.isNullOrBlank() && !existing.titleLogoUrl.isNullOrBlank()) {
-                        existing.titleLogoUrl
+                    val (preservedLogoUrl, preservedAspectRatio, preservedLogoSource) = if (existing != null && newEnriched.titleLogoUrl.isNullOrBlank() && !existing.titleLogoUrl.isNullOrBlank()) {
+                        Triple(existing.titleLogoUrl, existing.logoAspectRatio, existing.logoSource)
                     } else {
-                        newEnriched.titleLogoUrl
+                        Triple(newEnriched.titleLogoUrl, newEnriched.logoAspectRatio, newEnriched.logoSource)
                     }
 
                     val movie = newEnriched.copy(
                         titleLogoUrl = preservedLogoUrl,
+                        logoAspectRatio = preservedAspectRatio,
+                        logoSource = preservedLogoSource,
                         isFullyEnriched = requireFullDetails || (existing?.isFullyEnriched == true)
                     )
 

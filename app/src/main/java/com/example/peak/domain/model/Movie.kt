@@ -9,6 +9,15 @@ enum class MediaType {
 }
 
 /**
+ * Diagnostic tracking of title-logo provenance across TMDB, Trakt, and PEAK fallback.
+ */
+enum class LogoSource {
+    TMDB,
+    TRAKT,
+    PEAK_FALLBACK
+}
+
+/**
  * Domain model for a cast member with optional avatar image URL.
  */
 data class CastMember(
@@ -39,6 +48,7 @@ data class Movie(
     val brand: BrandIdentity? = null,
     val titleLogoUrl: String? = null,
     val logoAspectRatio: Float? = null,
+    val logoSource: LogoSource = LogoSource.PEAK_FALLBACK,
     val videoUrl: String? = null,
     val subTitle: String? = null, // e.g. "S3 E4 • Old Friends"
     val info: String? = null,     // e.g. "20m left"

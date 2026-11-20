@@ -44,6 +44,7 @@ import com.example.peak.domain.repository.MovieRepository
 import com.example.peak.ui.components.DetailMovieCard
 import com.example.peak.ui.components.sidebar.Sidebar
 import com.example.peak.ui.components.sidebar.SidebarItemType
+import com.example.peak.util.PeakLogoLogger
 
 /**
  * PEAK Detail Screen V2 — Precision Forensic Polish.
@@ -64,7 +65,7 @@ fun DetailScreen(
     val viewModel: DetailViewModel = viewModel(
         factory = DetailViewModelFactory(movieRepository, continueWatchingRepository, watchlistRepository)
     )
-    
+
     val movie by viewModel.movie.collectAsState()
     val similarMovies by viewModel.similarMovies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -75,6 +76,14 @@ fun DetailScreen(
 
     LaunchedEffect(mediaId, mediaType) {
         viewModel.loadMedia(mediaId, mediaType)
+    }
+
+    LaunchedEffect(movie?.movieId, movie?.mediaType, movie?.logoSource, movie?.titleLogoUrl) {
+        movie?.let { m ->
+            PeakLogoLogger.d {
+                "UI DetailScreen received title ${m.movieId} (${m.mediaType}): name='${m.name}', logoSource=${m.logoSource}, titleLogoUrl=${m.titleLogoUrl}"
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF040B16))) {
@@ -214,6 +223,7 @@ fun DetailContent(
                 title = movie.name,
                 titleLogoUrl = movie.titleLogoUrl,
                 isEnriched = movie.isEnriched,
+                logoSource = movie.logoSource,
                 aspectRatio = movie.logoAspectRatio,
                 maxHeight = 60.dp,
                 maxWidth = 520.dp,

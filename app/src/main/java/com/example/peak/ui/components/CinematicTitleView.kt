@@ -1,8 +1,15 @@
 package com.example.peak.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,10 +30,12 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.peak.domain.model.LogoSource
 import com.example.peak.domain.model.MediaType
 import com.example.peak.ui.image.AutoTrimTransparentBordersTransformation
 import com.example.peak.ui.image.HeroLogoTrace
 import com.example.peak.ui.image.PeakImageLoader
+import com.example.peak.util.PeakLogoLogger
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -55,6 +64,7 @@ fun CinematicTitleView(
     title: String,
     titleLogoUrl: String?,
     @Suppress("UNUSED_PARAMETER") isEnriched: Boolean,
+    logoSource: LogoSource? = null,
     mediaType: MediaType? = null,
     mediaId: String? = null,
     modifier: Modifier = Modifier,
@@ -85,103 +95,146 @@ fun CinematicTitleView(
         }
     }
 
-    Box(
-        modifier = modifier
-            .heightIn(min = 48.dp, max = effectiveMaxHeight)
-            .widthIn(max = maxWidth),
-        contentAlignment = alignment
+    Column(
+        modifier = modifier,
+        horizontalAlignment = when (alignment) {
+            Alignment.Center, Alignment.TopCenter, Alignment.BottomCenter -> Alignment.CenterHorizontally
+            Alignment.CenterEnd, Alignment.TopEnd, Alignment.BottomEnd -> Alignment.End
+            else -> Alignment.Start
+        }
     ) {
-        if (hasLogoUrl && (!isLogoError || retryTrigger < 2)) {
-            val transformation = remember { AutoTrimTransparentBordersTransformation() }
-            val logoMemoryKey = remember(titleLogoUrl) {
-                if (titleLogoUrl.isNullOrBlank()) null
-                else PeakImageLoader.getLogoMemoryCacheKey(titleLogoUrl, transformation.cacheKey)
+        Box(
+            modifier = Modifier
+                .heightIn(min = 48.dp, max = effectiveMaxHeight)
+                .widthIn(max = maxWidth),
+            contentAlignment = alignment
+        ) {
+            if (hasLogoUrl && (!isLogoError || retryTrigger < 2)) {
+                val transformation = remember { AutoTrimTransparentBordersTransformation() }
+                val logoMemoryKey = remember(titleLogoUrl) {
+                    if (titleLogoUrl.isNullOrBlank()) null
+                    else PeakImageLoader.getLogoMemoryCacheKey(titleLogoUrl, transformation.cacheKey)
+                }
+
+                AsyncImage(
+                    model = remember(titleLogoUrl, retryTrigger) {
+                        ImageRequest.Builder(context)
+                            .data(titleLogoUrl)
+                            .memoryCacheKey(logoMemoryKey)
+                            .diskCacheKey(titleLogoUrl)
+                            .transformations(transformation)
+                            .allowHardware(true)
+                            .listener(
+                                onStart = {
+                                    traceIdentity.value.let { (type, id) ->
+                                        if (type != null && id != null) {
+                                            HeroLogoTrace.record(
+                                                event = HeroLogoTrace.Event.HERO_IMAGE_STARTED,
+                                                mediaType = type,
+                                                mediaId = id
+                                            )
+                                        }
+                                    }
+                                },
+                                onSuccess = { _, result ->
+                                    PeakLogoLogger.d { "CinematicTitleView successfully rendered title logo for '$title' (Coil dataSource: ${result.dataSource.name}, url: $titleLogoUrl)" }
+                                    traceIdentity.value.let { (type, id) ->
+                                        if (type != null && id != null) {
+                                            HeroLogoTrace.record(
+                                                event = HeroLogoTrace.Event.HERO_IMAGE_SUCCEEDED,
+                                                mediaType = type,
+                                                mediaId = id,
+                                                imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
+                                            )
+                                        }
+                                    }
+                                },
+                                onError = { _, _ ->
+                                    PeakLogoLogger.d { "CinematicTitleView failed to render title logo for '$title' (url: $titleLogoUrl)" }
+                                    traceIdentity.value.let { (type, id) ->
+                                        if (type != null && id != null) {
+                                            HeroLogoTrace.record(
+                                                event = HeroLogoTrace.Event.HERO_IMAGE_FAILED,
+                                                mediaType = type,
+                                                mediaId = id
+                                            )
+                                        }
+                                    }
+                                },
+                                onCancel = {
+                                    traceIdentity.value.let { (type, id) ->
+                                        if (type != null && id != null) {
+                                            HeroLogoTrace.record(
+                                                event = HeroLogoTrace.Event.HERO_IMAGE_CANCELLED,
+                                                mediaType = type,
+                                                mediaId = id,
+                                                outcome = HeroLogoTrace.Outcome.CANCELLED
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                            .build()
+                    },
+                    imageLoader = imageLoader,
+                    contentDescription = title,
+                    contentScale = ContentScale.Fit,
+                    alignment = alignment,
+                    onSuccess = {
+                        isLogoLoaded = true
+                        isLogoError = false
+                    },
+                    onError = { isLogoError = true },
+                    modifier = Modifier
+                        .heightIn(max = effectiveMaxHeight)
+                        .widthIn(max = maxWidth)
+                        .drawWithContent {
+                            drawContent()
+                            val (type, id) = traceIdentity.value
+                            if (isLogoLoaded && type != null && id != null &&
+                                presentationLogged.compareAndSet(false, true)
+                            ) {
+                                HeroLogoTrace.record(
+                                    event = HeroLogoTrace.Event.LOGO_FIRST_DRAWN,
+                                    mediaType = type,
+                                    mediaId = id
+                                )
+                            }
+                        }
+                )
+            }
+        }
+
+        if (com.example.peak.BuildConfig.DEBUG) {
+            val effectiveSource = logoSource ?: when {
+                hasLogoUrl && (!isLogoError || retryTrigger < 2) -> LogoSource.TMDB
+                else -> LogoSource.PEAK_FALLBACK
+            }
+            val labelText = when (effectiveSource) {
+                LogoSource.TMDB -> "TMDB"
+                LogoSource.TRAKT -> "TRAKT"
+                LogoSource.PEAK_FALLBACK -> "PEAK FALLBACK"
+            }
+            val labelColor = when (effectiveSource) {
+                LogoSource.TMDB -> Color(0xFF22C55E) // Green
+                LogoSource.TRAKT -> Color(0xFF3B82F6) // Blue
+                LogoSource.PEAK_FALLBACK -> Color(0xFFEAB308) // Yellow
             }
 
-            AsyncImage(
-                model = remember(titleLogoUrl, retryTrigger) {
-                    ImageRequest.Builder(context)
-                        .data(titleLogoUrl)
-                        .memoryCacheKey(logoMemoryKey)
-                        .diskCacheKey(titleLogoUrl)
-                        .transformations(transformation)
-                        .allowHardware(true)
-                        .listener(
-                            onStart = {
-                                traceIdentity.value.let { (type, id) ->
-                                    if (type != null && id != null) {
-                                        HeroLogoTrace.record(
-                                            event = HeroLogoTrace.Event.HERO_IMAGE_STARTED,
-                                            mediaType = type,
-                                            mediaId = id
-                                        )
-                                    }
-                                }
-                            },
-                            onSuccess = { _, result ->
-                                traceIdentity.value.let { (type, id) ->
-                                    if (type != null && id != null) {
-                                        HeroLogoTrace.record(
-                                            event = HeroLogoTrace.Event.HERO_IMAGE_SUCCEEDED,
-                                            mediaType = type,
-                                            mediaId = id,
-                                            imageSource = HeroLogoTrace.ImageSource.fromCoilName(result.dataSource.name)
-                                        )
-                                    }
-                                }
-                            },
-                            onError = { _, _ ->
-                                traceIdentity.value.let { (type, id) ->
-                                    if (type != null && id != null) {
-                                        HeroLogoTrace.record(
-                                            event = HeroLogoTrace.Event.HERO_IMAGE_FAILED,
-                                            mediaType = type,
-                                            mediaId = id
-                                        )
-                                    }
-                                }
-                            },
-                            onCancel = {
-                                traceIdentity.value.let { (type, id) ->
-                                    if (type != null && id != null) {
-                                        HeroLogoTrace.record(
-                                            event = HeroLogoTrace.Event.HERO_IMAGE_CANCELLED,
-                                            mediaType = type,
-                                            mediaId = id,
-                                            outcome = HeroLogoTrace.Outcome.CANCELLED
-                                        )
-                                    }
-                                }
-                            }
-                        )
-                        .build()
-                },
-                imageLoader = imageLoader,
-                contentDescription = title,
-                contentScale = ContentScale.Fit,
-                alignment = alignment,
-                onSuccess = {
-                    isLogoLoaded = true
-                    isLogoError = false
-                },
-                onError = { isLogoError = true },
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
                 modifier = Modifier
-                    .heightIn(max = effectiveMaxHeight)
-                    .widthIn(max = maxWidth)
-                    .drawWithContent {
-                        drawContent()
-                        val (type, id) = traceIdentity.value
-                        if (isLogoLoaded && type != null && id != null &&
-                            presentationLogged.compareAndSet(false, true)
-                        ) {
-                            HeroLogoTrace.record(
-                                event = HeroLogoTrace.Event.LOGO_FIRST_DRAWN,
-                                mediaType = type,
-                                mediaId = id
-                            )
-                        }
-                    }
-            )
+                    .background(Color.Black.copy(alpha = 0.75f), shape = RoundedCornerShape(3.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    text = "LOGO SOURCE: $labelText",
+                    color = labelColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

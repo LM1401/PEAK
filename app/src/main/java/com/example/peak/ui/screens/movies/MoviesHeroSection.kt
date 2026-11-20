@@ -91,6 +91,7 @@ fun MoviesHeroSection(
                             title = movie.name,
                             titleLogoUrl = movie.titleLogoUrl,
                             isEnriched = movie.isEnriched,
+                            logoSource = movie.logoSource,
                             aspectRatio = movie.logoAspectRatio,
                             maxHeight = 84.dp,
                             maxWidth = 540.dp,

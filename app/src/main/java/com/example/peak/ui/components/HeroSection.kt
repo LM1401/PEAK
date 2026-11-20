@@ -110,6 +110,7 @@ fun HeroSection(
                             title = currentMovie.name,
                             titleLogoUrl = currentMovie.titleLogoUrl,
                             isEnriched = currentMovie.isEnriched,
+                            logoSource = currentMovie.logoSource,
                             mediaType = currentMovie.mediaType,
                             mediaId = currentMovie.movieId,
                             aspectRatio = currentMovie.logoAspectRatio,

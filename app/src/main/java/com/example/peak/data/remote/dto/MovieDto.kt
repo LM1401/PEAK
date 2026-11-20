@@ -3,8 +3,10 @@ package com.example.peak.data.remote.dto
 import android.util.Log
 import com.example.peak.data.remote.recognition.ProductionCompanyRecognition
 import com.example.peak.domain.model.CastMember
+import com.example.peak.domain.model.LogoSource
 import com.example.peak.domain.model.MediaType
 import com.example.peak.domain.model.Movie
+import com.example.peak.util.PeakLogoLogger
 import com.google.gson.annotations.SerializedName
 
 /**
@@ -220,6 +222,15 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
     val resolvedImdbId = externalIds?.imdbId?.takeIf { it.isNotBlank() }
         ?: imdbId?.takeIf { it.isNotBlank() }
 
+    val hasTmdbLogos = !images?.logos.isNullOrEmpty()
+    val logoSource = if (!titleLogoUrl.isNullOrBlank()) {
+        PeakLogoLogger.d { "TMDB logo availability evaluated for $mediaType ID: $id. Logos available: $hasTmdbLogos. Selected TMDB logo: $titleLogoUrl" }
+        LogoSource.TMDB
+    } else {
+        PeakLogoLogger.d { "TMDB logo availability evaluated for $mediaType ID: $id. Logos available: $hasTmdbLogos. No suitable TMDB logo. Setting initial logoSource to PEAK_FALLBACK." }
+        LogoSource.PEAK_FALLBACK
+    }
+
     return summary.copy(
         genres = genreString,
         cast = castString,
@@ -231,6 +242,7 @@ fun TmdbMovie.toEnrichedMovie(mediaType: MediaType): Movie {
         brand = brandIdentity,
         titleLogoUrl = titleLogoUrl,
         logoAspectRatio = logoAspectRatio,
+        logoSource = logoSource,
         videoUrl = summary.videoUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
         isEnriched = true,
         imdbId = resolvedImdbId
