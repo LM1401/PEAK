@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -73,17 +72,12 @@ fun PlayerScreen(
         // One-shot synchronization for playback session
         val session = viewModel.playbackSession.filterNotNull().first()
         
-        if (session.headers.isNotEmpty()) {
-            val customMediaSource = CachedMediaSourceFactory.createMediaSource(
-                context = context,
-                streamUrl = session.videoUrl,
-                headers = session.headers
-            )
-            exoPlayer.setMediaSource(customMediaSource)
-        } else {
-            val mediaItem = MediaItem.fromUri(session.videoUrl)
-            exoPlayer.setMediaItem(mediaItem)
-        }
+        val mediaSource = CachedMediaSourceFactory.createMediaSource(
+            context = context,
+            streamUrl = session.videoUrl,
+            headers = session.headers
+        )
+        exoPlayer.setMediaSource(mediaSource)
         
         if (session.resumePosition > 0) {
             exoPlayer.seekTo(session.resumePosition)

@@ -2,11 +2,13 @@ package com.example.peak.player
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 
 /**
  * Singleton Factory for providing MediaSources with transparent disk caching.
@@ -14,11 +16,31 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
  */
 @OptIn(UnstableApi::class)
 object CachedMediaSourceFactory {
+
+    const val DEFAULT_USER_AGENT = "PEAK/1.0 (Android TV; Media3)"
     
     private var instance: DefaultMediaSourceFactory? = null
 
     /**
-     * Returns the singleton MediaSourceFactory configured with disk caching.
+     * Sanitizes HTTP headers map:
+     * - Trims and removes empty or blank header keys/values.
+     * - Filters out manual "Range" / "range" headers to let ExoPlayer manage byte-range requests safely.
+     */
+    fun sanitizeHeaders(headers: Map<String, String>?): Map<String, String> {
+        if (headers.isNullOrEmpty()) return emptyMap()
+        val sanitized = LinkedHashMap<String, String>()
+        headers.forEach { (rawKey, rawValue) ->
+            val key = rawKey.trim()
+            val value = rawValue.trim()
+            if (key.isNotEmpty() && value.isNotEmpty() && !key.equals("Range", ignoreCase = true)) {
+                sanitized[key] = value
+            }
+        }
+        return sanitized
+    }
+
+    /**
+     * Returns the singleton MediaSourceFactory configured with disk caching and default network settings.
      */
     @Synchronized
     fun getInstance(context: Context): DefaultMediaSourceFactory {
@@ -26,6 +48,7 @@ object CachedMediaSourceFactory {
             val appContext = context.applicationContext
             
             val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent(DEFAULT_USER_AGENT)
                 .setAllowCrossProtocolRedirects(true)
 
             val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
@@ -42,20 +65,28 @@ object CachedMediaSourceFactory {
     }
 
     /**
-     * Creates a custom MediaSource for a specific media URL and HTTP request headers
-     * with transparent disk caching enabled.
+     * Creates a MediaSource for a specific media URL and HTTP request headers
+     * with transparent disk caching and sanitized header handling.
      */
     fun createMediaSource(
         context: Context,
         streamUrl: String,
         headers: Map<String, String> = emptyMap()
-    ): androidx.media3.exoplayer.source.MediaSource {
+    ): MediaSource {
         val appContext = context.applicationContext
+        val sanitizedHeaders = sanitizeHeaders(headers)
+
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
 
-        if (headers.isNotEmpty()) {
-            httpDataSourceFactory.setDefaultRequestProperties(headers)
+        // Set default User-Agent fallback if no custom User-Agent is provided in headers
+        val hasCustomUserAgent = sanitizedHeaders.keys.any { it.equals("User-Agent", ignoreCase = true) }
+        if (!hasCustomUserAgent) {
+            httpDataSourceFactory.setUserAgent(DEFAULT_USER_AGENT)
+        }
+
+        if (sanitizedHeaders.isNotEmpty()) {
+            httpDataSourceFactory.setDefaultRequestProperties(sanitizedHeaders)
         }
 
         val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
@@ -67,6 +98,6 @@ object CachedMediaSourceFactory {
 
         return DefaultMediaSourceFactory(appContext)
             .setDataSourceFactory(cacheDataSourceFactory)
-            .createMediaSource(androidx.media3.common.MediaItem.fromUri(streamUrl))
+            .createMediaSource(MediaItem.fromUri(streamUrl))
     }
 }
