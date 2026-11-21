@@ -1,0 +1,11 @@
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index e960cea..1a473c7 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -1,5 +1,5 @@
+ [versions]
+-agp = "9.5.1"
++agp = "9.5.2"
+ coreKtx = "1.18.0"
+ appcompat = "1.7.1"
+ kotlin = "2.2.10"
